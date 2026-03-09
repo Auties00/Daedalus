@@ -22,7 +22,7 @@ import java.lang.annotation.Target;
  *     }
  *
  *     @ProtobufAccessor(index = 1)
- *     public String getValue() {
+ *     public String unbox() {
  *         return value;
  *     }
  * }
@@ -30,26 +30,20 @@ import java.lang.annotation.Target;
  * <h3>In a {@link ProtobufGroup}:</h3>
  * <pre>{@code
  * @ProtobufGroup
- * public final class MessageGroup {
+ * public final class BoxedGroup {
  *     @ProtobufProperty(index = 1, type = ProtobufType.INT32)
- *     private final int id;
+ *     private final int value;
  *
  *     @ProtobufProperty(index = 2, type = ProtobufType.STRING)
  *     private final String name;
  *
- *     public MessageGroup(int id, String name) {
- *         this.id = id;
- *         this.name = name;
+ *     public MessageGroup(String value) {
+ *         this.value = value;
  *     }
  *
  *     @ProtobufAccessor(index = 1)
- *     public int getId() {
+ *     public int unbox() {
  *         return id;
- *     }
- *
- *     @ProtobufAccessor(index = 2)
- *     public String getName() {
- *         return name;
  *     }
  * }
  * }</pre>

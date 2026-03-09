@@ -7,8 +7,8 @@ import java.lang.annotation.Target;
 
 /**
  * This annotation can be applied to static methods,
- * in a type annotated with {@link ProtobufMessage}, {@link ProtobufGroup} or {@link ProtobufMixin},
- * or to an enum constant in an enum annotated with {@link ProtobufEnum},
+ * in a type annotated with {@link ProtobufMessage}, {@link ProtobufGroup}, {@link ProtobufEnum} or {@link ProtobufMixin},
+ * or to an enum constant, in an enum annotated with {@link ProtobufEnum},
  * to indicate the default value of a type.
  * <h2>Usage Example:</h2>
  * <h3>In a {@link ProtobufMessage}:</h3>
@@ -16,7 +16,7 @@ import java.lang.annotation.Target;
  * @ProtobufMessage
  * public record WrapperMessage(
  *     @ProtobufProperty(index = 1, type = ProtobufType.STRING)
- *     ProtobufString value
+ *     Supplier<String> value
  * ) {
  *     private static final WrapperMessage EMPTY = new WrapperMessage(null);
  *
@@ -31,7 +31,7 @@ import java.lang.annotation.Target;
  * @ProtobufGroup
  * public record WrapperMessage(
  *     @ProtobufProperty(index = 1, type = ProtobufType.STRING)
- *     ProtobufString value
+ *     Supplier<String> value
  * ) {
  *     private static final WrapperMessage EMPTY = new WrapperMessage(null);
  *

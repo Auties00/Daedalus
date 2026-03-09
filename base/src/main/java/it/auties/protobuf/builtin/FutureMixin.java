@@ -4,8 +4,10 @@ import it.auties.protobuf.annotation.ProtobufDefaultValue;
 import it.auties.protobuf.annotation.ProtobufDeserializer;
 import it.auties.protobuf.annotation.ProtobufMixin;
 import it.auties.protobuf.annotation.ProtobufSerializer;
+import it.auties.protobuf.exception.ProtobufSerializationException;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 @SuppressWarnings("unused")
 @ProtobufMixin
@@ -22,6 +24,10 @@ public final class FutureMixin {
 
     @ProtobufSerializer
     public static <T> T toValue(CompletableFuture<T> future) {
-        return future == null ? null : future.getNow(null);
+        try {
+            return future == null ? null : future.getNow(null);
+        } catch (CompletionException ex) {
+            throw new ProtobufSerializationException("Cannot serialize future", ex);
+        }
     }
 }

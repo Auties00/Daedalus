@@ -1,5 +1,6 @@
 package it.auties.protobuf.annotation;
 
+import it.auties.protobuf.io.ProtobufReader;
 import it.auties.protobuf.io.ProtobufWriter;
 
 import java.lang.annotation.ElementType;
@@ -113,20 +114,20 @@ import java.lang.annotation.Target;
  * }
  * }</pre>
  * <h2>Low-Level Deserialization:</h2>
- * <p>For advanced use cases, you can deserialize directly from a {@code ProtobufInputStream}.
- * <h3>From a Protobuf stream:</h3>
+ * <p>For advanced use cases, you can deserialize directly from a {@link ProtobufReader}.
+ * <h3>From a Protobuf reader:</h3>
  * <pre>{@code
  * @ProtobufMessage
  * record BirthdayDate(int day, int month, int year) {
  *     @ProtobufDeserializer
- *     static BirthdayDate of(ProtobufInputStream stream) {
- *         var length = stream.readLength();
+ *     static BirthdayDate of(ProtobufReader reader) {
+ *         var length = reader.readLength();
  *
  *         int digit;
  *
  *         var day = 0;
  *         while (length-- > 0) {
- *             var value = stream.readByte();
+ *             var value = reader.readByte();
  *             digit = value - '0';
  *             if (digit == '/') {
  *                 break;
@@ -139,7 +140,7 @@ import java.lang.annotation.Target;
  *
  *         var month = 0;
  *         while (length-- > 0) {
- *             var value = stream.readByte();
+ *             var value = reader.readByte();
  *             digit = value - '0';
  *             if (digit == '/') {
  *                 break;
@@ -152,7 +153,7 @@ import java.lang.annotation.Target;
  *
  *         var year = 0;
  *         while (length-- > 0) {
- *             var value = stream.readByte();
+ *             var value = reader.readByte();
  *             digit = value - '0';
  *             if (digit >= 0 && digit <= 9) {
  *                 year = year * 10 + digit;
@@ -165,12 +166,12 @@ import java.lang.annotation.Target;
  *     }
  *
  *     @ProtobufSerializer
- *     void writeToStream(ProtobufOutputStream stream) {
- *         stream.writeString(String.valueOf(day));
- *         stream.writeString("/");
- *         stream.writeString(String.valueOf(month));
- *         stream.writeString("/");
- *         stream.writeString(String.valueOf(year));
+ *     void writeToStream(ProtobufWriter writer) {
+ *         writer.writeString(String.valueOf(day));
+ *         writer.writeString("/");
+ *         writer.writeString(String.valueOf(month));
+ *         writer.writeString("/");
+ *         writer.writeString(String.valueOf(year));
  *     }
  *
  *     @ProtobufSize
@@ -201,7 +202,7 @@ import java.lang.annotation.Target;
  *
  *         var totalLength = daySize + 1 + monthSize + 1 + yearSize;
  *
- *         return ProtobufOutputStream.getVarIntSize(totalLength) + totalLength;
+ *         return ProtobufSizeCalculator.getVarIntSize(totalLength) + totalLength;
  *     }
  *  }
  * }</pre>

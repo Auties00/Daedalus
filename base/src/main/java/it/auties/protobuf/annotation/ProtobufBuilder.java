@@ -18,6 +18,55 @@ import java.lang.annotation.Target;
  *
  * <p>The parameters of the annotated method/constructor must be annotated with {@link PropertyParameter} or {@link SyntheticParameter}.
  *
+ * <h2>Usage Example:</h2>
+ * <p>Given the following protobuf message:
+ * <pre>{@code
+ * @ProtobufMessage
+ * public record Person(
+ *     @ProtobufProperty(index = 1, type = ProtobufType.STRING)
+ *     String name,
+ *     @ProtobufProperty(index = 2, type = ProtobufType.INT32)
+ *     int age
+ * ) {
+ *
+ * }
+ * }</pre>
+ *
+ * <p>The following builder class is generated:
+ * <pre>{@code
+ * public class PersonBuilder {
+ *     private String name;
+ *     private int age;
+ *
+ *     public PersonBuilder() {
+ *         this.name = null;
+ *         this.age = 0;
+ *     }
+ *
+ *     public PersonBuilder name(String name) {
+ *         this.name = name;
+ *         return this;
+ *     }
+ *
+ *     public PersonBuilder age(int age) {
+ *         this.age = age;
+ *         return this;
+ *     }
+ *
+ *     public Person build() {
+ *         return new Person(name, age);
+ *     }
+ * }
+ * }</pre>
+ *
+ * <p>The builder can then be used as follows:
+ * <pre>{@code
+ * var person = new PersonBuilder()
+ *     .name("Alice")
+ *     .age(30)
+ *     .build();
+ * }</pre>
+ *
  * @see PropertyParameter
  * @see SyntheticParameter
  * @see ProtobufMessage
@@ -37,7 +86,7 @@ public @interface ProtobufBuilder {
     };
 
     /**
-     * Specifies the suffix or full name of the generated builder class:
+     * Specifies the name of the generated builder class:
      * <ul>
      *   <li><b>Empty name (default):</b> Overrides the existing default builder</li>
      *   <li><b>Non-empty name:</b> Generates an additional builder with the provided name</li>
@@ -53,6 +102,7 @@ public @interface ProtobufBuilder {
      * <p>Use this annotation when a parameter corresponds exactly to a single protobuf property.
      *
      * <h3>Example:</h3>
+     * <p>Given the following protobuf message:
      * <pre>{@code
      * @ProtobufMessage
      * public record Person(
@@ -61,15 +111,37 @@ public @interface ProtobufBuilder {
      *     @ProtobufProperty(index = 2, type = ProtobufType.INT32)
      *     int age
      * ) {
-     *     @ProtobufBuilder
+     *     @ProtobufBuilder(name = "PersonPropertyBuilder")
      *     static Person of(
-     *         @PropertyParameter(index = 1) String name,  // Maps to property index 1
-     *         @PropertyParameter(index = 2) int age       // Maps to property index 2
+     *         @PropertyParameter(index = 1) String name,
+     *         @PropertyParameter(index = 2) int age
      *     ) {
-     *         return new PersonBuilder()
-     *             .name(name)
-     *             .age(age)
-     *             .build();
+     *         return new Person(name, age);
+     *     }
+     * }
+     * }</pre>
+     *
+     * <p>The following builder class is generated:
+     * <pre>{@code
+     * public class PersonPropertyBuilder {
+     *     private String name;
+     *     private int age;
+     *
+     *     public PersonPropertyBuilder() {
+     *     }
+     *
+     *     public PersonPropertyBuilder name(String name) {
+     *         this.name = name;
+     *         return this;
+     *     }
+     *
+     *     public PersonPropertyBuilder age(int age) {
+     *         this.age = age;
+     *         return this;
+     *     }
+     *
+     *     public Person build() {
+     *         return Person.of(name, age);
      *     }
      * }
      * }</pre>
@@ -96,14 +168,15 @@ public @interface ProtobufBuilder {
      * <p>Use this annotation for parameters that require custom logic to populate one or more properties,
      * such as union types, computed values, or parameters that transform into multiple fields.
      *
-     * <p><b>Common Use Cases:</b></p>
+     * <p><b>Common Use Cases:</b>
      * <ul>
      *   <li><b>Union types:</b> A single parameter that maps to one of several mutually exclusive properties</li>
      *   <li><b>Computed properties:</b> A parameter that derives multiple property values through calculation</li>
      *   <li><b>Complex types:</b> Custom types that need transformation before being set as properties</li>
      * </ul>
      *
-     * <h3>Example:</h3>
+     * <h3>Union types:</h3>
+     * <p>A single parameter that maps to one of several mutually exclusive properties:
      * <pre>{@code
      * @ProtobufMessage
      * public record MediaMessage(
@@ -116,14 +189,110 @@ public @interface ProtobufBuilder {
      * ) {
      *     sealed interface Media permits ImageMedia, VideoMedia, AudioMedia {}
      *
-     *     @ProtobufBuilder
+     *     @ProtobufBuilder(name = "MediaMessageUnionBuilder")
      *     static MediaMessage of(@SyntheticParameter(type = ProtobufType.MESSAGE) Media media) {
-     *         var builder = new MediaMessageBuilder();
      *         return switch (media) {
-     *             case ImageMedia img -> builder.image(img).build();
-     *             case VideoMedia vid -> builder.video(vid).build();
-     *             case AudioMedia aud -> builder.audio(aud).build();
+     *             case ImageMedia img -> new MediaMessage(img, null, null);
+     *             case VideoMedia vid -> new MediaMessage(null, vid, null);
+     *             case AudioMedia aud -> new MediaMessage(null, null, aud);
      *         };
+     *     }
+     * }
+     * }</pre>
+     *
+     * <p>The following builder class is generated:
+     * <pre>{@code
+     * public class MediaMessageUnionBuilder {
+     *     private Media media;
+     *
+     *     public MediaMessageUnionBuilder() {
+     *     }
+     *
+     *     public MediaMessageUnionBuilder media(Media media) {
+     *         this.media = media;
+     *         return this;
+     *     }
+     *
+     *     public MediaMessage build() {
+     *         return MediaMessage.of(media);
+     *     }
+     * }
+     * }</pre>
+     *
+     * <h3>Computed properties:</h3>
+     * <p>A parameter that derives multiple property values through calculation:
+     * <pre>{@code
+     * @ProtobufMessage
+     * public record Rectangle(
+     *     @ProtobufProperty(index = 1, type = ProtobufType.INT32)
+     *     int x,
+     *     @ProtobufProperty(index = 2, type = ProtobufType.INT32)
+     *     int y,
+     *     @ProtobufProperty(index = 3, type = ProtobufType.INT32)
+     *     int width,
+     *     @ProtobufProperty(index = 4, type = ProtobufType.INT32)
+     *     int height
+     * ) {
+     *     record Bounds(int x, int y, int width, int height) {}
+     *
+     *     @ProtobufBuilder(name = "RectangleFromBoundsBuilder")
+     *     static Rectangle fromBounds(@SyntheticParameter(type = ProtobufType.UNKNOWN) Bounds bounds) {
+     *         return new Rectangle(bounds.x(), bounds.y(), bounds.width(), bounds.height());
+     *     }
+     * }
+     * }</pre>
+     *
+     * <p>The following builder class is generated:
+     * <pre>{@code
+     * public class RectangleFromBoundsBuilder {
+     *     private Bounds bounds;
+     *
+     *     public RectangleFromBoundsBuilder() {
+     *     }
+     *
+     *     public RectangleFromBoundsBuilder bounds(Bounds bounds) {
+     *         this.bounds = bounds;
+     *         return this;
+     *     }
+     *
+     *     public Rectangle build() {
+     *         return Rectangle.fromBounds(bounds);
+     *     }
+     * }
+     * }</pre>
+     *
+     * <h3>Complex types:</h3>
+     * <p>Custom types that need transformation before being set as properties:
+     * <pre>{@code
+     * @ProtobufMessage
+     * public record Timestamp(
+     *     @ProtobufProperty(index = 1, type = ProtobufType.INT64)
+     *     long seconds,
+     *     @ProtobufProperty(index = 2, type = ProtobufType.INT32)
+     *     int nanos
+     * ) {
+     *     @ProtobufBuilder(name = "TimestampFromInstantBuilder")
+     *     static Timestamp fromInstant(@SyntheticParameter(type = ProtobufType.UNKNOWN) Instant instant) {
+     *         return new Timestamp(instant.getEpochSecond(), instant.getNano());
+     *     }
+     * }
+     * }</pre>
+     *
+     * <p>The following builder class is generated:
+     * <pre>{@code
+     * public class TimestampFromInstantBuilder {
+     *     private Instant instant;
+     *
+     *     public TimestampFromInstantBuilder() {
+     *     }
+     *
+     *     public TimestampFromInstantBuilder instant(Instant instant) {
+     *         this.instant = instant;
+     *         return this;
+     *     }
+     *
+     *     public Timestamp build() {
+     *         return Timestamp.fromInstant(instant);
      *     }
      * }
      * }</pre>
@@ -152,7 +321,7 @@ public @interface ProtobufBuilder {
                 CollectionMixin.class,
                 FutureMixin.class,
                 MapMixin.class,
-                OptionalValueMixin.class,
+                OptionalMixin.class,
                 StringMixin.class,
                 URIMixin.class,
                 URLMixin.class,

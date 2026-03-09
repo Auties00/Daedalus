@@ -2,12 +2,10 @@ package it.auties.protobuf.model;
 
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A sealed interface of all possible values for an unknown field encountered during Protobuf parsing.
@@ -38,52 +36,36 @@ public sealed interface ProtobufUnknownValue {
      */
     sealed interface LengthDelimited extends ProtobufUnknownValue {
         /**
-         * Decodes the underlying byte data into a {@link String}.
+         * Returns a lazily decoded representation of the underlying byte data as a string.
+         * The returned {@code StableValue} is not set until its value is first accessed.
          *
-         * @return the decoded {@code String} value.
+         * @return a {@code StableValue} containing the decoded {@code String}.
          */
-        String asDecodedString();
-
-        /**
-         * Returns a lazy representation of the underlying byte data as a string.
-         *
-         * @return a {@code ProtobufLazyString} instance.
-         */
-        ProtobufLazyString asLazyString();
+        Supplier<String> asString();
 
         /**
          * Represents length-delimited data stored as a raw byte array.
          *
          * @param value the raw byte array data.
          */
-        record AsByteArray(byte[] value) implements LengthDelimited {
+        record ByteArrayBacked(byte[] value) implements LengthDelimited {
             /**
              * Constructs a new {@code Bytes} record, ensuring the value is not null.
              *
              * @param value the raw byte array data.
              */
-            public AsByteArray {
+            public ByteArrayBacked {
                 Objects.requireNonNull(value, "value cannot be null");
             }
 
             /**
-             * Creates a new UTF-8 {@link String} from the underlying byte array.
+             * Returns a lazily decoded string representation wrapping the byte array.
              *
-             * @return the decoded {@code String}.
+             * @return a {@code StableValue} containing the decoded {@code String}.
              */
             @Override
-            public String asDecodedString() {
-                return new String(value, StandardCharsets.UTF_8);
-            }
-
-            /**
-             * Returns a lazy string representation wrapping the byte array.
-             *
-             * @return a {@code ProtobufLazyString} instance.
-             */
-            @Override
-            public ProtobufLazyString asLazyString() {
-                return ProtobufLazyString.of(value);
+            public Supplier<String> asString() {
+                return StableValue.supplier(() -> new String(value, StandardCharsets.UTF_8));
             }
         }
 
@@ -92,48 +74,32 @@ public sealed interface ProtobufUnknownValue {
          *
          * @param value the {@code ByteBuffer} containing the data.
          */
-        record AsByteBuffer(ByteBuffer value) implements LengthDelimited {
-            private static final ThreadLocal<CharsetDecoder> UTF8_DECODER = ThreadLocal.withInitial(() ->
-                    StandardCharsets.UTF_8.newDecoder()
-                            .onMalformedInput(CodingErrorAction.REPLACE)
-                            .onUnmappableCharacter(CodingErrorAction.REPLACE));
-
+        record ByteBufferBacked(ByteBuffer value) implements LengthDelimited {
             /**
              * Constructs a new {@code Buffer} record, ensuring the value is not null.
              *
              * @param value the {@code ByteBuffer} containing the data.
              */
-            public AsByteBuffer {
+            public ByteBufferBacked {
                 Objects.requireNonNull(value, "value cannot be null");
             }
 
             /**
-             * Decodes the UTF-8 {@code ByteBuffer} contents into a {@link String}
+             * Returns a lazily decoded string representation wrapping the ByteBuffer.
              *
-             * @return the decoded {@code String}.
+             * @return a {@code StableValue} containing the decoded {@code String}.
              */
             @Override
-            public String asDecodedString() {
-                try {
-                    var decoder = UTF8_DECODER.get();
-                    decoder.reset();
-                    // Assumes the ByteBuffer is already positioned correctly for reading
-                    var decoded = decoder.decode(value.asReadOnlyBuffer());
-                    return decoded.toString();
-                }catch (CharacterCodingException _) {
-                    // This should not happen since the error actions are set to REPLACE
-                    throw new InternalError();
-                }
-            }
-
-            /**
-             * Returns a lazy string representation wrapping the ByteBuffer.
-             *
-             * @return a {@code ProtobufLazyString} instance.
-             */
-            @Override
-            public ProtobufLazyString asLazyString() {
-                return ProtobufLazyString.of(value);
+            public Supplier<String> asString() {
+                return StableValue.supplier(() -> {
+                    if (value.hasArray()) {
+                        return new String(value.array(), value.arrayOffset() + value.position(), value.remaining(), StandardCharsets.UTF_8);
+                    } else {
+                        var copy = new byte[value.remaining()];
+                        value.get(copy);
+                        return new String(copy, StandardCharsets.UTF_8);
+                    }
+                });
             }
         }
 
@@ -141,35 +107,37 @@ public sealed interface ProtobufUnknownValue {
          * Represents length-delimited data stored as a {@link MemorySegment}.
          *
          * @param value the {@code MemorySegment} containing the data.
+         * @param length the length of the {@code MemorySegment} containing the data.
          */
-        record AsMemorySegment(MemorySegment value) implements LengthDelimited {
+        record MemorySegmentBacked(MemorySegment value, int length) implements LengthDelimited {
             /**
              * Constructs a new {@code AsMemorySegment} record, ensuring the value is not null.
              *
              * @param value the {@code MemorySegment} containing the data.
              */
-            public AsMemorySegment {
+            public MemorySegmentBacked {
                 Objects.requireNonNull(value, "value cannot be null");
             }
 
-            /**
-             * Decodes the UTF-8 {@code ByteBuffer} contents into a {@link String}
-             *
-             * @return the decoded {@code String}.
-             */
-            @Override
-            public String asDecodedString() {
-                return value.getString(0, StandardCharsets.UTF_8);
+            public MemorySegmentBacked(MemorySegment value) {
+                Objects.requireNonNull(value, "value cannot be null");
+                int length;
+                try {
+                    length = Math.toIntExact(value.byteSize());
+                } catch (ArithmeticException _) {
+                    throw new IllegalArgumentException("MemorySegment is too big to fit into a Protobuf message");
+                }
+                this(value, length);
             }
 
             /**
-             * Returns a lazy string representation wrapping the ByteBuffer.
+             * Returns a lazily decoded string representation wrapping the MemorySegment.
              *
-             * @return a {@code ProtobufLazyString} instance.
+             * @return a {@code StableValue} containing the decoded {@code String}.
              */
             @Override
-            public ProtobufLazyString asLazyString() {
-                return ProtobufLazyString.of(value);
+            public Supplier<String> asString() {
+                return StableValue.supplier(() -> value.getString(0, StandardCharsets.UTF_8));
             }
         }
     }

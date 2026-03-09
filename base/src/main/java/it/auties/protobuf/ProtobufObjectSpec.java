@@ -33,57 +33,69 @@ public final class ProtobufObjectSpec {
      * Decodes a Protocol Buffer message from a ProtobufInputStream.
      * This method is extremely slow: use it only when deserializing dynamic messages.
      * <p>
-     * This method reads from the provided input stream and decodes all available
+     * This method reads from the provided reader and decodes all available
      * protobuf fields into a map structure. Each field is read according to its
      * wire type and stored with its field number as the key.
      * <p>
-     * <p>
      *     <font color="red">
-     *         This method is extremely slow: use it only when necessary.
+     *         This class is extremely slow: use it only when necessary.
      *     </font>
-     * <p>
      *
-     * @param protoInputStream the input stream containing the encoded Protocol Buffer data
+     * @param reader the reader containing the encoded Protocol Buffer data
      * @return a map where keys are field numbers (Integer) and values are the decoded field values (Object).
-     * @throws NullPointerException if the input stream is null
+     * @throws NullPointerException if the reader is null
      * @throws ProtobufDeserializationException if the data cannot be decoded
      *
      * @see ProtobufReader#readUnknownProperty()
      */
-    public static Map<Long, ProtobufUnknownValue> decode(ProtobufReader protoInputStream) {
-        Objects.requireNonNull(protoInputStream, "The input stream cannot be null");
+    public static Map<Long, ProtobufUnknownValue> decode(ProtobufReader reader) {
+        Objects.requireNonNull(reader, "The reader cannot be null");
         var result = new HashMap<Long, ProtobufUnknownValue>();
-        while (protoInputStream.readPropertyTag()) {
-            var key = protoInputStream.propertyIndex();
-            var value = decodeValue(protoInputStream);
+        while (reader.readPropertyTag()) {
+            var key = reader.propertyIndex();
+            var value = decodeValue(reader);
             result.put(key, value);
         }
         return result;
     }
 
-    private static ProtobufUnknownValue decodeValue(ProtobufReader stream) {
-        var value = stream.readUnknownProperty();
+    private static ProtobufUnknownValue decodeValue(ProtobufReader reader) {
+        var value = reader.readUnknownProperty();
         return switch (value) {
-            case ProtobufUnknownValue.LengthDelimited.AsByteArray(var bytes) -> {
+            case ProtobufUnknownValue.LengthDelimited.ByteArrayBacked(var bytes) -> {
                 try { // Maybe it's an embedded message
                     yield decodeValue(ProtobufReader.fromBytes(bytes));
-                }catch (ProtobufDeserializationException _) {
-                    // It wasn't an embedded message
+                }catch (ProtobufDeserializationException _) { // It wasn't an embedded message
                     yield value;
                 }
             }
 
-            case ProtobufUnknownValue.LengthDelimited.AsByteBuffer(var buffer) -> {
+            case ProtobufUnknownValue.LengthDelimited.ByteBufferBacked(var buffer) -> {
                 var position = buffer.position();
                 try { // Maybe it's an embedded message
                     yield decodeValue(ProtobufReader.fromBuffer(buffer));
-                }catch (ProtobufDeserializationException _) {
+                }catch (ProtobufDeserializationException _) { // It wasn't an embedded message
                     buffer.position(position); // Reset the position
-                    // It wasn't an embedded message
                     yield value;
                 }
             }
-            default -> value;
+
+            case ProtobufUnknownValue.LengthDelimited.MemorySegmentBacked(var segment, var _) -> {
+                try { // Maybe it's an embedded message
+                    yield decodeValue(ProtobufReader.fromMemorySegment(segment));
+                }catch (ProtobufDeserializationException _) { // It wasn't an embedded message
+                    // No position to reset
+                    yield value;
+                }
+            }
+
+            case ProtobufUnknownValue.Fixed32 fixed32 -> fixed32;
+
+            case ProtobufUnknownValue.Fixed64 fixed64 -> fixed64;
+
+            case ProtobufUnknownValue.Group group -> group;
+
+            case ProtobufUnknownValue.VarInt varInt -> varInt;
         };
     }
 }

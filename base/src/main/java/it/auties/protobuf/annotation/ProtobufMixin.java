@@ -14,12 +14,12 @@ import java.lang.annotation.Target;
  * @ProtobufMixin
  * public final class ProtobufURIMixin {
  *     @ProtobufDeserializer
- *     public static URI ofNullable(ProtobufString value) {
+ *     public static URI ofNullable(Supplier<String> value) {
  *         return value == null ? null : URI.create(value.toString());
  *     }
  *
  *     @ProtobufSerializer
- *     public static ProtobufString toValue(URI value) {
+ *     public static Supplier<String> toValue(URI value) {
  *         return value == null ? null : ProtobufString.wrap(value.toString());
  *     }
  * }
@@ -32,5 +32,56 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ProtobufMixin {
+    /**
+     * Specifies the visibility scope of this mixin, controlling where it is automatically
+     * applied during serialization and deserialization.
+     *
+     * @return the scope of this mixin, defaulting to {@link Scope#MANUAL}
+     */
+    Scope scope() default Scope.MANUAL;
 
+    /**
+     * Specifies additional mixins to import into the scope of this mixin.
+     * This allows a mixin to compose and reuse serialization and deserialization
+     * logic defined in other mixin classes.
+     *
+     * @return an array of {@link Import} annotations referencing other mixins
+     */
+    Import[] imports() default {};
+
+    /**
+     * A visibility scope that controls where a {@link ProtobufMixin} is automatically applied.
+     */
+    enum Scope {
+        /**
+         * The mixin must be explicitly referenced where it is needed.
+         * This is the default scope.
+         */
+        MANUAL,
+
+        /**
+         * The mixin is automatically applied to all types within the same package.
+         */
+        PACKAGE,
+
+        /**
+         * The mixin is automatically applied to all types within the same module.
+         */
+        MODULE
+    }
+
+    /**
+     * An annotation that references a set of mixin classes to import into the
+     * scope of the enclosing {@link ProtobufMixin}.
+     */
+    @Target({})
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Import {
+        /**
+         * Specifies the mixin classes to import.
+         *
+         * @return an array of classes annotated with {@link ProtobufMixin}
+         */
+        Class<?>[] value();
+    }
 }

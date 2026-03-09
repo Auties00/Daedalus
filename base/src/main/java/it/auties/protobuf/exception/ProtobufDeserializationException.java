@@ -135,6 +135,13 @@ public final class ProtobufDeserializationException extends ProtobufException {
         return new ProtobufDeserializationException(index + " is marked as reserved");
     }
 
+    /**
+     * Creates a new {@code ProtobufDeserializationException} indicating that a deserialized
+     * property is in an invalid state.
+     *
+     * @param reason the description of the invalid property state
+     * @return a {@code ProtobufDeserializationException} with a detailed message describing the invalid state
+     */
     public static ProtobufDeserializationException invalidPropertyState(String reason) {
         return new ProtobufDeserializationException("Invalid property state: " + reason);
     }

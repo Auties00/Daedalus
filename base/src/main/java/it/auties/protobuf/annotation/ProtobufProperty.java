@@ -74,7 +74,7 @@ public @interface ProtobufProperty {
             CollectionMixin.class,
             FutureMixin.class,
             MapMixin.class,
-            OptionalValueMixin.class,
+            OptionalMixin.class,
             StringMixin.class,
             URIMixin.class,
             URLMixin.class,

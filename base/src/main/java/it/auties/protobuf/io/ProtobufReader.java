@@ -271,9 +271,18 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
             case ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED -> {
                 var size = readLengthDelimitedPropertyLength();
                 yield switch (rawDataTypePreference()) {
-                    case BYTE_ARRAY -> new ProtobufUnknownValue.LengthDelimited.AsByteArray(readRawBytes(size));
-                    case BYTE_BUFFER -> new ProtobufUnknownValue.LengthDelimited.AsByteBuffer(readRawBuffer(size));
-                    case MEMORY_SEGMENT -> new ProtobufUnknownValue.LengthDelimited.AsMemorySegment(readRawMemorySegment(size));
+                    case BYTE_ARRAY -> {
+                        var bytes = readRawBytes(size);
+                        yield new ProtobufUnknownValue.LengthDelimited.ByteArrayBacked(bytes);
+                    }
+                    case BYTE_BUFFER -> {
+                        var buffer = readRawBuffer(size);
+                        yield new ProtobufUnknownValue.LengthDelimited.ByteBufferBacked(buffer);
+                    }
+                    case MEMORY_SEGMENT -> {
+                        var segment = readRawMemorySegment(size);
+                        yield new ProtobufUnknownValue.LengthDelimited.MemorySegmentBacked(segment);
+                    }
                 };
             }
             case ProtobufWireType.WIRE_TYPE_START_OBJECT -> {

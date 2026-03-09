@@ -16,7 +16,7 @@ public final class URLMixin {
     public static URL ofNullable(String value) {
         try {
             return value == null ? null : URI.create(value).toURL();
-        }catch (MalformedURLException exception) {
+        }catch (MalformedURLException | IllegalArgumentException exception) {
             throw new ProtobufDeserializationException("Cannot deserialize URL", exception);
         }
     }

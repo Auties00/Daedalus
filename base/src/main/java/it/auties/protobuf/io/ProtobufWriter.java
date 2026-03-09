@@ -304,19 +304,17 @@ public abstract non-sealed class ProtobufWriter<OUTPUT> extends ProtobufIO {
 
             case ProtobufUnknownValue.LengthDelimited lengthDelimited -> {
                 switch (lengthDelimited) {
-                    case ProtobufUnknownValue.LengthDelimited.AsByteArray(var lengthDelimitedAsByteArray) -> {
-                        writeLengthDelimitedPropertyLength(lengthDelimitedAsByteArray.length);
-                        writeRawBytes(lengthDelimitedAsByteArray);
+                    case ProtobufUnknownValue.LengthDelimited.ByteArrayBacked(var array) -> {
+                        writeLengthDelimitedPropertyLength(array.length);
+                        writeRawBytes(array);
                     }
-
-                    case ProtobufUnknownValue.LengthDelimited.AsByteBuffer(var lengthDelimitedAsByteBuffer) -> {
-                        writeLengthDelimitedPropertyLength(lengthDelimitedAsByteBuffer.remaining());
-                        writeRawBuffer(lengthDelimitedAsByteBuffer);
+                    case ProtobufUnknownValue.LengthDelimited.ByteBufferBacked(var buffer) -> {
+                        writeLengthDelimitedPropertyLength(buffer.remaining());
+                        writeRawBuffer(buffer);
                     }
-
-                    case ProtobufUnknownValue.LengthDelimited.AsMemorySegment(var lengthDelimitedAsMemorySegment) -> {
-                        writeLengthDelimitedPropertyLength((int) lengthDelimitedAsMemorySegment.byteSize());
-                        writeRawMemorySegment(lengthDelimitedAsMemorySegment);
+                    case ProtobufUnknownValue.LengthDelimited.MemorySegmentBacked(var memory, var length) -> {
+                        writeLengthDelimitedPropertyLength(length);
+                        writeRawMemorySegment(memory);
                     }
                 }
             }
