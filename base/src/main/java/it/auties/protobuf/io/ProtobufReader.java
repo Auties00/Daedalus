@@ -13,8 +13,6 @@ package it.auties.protobuf.io;
 import it.auties.protobuf.exception.ProtobufDeserializationException;
 import it.auties.protobuf.model.ProtobufUnknownValue;
 import it.auties.protobuf.model.ProtobufWireType;
-import jdk.incubator.vector.ByteVector;
-import jdk.incubator.vector.VectorOperators;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -257,7 +255,7 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
             return result;
         }
     }
-    
+
     public ProtobufUnknownValue readUnknownProperty() {
         return switch (wireType) {
             case ProtobufWireType.WIRE_TYPE_FIXED32 -> {
@@ -323,7 +321,7 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
         resetPropertyTag();
         return result;
     }
-    
+
     public int[] readPackedInt32Property() {
         return readPackedVarInt32();
     }
@@ -429,7 +427,7 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
     public void skipUnknownProperty() {
         switch (wireType) {
             case ProtobufWireType.WIRE_TYPE_VAR_INT -> {
-                skipRawVarInt();
+                readRawVarInt64();
                 resetPropertyTag();
             }
             case ProtobufWireType.WIRE_TYPE_FIXED32 -> {
@@ -453,16 +451,6 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
             }
             default -> throw ProtobufDeserializationException.invalidWireType(wireType);
         };
-    }
-
-    public void skipRawVarInt() {
-        for (var shift = 0; shift < 64; shift += 7) {
-            if ((readRawByte() & 0x80) == 0) {
-                return;
-            }
-        }
-
-        throw ProtobufDeserializationException.malformedVarInt();
     }
 
     public int readRawZigZagVarInt32() {
@@ -654,61 +642,113 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public int readRawVarInt32() {
-            var value = getLongLE(buffer, offset);
-            var mostSignificantBits = ~value & ~INT64_PEXT_MASK_LOW;
-            var lengthInBits = Long.numberOfTrailingZeros(mostSignificantBits) + 1;
-            var varIntPart = value & (mostSignificantBits ^ (mostSignificantBits - 1));
-            var result = (int) Long.compress(varIntPart, INT32_PEXT_MASK);
-            offset += lengthInBits >>> 3;
-            return result;
+            if (buffer.length - offset < VARINT32_FAST_PATH_BYTES) {
+                var unsafeResult = getVarInt32SlowUnsafe();
+                if (offset > limit) {
+                    throw ProtobufDeserializationException.truncatedMessage();
+                }
+                return unsafeResult;
+            }
+
+            var word = getLongLE(buffer, offset);
+            var cont = ~word & VARINT32_CONT_BITS;
+            var spread = cont ^ (cont - 1);
+            var mask = spread & VARINT32_PAYLOAD_BITS;
+            offset += Long.bitCount(spread) >>> 3;
+            return (int) Long.compress(word, mask);
+        }
+
+        private int getVarInt32SlowUnsafe() {
+            try {
+                int x;
+                if ((x = buffer[offset++]) >= 0) {
+                    return x;
+                } else if ((x ^= (buffer[offset++] << 7)) < 0) {
+                    return x ^ (~0 << 7);
+                } else if ((x ^= (buffer[offset++] << 14)) >= 0) {
+                    return x ^ ((~0 << 7) ^ (~0 << 14));
+                } else if ((x ^= (buffer[offset++] << 21)) < 0) {
+                    return x ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21));
+                } else {
+                    x ^= buffer[offset++] << 28;
+                    return x ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21) ^ (~0 << 28));
+                }
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public long readRawVarInt64() {
-            var b0 = getLongLE(buffer, offset);
-            var b1 = getLongLE(buffer, offset + 8);
+            if (buffer.length - offset < VARINT64_FAST_PATH_BYTES) {
+                var unsafeResult = getVarInt64SlowUnsafe();
+                if (offset > limit) {
+                    throw ProtobufDeserializationException.truncatedMessage();
+                }
+                return unsafeResult;
+            }
 
-            var msbB0 = ~b0 & ~INT64_PEXT_MASK_LOW;
-            var msbB1 = ~b1 & ~INT64_PEXT_MASK_LOW;
+            var lo = getLongLE(buffer, offset);
+            var hi = getLongLE(buffer, offset + Long.BYTES);
+            var loCont = ~lo & VARINT64_LO_CONT_BITS;
+            var loContM1 = loCont - 1;
+            var loSpread = loCont ^ loContM1;
+            var loMask = loSpread & INT64_PEXT_MASK_LOW;
+            var loResult = Long.compress(lo, loMask);
+            var hiEnable = loContM1 >> 63;
+            var hiCont = ~hi & VARINT64_HI_CONT_BITS;
+            var hiSpread = (hiCont ^ (hiCont - 1)) & hiEnable;
+            var hiMask = hiSpread & VARINT64_HI_PAYLOAD_BITS;
+            var hiResult = Long.compress(hi, hiMask);
+            offset += (Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3;
+            return loResult | (hiResult << 56);
+        }
 
-            var lenB0 = Long.numberOfTrailingZeros(msbB0) + 1;
-            var lenB1 = Long.numberOfTrailingZeros(msbB1) + 1;
-
-            var partB0 = b0 & (msbB0 ^ (msbB0 - 1));
-            var partB1 = (b1 & (msbB1 ^ (msbB1 - 1))) * ((msbB0 == 0) ? 1L : 0L);
-
-            var vectorBytes = new byte[16];
-            putLongLE(vectorBytes, 0, partB0);
-            putLongLE(vectorBytes, 8, partB1);
-
-            var x = getLongLE(vectorBytes, 0);
-            var y = getLongLE(vectorBytes, 8);
-
-            var result = Long.compress(x, INT64_PEXT_MASK_LOW)
-                         | (Long.compress(y, INT64_PEXT_MASK_HIGH) << 56);
-
-            offset += (msbB0 == 0 ? lenB1 + 64 : lenB0) >>> 3;
-
-            return result;
+        private long getVarInt64SlowUnsafe() {
+            try {
+                long x;
+                int y;
+                if ((y = buffer[offset++]) >= 0) {
+                    return y;
+                } else if ((y ^= (buffer[offset++] << 7)) < 0) {
+                    x = y ^ (~0 << 7);
+                } else if ((y ^= (buffer[offset++] << 14)) >= 0) {
+                    x = y ^ ((~0 << 7) ^ (~0 << 14));
+                } else if ((y ^= (buffer[offset++] << 21)) < 0) {
+                    x = y ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21));
+                } else if ((x = y ^ ((long) buffer[offset++] << 28)) >= 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28);
+                } else if ((x ^= ((long) buffer[offset++] << 35)) < 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35);
+                } else if ((x ^= ((long) buffer[offset++] << 42)) >= 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42);
+                } else if ((x ^= ((long) buffer[offset++] << 49)) < 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49);
+                } else if ((x ^= ((long) buffer[offset++] << 56)) >= 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49) ^ (~0L << 56);
+                } else {
+                    x ^= ((long) buffer[offset++] << 63);
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49) ^ (~0L << 56) ^ (~0L << 63);
+                }
+                return x;
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public float[] readRawPackedFloat() {
-            var length = readRawVarInt32();
-            var buffer = ByteBuffer.wrap(this.buffer, offset, offset + length)
-                    .asFloatBuffer();
-            var result = new float[buffer.remaining()];
-            buffer.get(result);
+            var length = readLengthDelimitedPropertyLength();
+            var result = toFloatArrayLE(buffer, offset, length);
+            offset += length;
             return result;
         }
 
         @Override
         public double[] readRawPackedDouble() {
-            var length = readRawVarInt32();
-            var buffer = ByteBuffer.wrap(this.buffer, offset, offset + length)
-                    .asDoubleBuffer();
-            var result = new double[buffer.remaining()];
-            buffer.get(result);
+            var length = readLengthDelimitedPropertyLength();
+            var result = toDoubleArrayLE(buffer, offset, length);
+            offset += length;
             return result;
         }
 
@@ -734,26 +774,25 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public boolean[] readRawPackedBool() {
-            throw new UnsupportedOperationException();
+            var length = readLengthDelimitedPropertyLength();
+            var result = toBooleanArray(buffer, offset, length);
+            offset += length;
+            return result;
         }
 
         @Override
         public int[] readRawPackedFixedInt32() {
-            var length = readRawVarInt32();
-            var buffer = ByteBuffer.wrap(this.buffer, offset, offset + length)
-                    .asIntBuffer();
-            var result = new int[buffer.remaining()];
-            buffer.get(result);
+            var length = readLengthDelimitedPropertyLength();
+            var result = toIntArrayLE(buffer, offset, length);
+            offset += length;
             return result;
         }
 
         @Override
         public long[] readRawPackedFixedInt64() {
-            var length = readRawVarInt32();
-            var buffer = ByteBuffer.wrap(this.buffer, offset, offset + length)
-                    .asLongBuffer();
-            var result = new long[buffer.remaining()];
-            buffer.get(result);
+            var length = readLengthDelimitedPropertyLength();
+            var result = toLongArrayLE(buffer, offset, length);
+            offset += length;
             return result;
         }
     }
@@ -825,6 +864,10 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public void skipRawBytes(int size) {
+            if(size < 0) {
+                throw new IllegalArgumentException("Size cannot be negative");
+            }
+
             try {
                 buffer.position(buffer.position() + size);
             } catch (IllegalArgumentException _) {
@@ -875,8 +918,12 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
                 var result = new ByteBufferReader(buffer.slice(position, size));
                 buffer.position(position + size);
                 return result;
-            } catch (IllegalArgumentException _) {
-                throw ProtobufDeserializationException.truncatedMessage();
+            } catch (IndexOutOfBoundsException _) {
+                if(size < 0) {
+                    throw new IllegalArgumentException("Size cannot be negative");
+                } else {
+                    throw ProtobufDeserializationException.truncatedMessage();
+                }
             }
         }
 
@@ -887,56 +934,105 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public int readRawVarInt32() {
-            var value = getLongLE(buffer, buffer.position());
-            var mostSignificantBits = ~value & ~INT64_PEXT_MASK_LOW;
-            var lengthInBits = Long.numberOfTrailingZeros(mostSignificantBits) + 1;
-            var varIntPart = value & (mostSignificantBits ^ (mostSignificantBits - 1));
-            var result = (int) Long.compress(varIntPart, INT32_PEXT_MASK);
-            buffer.position(lengthInBits >>> 3);
-            return result;
+            if (buffer.remaining() < VARINT32_FAST_PATH_BYTES) {
+                return getVarInt32Slow();
+            }
+
+            var position = buffer.position();
+            var word = getLongLE(buffer, position);
+            var cont = ~word & VARINT32_CONT_BITS;
+            var spread = cont ^ (cont - 1);
+            var mask = spread & VARINT32_PAYLOAD_BITS;
+            buffer.position(position + (Long.bitCount(spread) >>> 3));
+            return (int) Long.compress(word, mask);
+        }
+
+        private int getVarInt32Slow() {
+            try {
+                int x;
+                if ((x = buffer.get()) >= 0) {
+                    return x;
+                } else if ((x ^= (buffer.get() << 7)) < 0) {
+                    return x ^ (~0 << 7);
+                } else if ((x ^= (buffer.get() << 14)) >= 0) {
+                    return x ^ ((~0 << 7) ^ (~0 << 14));
+                } else if ((x ^= (buffer.get() << 21)) < 0) {
+                    return x ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21));
+                } else {
+                    x ^= buffer.get() << 28;
+                    return x ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21) ^ (~0 << 28));
+                }
+            } catch (BufferUnderflowException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public long readRawVarInt64() {
-            var b0 = getLongLE(buffer, buffer.position());
-            var b1 = getLongLE(buffer, buffer.position() + 8);
+            if (buffer.remaining() < VARINT64_FAST_PATH_BYTES) {
+                return getVarInt64Slow();
+            }
+            var offset = buffer.position();
+            var lo = getLongLE(buffer, offset);
+            var hi = getLongLE(buffer, offset + 8);
+            var loCont = ~lo & VARINT64_LO_CONT_BITS;
+            var loContM1 = loCont - 1;
+            var loSpread = loCont ^ loContM1;
+            var loMask = loSpread & INT64_PEXT_MASK_LOW;
+            var loResult = Long.compress(lo, loMask);
+            var hiEnable = loContM1 >> 63;
+            var hiCont = ~hi & VARINT64_HI_CONT_BITS;
+            var hiSpread = (hiCont ^ (hiCont - 1)) & hiEnable;
+            var hiMask = hiSpread & VARINT64_HI_PAYLOAD_BITS;
+            var hiResult = Long.compress(hi, hiMask);
+            buffer.position(offset + ((Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3));
+            return loResult | (hiResult << 56);
+        }
 
-            var msbB0 = ~b0 & ~INT64_PEXT_MASK_LOW;
-            var msbB1 = ~b1 & ~INT64_PEXT_MASK_LOW;
-
-            var lenB0 = Long.numberOfTrailingZeros(msbB0) + 1;
-            var lenB1 = Long.numberOfTrailingZeros(msbB1) + 1;
-
-            var partB0 = b0 & (msbB0 ^ (msbB0 - 1));
-            var partB1 = (b1 & (msbB1 ^ (msbB1 - 1))) * ((msbB0 == 0) ? 1L : 0L);
-
-            var vectorBytes = new byte[16];
-            putLongLE(vectorBytes, 0, partB0);
-            putLongLE(vectorBytes, 8, partB1);
-
-            var x = getLongLE(vectorBytes, 0);
-            var y = getLongLE(vectorBytes, 8);
-
-            var result = Long.compress(x, INT64_PEXT_MASK_LOW)
-                         | (Long.compress(y, INT64_PEXT_MASK_HIGH) << 56);
-
-            buffer.position((msbB0 == 0 ? lenB1 + 64 : lenB0) >>> 3);
-
-            return result;
+        private long getVarInt64Slow() {
+            try {
+                long x;
+                int y;
+                if ((y = buffer.get()) >= 0) {
+                    return y;
+                } else if ((y ^= (buffer.get() << 7)) < 0) {
+                    x = y ^ (~0 << 7);
+                } else if ((y ^= (buffer.get() << 14)) >= 0) {
+                    x = y ^ ((~0 << 7) ^ (~0 << 14));
+                } else if ((y ^= (buffer.get() << 21)) < 0) {
+                    x = y ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21));
+                } else if ((x = y ^ ((long) buffer.get() << 28)) >= 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28);
+                } else if ((x ^= ((long) buffer.get() << 35)) < 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35);
+                } else if ((x ^= ((long) buffer.get() << 42)) >= 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42);
+                } else if ((x ^= ((long) buffer.get() << 49)) < 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49);
+                } else if ((x ^= ((long) buffer.get() << 56)) >= 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49) ^ (~0L << 56);
+                } else {
+                    x ^= ((long) buffer.get() << 63);
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49) ^ (~0L << 56) ^ (~0L << 63);
+                }
+                return x;
+            }catch (BufferUnderflowException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public float[] readRawPackedFloat() {
-            var length = readRawVarInt32();
-            var segment = readRawMemorySegment(length);
-            return toFloatArrayLE(segment);
+            var length = readLengthDelimitedPropertyLength();
+            var buffer = readRawBuffer(length); // Zero copy
+            return toFloatArrayLE(buffer);
         }
 
         @Override
         public double[] readRawPackedDouble() {
-            var length = readRawVarInt32();
-            var segment = readRawMemorySegment(length);
-            return toDoubleArrayLE(segment);
+            var length = readLengthDelimitedPropertyLength();
+            var buffer = readRawBuffer(length); // Zero copy
+            return toDoubleArrayLE(buffer);
         }
 
         @Override
@@ -961,21 +1057,23 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public boolean[] readRawPackedBool() {
-            throw new UnsupportedOperationException();
+            var length = readLengthDelimitedPropertyLength();
+            var buffer = readRawBuffer(length); // Zero copy
+            return toBooleanArray(buffer);
         }
 
         @Override
         public int[] readRawPackedFixedInt32() {
-            var length = readRawVarInt32();
-            var segment = readRawMemorySegment(length);
-            return toIntArrayLE(segment);
+            var length = readLengthDelimitedPropertyLength();
+            var buffer = readRawBuffer(length); // Zero copy
+            return toIntArrayLE(buffer);
         }
 
         @Override
         public long[] readRawPackedFixedInt64() {
-            var length = readRawVarInt32();
-            var segment = readRawMemorySegment(length);
-            return toLongArrayLE(segment);
+            var length = readLengthDelimitedPropertyLength();
+            var buffer = readRawBuffer(length); // Zero copy
+            return toLongArrayLE(buffer);
         }
     }
 
@@ -1056,37 +1154,57 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public int readRawFixedInt32() {
-            var result = segment.getAtIndex(ValueLayout.OfInt.JAVA_INT_UNALIGNED, position);
-            position += Integer.BYTES;
-            return result;
+            try {
+                var result = segment.getAtIndex(ValueLayout.OfInt.JAVA_INT_UNALIGNED, position);
+                position += Integer.BYTES;
+                return result;
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public long readRawFixedInt64() {
-            var result = segment.getAtIndex(ValueLayout.OfLong.JAVA_LONG_UNALIGNED, position);
-            position += Long.BYTES;
-            return result;
+            try {
+                var result = segment.getAtIndex(ValueLayout.OfLong.JAVA_LONG_UNALIGNED, position);
+                position += Long.BYTES;
+                return result;
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public float readRawFloat() {
-            var result = segment.getAtIndex(ValueLayout.OfInt.JAVA_FLOAT_UNALIGNED, position);
-            position += Float.BYTES;
-            return result;
+            try {
+                var result = segment.getAtIndex(ValueLayout.OfInt.JAVA_FLOAT_UNALIGNED, position);
+                position += Float.BYTES;
+                return result;
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public double readRawDouble() {
-            var result = segment.getAtIndex(ValueLayout.OfInt.JAVA_DOUBLE_UNALIGNED, position);
-            position += Double.BYTES;
-            return result;
+            try {
+                var result = segment.getAtIndex(ValueLayout.OfInt.JAVA_DOUBLE_UNALIGNED, position);
+                position += Double.BYTES;
+                return result;
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public MemorySegmentReader readRawLengthDelimited(int size) {
-            var result = new MemorySegmentReader(segment.asSlice(position, size));
-            position += size;
-            return result;
+            try {
+                var result = new MemorySegmentReader(segment.asSlice(position, size));
+                position += size;
+                return result;
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
@@ -1096,26 +1214,112 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public int readRawVarInt32() {
-            throw new UnsupportedOperationException();
+            if (segment.byteSize() - position < VARINT32_FAST_PATH_BYTES) {
+                return getVarInt32Slow();
+            }
+
+            var word = getLongLE(segment, position);
+            var cont = ~word & VARINT32_CONT_BITS;
+            var spread = cont ^ (cont - 1);
+            var mask = spread & VARINT32_PAYLOAD_BITS;
+            position += Long.bitCount(spread) >>> 3;
+            return (int) Long.compress(word, mask);
+        }
+
+        private int getVarInt32Slow() {
+            try {
+                int x;
+                if ((x = segment.get(ValueLayout.JAVA_BYTE, position++)) >= 0) {
+                    return x;
+                } else if ((x ^= (segment.get(ValueLayout.JAVA_BYTE, position++) << 7)) < 0) {
+                    return x ^ (~0 << 7);
+                } else if ((x ^= (segment.get(ValueLayout.JAVA_BYTE, position++) << 14)) >= 0) {
+                    return x ^ ((~0 << 7) ^ (~0 << 14));
+                } else if ((x ^= (segment.get(ValueLayout.JAVA_BYTE, position++) << 21)) < 0) {
+                    return x ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21));
+                } else {
+                    x ^= segment.get(ValueLayout.JAVA_BYTE, position++) << 28;
+                    return x ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21) ^ (~0 << 28));
+                }
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public long readRawVarInt64() {
-            throw new UnsupportedOperationException();
+            if (segment.byteSize() - position < VARINT64_FAST_PATH_BYTES) {
+                return getVarInt64Slow();
+            }
+
+            var lo = getLongLE(segment, position);
+            var hi = getLongLE(segment, position + Long.BYTES);
+            var loCont = ~lo & VARINT64_LO_CONT_BITS;
+            var loContM1 = loCont - 1;
+            var loSpread = loCont ^ loContM1;
+            var loMask = loSpread & INT64_PEXT_MASK_LOW;
+            var loResult = Long.compress(lo, loMask);
+            var hiEnable = loContM1 >> 63;
+            var hiCont = ~hi & VARINT64_HI_CONT_BITS;
+            var hiSpread = (hiCont ^ (hiCont - 1)) & hiEnable;
+            var hiMask = hiSpread & VARINT64_HI_PAYLOAD_BITS;
+            var hiResult = Long.compress(hi, hiMask);
+            position += (Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3;
+            return loResult | (hiResult << 56);
+        }
+
+        private long getVarInt64Slow() {
+            try {
+                long x;
+                int y;
+                if ((y = segment.get(ValueLayout.JAVA_BYTE, position++)) >= 0) {
+                    return y;
+                } else if ((y ^= (segment.get(ValueLayout.JAVA_BYTE, position++) << 7)) < 0) {
+                    x = y ^ (~0 << 7);
+                } else if ((y ^= (segment.get(ValueLayout.JAVA_BYTE, position++) << 14)) >= 0) {
+                    x = y ^ ((~0 << 7) ^ (~0 << 14));
+                } else if ((y ^= (segment.get(ValueLayout.JAVA_BYTE, position++) << 21)) < 0) {
+                    x = y ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21));
+                } else if ((x = y ^ ((long) segment.get(ValueLayout.JAVA_BYTE, position++) << 28)) >= 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28);
+                } else if ((x ^= ((long) segment.get(ValueLayout.JAVA_BYTE, position++) << 35)) < 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35);
+                } else if ((x ^= ((long) segment.get(ValueLayout.JAVA_BYTE, position++) << 42)) >= 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42);
+                } else if ((x ^= ((long) segment.get(ValueLayout.JAVA_BYTE, position++) << 49)) < 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49);
+                } else if ((x ^= ((long) segment.get(ValueLayout.JAVA_BYTE, position++) << 56)) >= 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49) ^ (~0L << 56);
+                } else {
+                    x ^= ((long) segment.get(ValueLayout.JAVA_BYTE, position++) << 63);
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49) ^ (~0L << 56) ^ (~0L << 63);
+                }
+                return x;
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public float[] readRawPackedFloat() {
-            var length = readRawVarInt32();
-            var segment = readRawMemorySegment(length);
-            return toFloatArrayLE(segment);
+            try {
+                var length = readLengthDelimitedPropertyLength();
+                var segment = readRawMemorySegment(length); // Zero copy
+                return toFloatArrayLE(segment);
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public double[] readRawPackedDouble() {
-            var length = readRawVarInt32();
-            var segment = readRawMemorySegment(length);
-            return toDoubleArrayLE(segment);
+            try {
+                var length = readLengthDelimitedPropertyLength();
+                var segment = readRawMemorySegment(length); // Zero copy
+                return toDoubleArrayLE(segment);
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
@@ -1140,27 +1344,39 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public boolean[] readRawPackedBool() {
-            throw new UnsupportedOperationException();
+            try {
+                var length = readLengthDelimitedPropertyLength();
+                var segment = readRawMemorySegment(length); // Zero copy
+                return toBooleanArray(segment);
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public int[] readRawPackedFixedInt32() {
-            var length = readRawVarInt32();
-            var segment = readRawMemorySegment(length);
-            return toIntArrayLE(segment);
+            try {
+                var length = readRawVarInt32();
+                var segment = readRawMemorySegment(length); // Zero copy
+                return toIntArrayLE(segment);
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public long[] readRawPackedFixedInt64() {
-            var length = readRawVarInt32();
-            var segment = readRawMemorySegment(length);
-            return toLongArrayLE(segment);
+            try {
+                var length = readRawVarInt32();
+                var segment = readRawMemorySegment(length); // Zero copy
+                return toLongArrayLE(segment);
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
     }
 
     private static final class InputStreamReader extends ProtobufReader {
-        private static final int MAX_VAR_INT_SIZE = 10;
-
         private final InputStream inputStream;
         private final boolean autoclose;
         private final long length;
@@ -1168,29 +1384,32 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         private final byte[] buffer;
         private int bufferPosition;
-        private int bufferLength;
+        private int bufferLimit;
 
         InputStreamReader(InputStream inputStream, boolean autoclose) {
             Objects.requireNonNull(inputStream, "inputStream cannot be null");
             this.inputStream = inputStream;
             this.autoclose = autoclose;
             this.length = -1;
-            this.buffer = new byte[MAX_VAR_INT_SIZE];
+            // This buffer can contain at most at the same time:
+            //   + 1 byte, used by the isFinished method
+            //   + 16 bytes, used by the varint64 decoder
+            this.buffer = new byte[17];
         }
 
-        private InputStreamReader(InputStream inputStream, long length, byte[] buffer, int bufferPosition, int bufferLength) {
+        private InputStreamReader(InputStream inputStream, long length, byte[] buffer, int bufferPosition, int bufferLimit) {
             this.inputStream = inputStream;
             this.autoclose = false;
             this.length = length;
             this.buffer = buffer;
             this.bufferPosition = bufferPosition;
-            this.bufferLength = bufferLength;
+            this.bufferLimit = bufferLimit;
         }
 
         @Override
         public byte readRawByte() {
-            position++;
-            if (bufferPosition < bufferLength) {
+            if (bufferPosition < bufferLimit) {
+                position++;
                 return buffer[bufferPosition++];
             } else {
                 try {
@@ -1198,6 +1417,7 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
                     if (read == -1) {
                         throw ProtobufDeserializationException.truncatedMessage();
                     } else {
+                        position++;
                         return (byte) read;
                     }
                 } catch (IOException exception) {
@@ -1210,33 +1430,71 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
         public byte[] readRawBytes(int size) {
             try {
                 var result = new byte[size];
-                readRawBytes(result, size);
+                if(consumeBufferOrStream(result, 0, size) != size) {
+                    throw ProtobufDeserializationException.truncatedMessage();
+                }
                 return result;
             } catch (NegativeArraySizeException _) {
                 throw new IllegalArgumentException("size cannot be negative");
             }
         }
 
-        private void readRawBytes(byte[] output, int length) {
-            position += length;
-            var offset = 0;
-            if (length > 0 && bufferPosition < bufferLength) {
-                var bufferedLength = Math.min(bufferLength - bufferPosition, length);
-                System.arraycopy(buffer, bufferPosition, output, offset, bufferedLength);
-                offset += bufferedLength;
-                bufferPosition += bufferedLength;
+        private int consumeBufferOrStream(byte[] output, int offset, int length) {
+            checkConsume(output, offset, length);
+
+            var totalReadLength = 0;
+
+            // Read from buffer
+            if (bufferPosition < bufferLimit) {
+                var cappedBufferLength = Math.min(bufferLimit - bufferPosition, length);
+                System.arraycopy(buffer, bufferPosition, output, offset + totalReadLength, cappedBufferLength);
+                totalReadLength += cappedBufferLength;
+                bufferPosition += cappedBufferLength;
+                position += cappedBufferLength;
             }
-            while (offset < length) {
+
+            // Read from stream
+            if(totalReadLength < length) {
+                totalReadLength += consumeStream(output, offset + totalReadLength, length - totalReadLength);
+            }
+
+            return totalReadLength;
+        }
+
+        private int consumeStream(byte[] output, int offset, int length) {
+            checkConsume(output, offset, length);
+
+            var totalReadLength = 0;
+            while (totalReadLength < length) {
                 try {
-                    var read = inputStream.read(output, offset, length - offset);
-                    if (read == -1) {
-                        throw ProtobufDeserializationException.truncatedMessage();
+                    var currentReadLength = inputStream.read(output, offset + totalReadLength, length - totalReadLength);
+                    if (currentReadLength == -1) {
+                        break;
                     } else {
-                        offset += read;
+                        totalReadLength += currentReadLength;
+                        position += currentReadLength;
                     }
                 } catch (IOException exception) {
                     throw ProtobufDeserializationException.truncatedMessage(exception);
                 }
+            }
+            return totalReadLength;
+        }
+
+        private static void checkConsume(byte[] output, int offset, int length) {
+            Objects.requireNonNull(output, "output cannot be null");
+
+            if(offset < 0) {
+                throw new IllegalArgumentException("offset cannot be negative");
+            }
+
+            if(length < 0) {
+                throw new IllegalArgumentException("length cannot be negative");
+            }
+
+            var finalOffset = offset + length;
+            if (finalOffset > output.length) {
+                throw new IndexOutOfBoundsException("write offset cannot be greater than array length: " + finalOffset + " > " + output.length);
             }
         }
 
@@ -1261,18 +1519,17 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
         public boolean isFinished() {
             if (length != -1) {
                 return position >= length;
-            } else if (bufferPosition < bufferLength) {
+            } else if (bufferPosition < bufferLimit) {
                 return false;
             } else {
                 try {
-                    position++;
                     var read = inputStream.read();
                     if (read == -1) {
+                        position = length;
                         return true;
                     } else {
-                        position--;
                         buffer[bufferPosition = 0] = (byte) read;
-                        bufferLength = 1;
+                        bufferLimit = 1;
                         return false;
                     }
                 } catch (IOException exception) {
@@ -1287,10 +1544,10 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
                 throw new IllegalArgumentException("length cannot be negative");
             }
 
-            if (length > 0 && bufferPosition < bufferLength) {
-                var bufferedLength = Math.min(length, bufferLength - bufferPosition);
-                length -= bufferedLength;
-                position += bufferedLength;
+            if (length > 0 && bufferPosition < bufferLimit) {
+                var cappedBufferLength = Math.min(length, bufferLimit - bufferPosition);
+                length -= cappedBufferLength;
+                position += cappedBufferLength;
             }
             while (length > 0) {
                 try {
@@ -1311,31 +1568,59 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public int readRawFixedInt32() {
-            readRawBytes(buffer, Integer.BYTES);
-            return getIntLE(buffer, 0);
+            var expectedRead = Integer.BYTES - Math.max(bufferLimit - bufferPosition, 0);
+            if(expectedRead > 0 && consumeStream(buffer, bufferPosition, expectedRead) != expectedRead) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
+
+            var result = getIntLE(buffer, 0);
+            bufferPosition += Integer.BYTES;
+
+            return result;
         }
 
         @Override
         public long readRawFixedInt64() {
-            readRawBytes(buffer, Long.BYTES);
-            return getLongLE(buffer, 0);
+            var expectedRead = Long.BYTES - Math.max(bufferLimit - bufferPosition, 0);
+            if(expectedRead > 0 && consumeStream(buffer, bufferPosition, expectedRead) != expectedRead) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
+
+            var result = getLongLE(buffer, 0);
+            bufferPosition += Long.BYTES;
+
+            return result;
         }
 
         @Override
         public float readRawFloat() {
-            readRawBytes(buffer, Float.BYTES);
-            return getFloatLE(buffer, 0);
+            var expectedRead = Float.BYTES - Math.max(bufferLimit - bufferPosition, 0);
+            if(expectedRead > 0 && consumeStream(buffer, bufferPosition, expectedRead) != expectedRead) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
+
+            var result = getFloatLE(buffer, 0);
+            bufferPosition += Float.BYTES;
+
+            return result;
         }
 
         @Override
         public double readRawDouble() {
-            readRawBytes(buffer, Double.BYTES);
-            return getDoubleLE(buffer, 0);
+            var expectedRead = Double.BYTES - Math.max(bufferLimit - bufferPosition, 0);
+            if(expectedRead > 0 && consumeStream(buffer, bufferPosition, expectedRead) != expectedRead) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
+
+            var result = getDoubleLE(buffer, 0);
+            bufferPosition += Double.BYTES;
+
+            return result;
         }
 
         @Override
         public InputStreamReader readRawLengthDelimited(int size) {
-            var result = new InputStreamReader(inputStream, size, buffer, bufferPosition, bufferLength);
+            var result = new InputStreamReader(inputStream, size, buffer, bufferPosition, bufferLimit);
             position += size;
             return result;
         }
@@ -1349,116 +1634,126 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public int readRawVarInt32() {
-            readRawBytes(buffer, MAX_VAR_INT_SIZE);
-            var value = getLongLE(buffer, 0);
-            var mostSignificantBits = ~value & ~INT64_PEXT_MASK_LOW;
-            var lengthInBits = Long.numberOfTrailingZeros(mostSignificantBits) + 1;
-            var varIntPart = value & (mostSignificantBits ^ (mostSignificantBits - 1));
-            var result = (int) Long.compress(varIntPart, INT32_PEXT_MASK);
-            var length = lengthInBits >>> 3;
-            bufferPosition = length;
-            bufferLength = MAX_VAR_INT_SIZE;
-            position += length;
-            return result;
+            var expectedRead = VARINT32_FAST_PATH_BYTES - Math.max(bufferLimit - bufferPosition, 0);
+            if(expectedRead > 0 && consumeStream(buffer, bufferPosition, expectedRead) != expectedRead) {
+                var unsafeResult = getVarInt32SlowUnsafe();
+                if(bufferPosition > bufferLimit) {
+                    throw ProtobufDeserializationException.truncatedMessage();
+                }
+                return unsafeResult;
+            }
+
+            var word = getLongLE(buffer, 0);
+            var cont = ~word & VARINT32_CONT_BITS;
+            var spread = cont ^ (cont - 1);
+            var mask = spread & VARINT32_PAYLOAD_BITS;
+            var read = Long.bitCount(spread) >>> 3;
+            bufferPosition += read;
+            return (int) Long.compress(word, mask);
+        }
+
+        // This method is unsafe
+        // It can read beyond the allowed limit for buffer (bufferLimit)
+        // The caller is responsible for checking for this condition after the read
+        private int getVarInt32SlowUnsafe() {
+            try {
+                int x;
+                if ((x = buffer[bufferPosition++]) >= 0) {
+                    return x;
+                } else if ((x ^= (buffer[bufferPosition++] << 7)) < 0) {
+                    return x ^ (~0 << 7);
+                } else if ((x ^= (buffer[bufferPosition++] << 14)) >= 0) {
+                    return x ^ ((~0 << 7) ^ (~0 << 14));
+                } else if ((x ^= (buffer[bufferPosition++] << 21)) < 0) {
+                    return x ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21));
+                } else {
+                    x ^= buffer[bufferPosition++] << 28;
+                    return x ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21) ^ (~0 << 28));
+                }
+            } catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public long readRawVarInt64() {
-            readRawBytes(buffer, MAX_VAR_INT_SIZE);
-            var b0 = getLongLE(buffer, 0);
-            var b1 = getLongLE(buffer, 8);
-            var msbB0 = ~b0 & ~INT64_PEXT_MASK_LOW;
-            var msbB1 = ~b1 & ~INT64_PEXT_MASK_LOW;
-            var lenB0 = Long.numberOfTrailingZeros(msbB0) + 1;
-            var lenB1 = Long.numberOfTrailingZeros(msbB1) + 1;
-            var partB0 = b0 & (msbB0 ^ (msbB0 - 1));
-            var partB1 = (b1 & (msbB1 ^ (msbB1 - 1))) * ((msbB0 == 0) ? 1L : 0L);
-            var vectorBytes = new byte[16];
-            putLongLE(vectorBytes, 0, partB0);
-            putLongLE(vectorBytes, 8, partB1);
-            var x = getLongLE(vectorBytes, 0);
-            var y = getLongLE(vectorBytes, 8);
-            var result = Long.compress(x, INT64_PEXT_MASK_LOW) | (Long.compress(y, INT64_PEXT_MASK_HIGH) << 56);
-            var length = (msbB0 == 0 ? lenB1 + 64 : lenB0) >>> 3;
-            bufferPosition = length;
-            bufferLength = MAX_VAR_INT_SIZE;
-            position += length;
-            return result;
+            var expectedRead = VARINT64_FAST_PATH_BYTES - Math.max(bufferLimit - bufferPosition, 0);
+            if(expectedRead > 0 && consumeStream(buffer, bufferPosition, expectedRead) != expectedRead) {
+                var unsafeResult = getVarInt64SlowUnsafe();
+                if(bufferPosition > bufferLimit) {
+                    throw ProtobufDeserializationException.truncatedMessage();
+                }
+                return unsafeResult;
+            }
+
+            var lo = getLongLE(buffer, 0);
+            var hi = getLongLE(buffer, Long.BYTES);
+            var loCont = ~lo & VARINT64_LO_CONT_BITS;
+            var loContM1 = loCont - 1;
+            var loSpread = loCont ^ loContM1;
+            var loMask = loSpread & INT64_PEXT_MASK_LOW;
+            var loResult = Long.compress(lo, loMask);
+            var hiEnable = loContM1 >> 63;
+            var hiCont = ~hi & VARINT64_HI_CONT_BITS;
+            var hiSpread = (hiCont ^ (hiCont - 1)) & hiEnable;
+            var hiMask = hiSpread & VARINT64_HI_PAYLOAD_BITS;
+            var hiResult = Long.compress(hi, hiMask);
+            bufferPosition += (Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3;
+            return loResult | (hiResult << 56);
+        }
+
+        // This method is unsafe
+        // It can read beyond the allowed limit for buffer (bufferLimit)
+        // The caller is responsible for checking for this condition after the read
+        private long getVarInt64SlowUnsafe() {
+            try {
+                long x;
+                int y;
+                if ((y = buffer[bufferPosition++]) >= 0) {
+                    return y;
+                } else if ((y ^= (buffer[bufferPosition++] << 7)) < 0) {
+                    x = y ^ (~0 << 7);
+                } else if ((y ^= (buffer[bufferPosition++] << 14)) >= 0) {
+                    x = y ^ ((~0 << 7) ^ (~0 << 14));
+                } else if ((y ^= (buffer[bufferPosition++] << 21)) < 0) {
+                    x = y ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21));
+                } else if ((x = y ^ ((long) buffer[bufferPosition++] << 28)) >= 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28);
+                } else if ((x ^= ((long) buffer[bufferPosition++] << 35)) < 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35);
+                } else if ((x ^= ((long) buffer[bufferPosition++] << 42)) >= 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42);
+                } else if ((x ^= ((long) buffer[bufferPosition++] << 49)) < 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49);
+                } else if ((x ^= ((long) buffer[bufferPosition++] << 56)) >= 0L) {
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49) ^ (~0L << 56);
+                } else {
+                    x ^= ((long) buffer[bufferPosition++] << 63);
+                    x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49) ^ (~0L << 56) ^ (~0L << 63);
+                }
+                return x;
+            }catch (IndexOutOfBoundsException _) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
         }
 
         @Override
         public float[] readRawPackedFloat() {
-            var length = readRawVarInt32();
+            var length = readLengthDelimitedPropertyLength();
             var segment = readRawMemorySegment(length);
             return toFloatArrayLE(segment);
         }
 
         @Override
         public double[] readRawPackedDouble() {
-            var length = readRawVarInt32();
+            var length = readLengthDelimitedPropertyLength();
             var segment = readRawMemorySegment(length);
             return toDoubleArrayLE(segment);
         }
 
         @Override
         public int[] readRawPackedVarInt32() {
-            var bufferLength = readRawVarInt32();
-            var buffer = readRawBytes(bufferLength);
-
-            var resultsCount = countVarInts(buffer);
-            var results = new int[resultsCount];
-
             throw new UnsupportedOperationException();
-        }
-
-        private int countVarInts(byte[] segment) {
-            var len = segment.length;
-            var count = 0;
-            var i = 0;
-
-            if (SUPPORTS_V512) {
-                long bound512 = V512.loopBound(len);
-                for (; i < bound512; i += V512.length()) {
-                    count += ByteVector.fromArray(V512, segment, i)
-                            .compare(VectorOperators.GE, (byte) 0)
-                            .trueCount();
-                }
-            }
-
-            if(SUPPORTS_V256) {
-                long bound256 = i + V256.loopBound(len - i);
-                for (; i < bound256; i += V256.length()) {
-                    count += ByteVector.fromArray(V256, segment, i)
-                            .compare(VectorOperators.GE, (byte) 0)
-                            .trueCount();
-                }
-            }
-
-            if(SUPPORTS_V128) {
-                long bound128 = i + V128.loopBound(len - i);
-                for (; i < bound128; i += V128.length()) {
-                    count += ByteVector.fromArray(V128, segment, i)
-                            .compare(VectorOperators.GE, (byte) 0)
-                            .trueCount();
-                }
-            }
-
-            if(SUPPORTS_V64) {
-                long bound64 = i + V64.loopBound(len - i);
-                for (; i < bound64; i += V64.length()) {
-                    count += ByteVector.fromArray(V64, segment, i)
-                            .compare(VectorOperators.GE, (byte) 0)
-                            .trueCount();
-                }
-            }
-
-            for (; i < len; i++) {
-                if (segment[i] >= 0) {
-                    count++;
-                }
-            }
-
-            return count;
         }
 
         @Override
@@ -1478,19 +1773,21 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public boolean[] readRawPackedBool() {
-            throw new UnsupportedOperationException();
+            var length = readLengthDelimitedPropertyLength();
+            var segment = readRawMemorySegment(length);
+            return toBooleanArray(segment);
         }
 
         @Override
         public int[] readRawPackedFixedInt32() {
-            var length = readRawVarInt32();
+            var length = readLengthDelimitedPropertyLength();
             var segment = readRawMemorySegment(length);
             return toIntArrayLE(segment);
         }
 
         @Override
         public long[] readRawPackedFixedInt64() {
-            var length = readRawVarInt32();
+            var length = readLengthDelimitedPropertyLength();
             var segment = readRawMemorySegment(length);
             return toLongArrayLE(segment);
         }

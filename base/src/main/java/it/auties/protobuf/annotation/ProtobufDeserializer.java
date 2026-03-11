@@ -202,7 +202,7 @@ import java.lang.annotation.Target;
  *
  *         var totalLength = daySize + 1 + monthSize + 1 + yearSize;
  *
- *         return ProtobufSizeCalculator.getVarIntSize(totalLength) + totalLength;
+ *         return ProtobufSizeCalculator.getVarInt64Size(totalLength) + totalLength;
  *     }
  *  }
  * }</pre>

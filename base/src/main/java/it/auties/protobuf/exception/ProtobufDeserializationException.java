@@ -103,13 +103,13 @@ public final class ProtobufDeserializationException extends ProtobufException {
 
     /**
      * Creates a new {@code ProtobufDeserializationException} indicating that a message specified
-     * a negative length for an embedded message during deserialization.
+     * a negative length for a length-delimited field during deserialization.
      *
      * @param size the negative length value that was encountered
      * @return a {@code ProtobufDeserializationException} with a message explaining the error
      */
     public static ProtobufDeserializationException negativeLength(int size) {
-        return new ProtobufDeserializationException("A message specified a negative block length for an embedded message: " + size);
+        return new ProtobufDeserializationException("A message specified a negative block length for a length-delimited field: " + size);
     }
 
     /**

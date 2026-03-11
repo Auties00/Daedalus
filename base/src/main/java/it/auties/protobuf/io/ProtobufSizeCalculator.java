@@ -3,50 +3,62 @@ package it.auties.protobuf.io;
 import it.auties.protobuf.model.ProtobufWireType;
 
 public final class ProtobufSizeCalculator {
+    // Branchless varint32 size via lookup table indexed by numberOfLeadingZeros.
+    // A negative var-int32 is sign-extended to 64 bits on the wire, so always takes 10 bytes.
+    // A non-negative value takes ceil(bits/7) bytes, computed as (38 - nlz) / 7
+    // where 38 = 32 (int width) + 6 (so integer division rounds up by 7s).
+    // The table maps nlz -> size for all cases:
+    //   nlz=0  (negative)                   -> 10 (manual override; 38/7=5 is wrong)
+    //   nlz=1  (2^30..2^31-1)              -> 5
+    //   nlz=25 (64..127)                    -> 1
+    //   nlz=31 (1) or nlz=32 (0, via |1)   -> 1
+    // Table is sized to 64 (power of 2) so the & 0x3F mask lets C2 elide bounds checks.
+    private static final int[] NLZ32_TO_VAR_INT_SIZE = new int[64];
+
+    // Branchless varint64 size via lookup table indexed by numberOfLeadingZeros.
+    // A negative var-int always takes 10 bytes; a non-negative value takes ceil(bits/7) bytes.
+    // The table maps nlz -> (70 - nlz) / 7, which gives the correct size for all cases:
+    //   nlz=0  (negative)                   -> 10
+    //   nlz=1  (2^62..2^63-1)               -> 9
+    //   nlz=57 (64..127)                    -> 1
+    //   nlz=63 (1) or nlz=64 (0, via |1)    -> 1
+    private static final int[] NLZ_TO_VAR_INT_SIZE = new int[128];
+
     private ProtobufSizeCalculator() {
         throw new UnsupportedOperationException("ProtobufSizeCalculator is a utility class");
     }
 
     public static int getPropertyWireTagSize(long fieldIndex, int wireType) {
-        return getVarIntSize(ProtobufWireType.makeTag(fieldIndex, wireType));
+        return getVarInt64Size(ProtobufWireType.makeTag(fieldIndex, wireType));
     }
 
-    // Long values go from [-2^63, 2^63)
-    // A negative var-int always take up 10 bits
-    // A positive var int takes up log_2(value) / 7 + 1
-    // Constants were folded here to save time
-    public static int getVarIntSize(long value) {
-        if(value < 0) {
-            return 10;
-        }else if (value < 128) {
-            return 1;
-        } else if (value < 16384) {
-            return 2;
-        } else if (value < 2097152) {
-            return 3;
-        } else if (value < 268435456) {
-            return 4;
-        } else if(value < 34359738368L) {
-            return 5;
-        }else if(value < 4398046511104L) {
-            return 6;
-        }else if(value < 562949953421312L) {
-            return 7;
-        }else if(value < 72057594037927936L) {
-            return 8;
-        }else {
-            return 9;
+    static {
+        NLZ32_TO_VAR_INT_SIZE[0] = 10;
+        for (int nlz = 1; nlz <= 32; nlz++) {
+            NLZ32_TO_VAR_INT_SIZE[nlz] = (38 - nlz) / 7;
         }
+
+        for (int nlz = 0; nlz <= 64; nlz++) {
+            NLZ_TO_VAR_INT_SIZE[nlz] = (70 - nlz) / 7;
+        }
+    }
+
+    public static int getVarInt32Size(int value) {
+        return NLZ32_TO_VAR_INT_SIZE[Integer.numberOfLeadingZeros(value | 1) & 0x3F];
+    }
+
+    public static int getVarInt64Size(long value) {
+        return NLZ_TO_VAR_INT_SIZE[Long.numberOfLeadingZeros(value | 1) & 0x7F];
     }
 
     public static long getVarIntPropertySize(long fieldIndex, long value) {
         return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_VAR_INT)
-               + getVarIntSize(value);
+               + getVarInt64Size(value);
     }
 
     public static long getBoolPropertySize(long fieldIndex, boolean ignored) {
         return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_VAR_INT)
-               + 1; // getVarIntSize(0 or 1) = 1
+               + 1; // getVarInt64Size(0 or 1) = 1
     }
 
     public static long getBoolPropertySize(long fieldIndex, Boolean value) {
@@ -54,7 +66,7 @@ public final class ProtobufSizeCalculator {
             return 0;
         } else {
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_VAR_INT)
-                   + 1; // getVarIntSize(0 or 1) = 1
+                   + 1; // getVarInt64Size(0 or 1) = 1
         }
     }
 
@@ -74,7 +86,7 @@ public final class ProtobufSizeCalculator {
 
     public static long getLengthDelimitedPropertySize(long fieldIndex, long length) {
         return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-               + getVarIntSize(length)
+               + getVarInt64Size(length)
                + length;
     }
 
@@ -98,10 +110,10 @@ public final class ProtobufSizeCalculator {
         } else {
             var valueSize = 0;
             for (var value : values) {
-                valueSize += getVarIntSize(value);
+                valueSize += getVarInt64Size(value);
             }
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valueSize)
+                   + getVarInt64Size(valueSize)
                    + valueSize;
         }
     }
@@ -112,10 +124,10 @@ public final class ProtobufSizeCalculator {
         } else {
             var valueSize = 0;
             for (var value : values) {
-                valueSize += getVarIntSize(value);
+                valueSize += getVarInt64Size(value);
             }
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valueSize)
+                   + getVarInt64Size(valueSize)
                    + valueSize;
         }
     }
@@ -126,10 +138,10 @@ public final class ProtobufSizeCalculator {
         } else {
             var valueSize = 0;
             for (var value : values) {
-                valueSize += getVarIntSize(value);
+                valueSize += getVarInt64Size(value);
             }
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valueSize)
+                   + getVarInt64Size(valueSize)
                    + valueSize;
         }
     }
@@ -140,10 +152,10 @@ public final class ProtobufSizeCalculator {
         } else {
             var valueSize = 0;
             for (var value : values) {
-                valueSize += getVarIntSize(value);
+                valueSize += getVarInt64Size(value);
             }
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valueSize)
+                   + getVarInt64Size(valueSize)
                    + valueSize;
         }
     }
@@ -154,7 +166,7 @@ public final class ProtobufSizeCalculator {
         } else {
             var valuesSize = values.length;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valuesSize)
+                   + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
     }
@@ -165,7 +177,7 @@ public final class ProtobufSizeCalculator {
         } else {
             var valuesSize = values.length * Long.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valuesSize)
+                   + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
     }
@@ -176,7 +188,7 @@ public final class ProtobufSizeCalculator {
         } else {
             var valuesSize = values.length * Long.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valuesSize)
+                   + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
     }
@@ -187,7 +199,7 @@ public final class ProtobufSizeCalculator {
         } else {
             var valuesSize = values.length * Long.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valuesSize)
+                   + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
     }
@@ -198,7 +210,7 @@ public final class ProtobufSizeCalculator {
         } else {
             var valuesSize = values.length * Long.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valuesSize)
+                   + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
     }
@@ -209,7 +221,7 @@ public final class ProtobufSizeCalculator {
         } else {
             var valuesSize = values.length * Integer.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valuesSize)
+                   + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
     }
@@ -220,7 +232,7 @@ public final class ProtobufSizeCalculator {
         } else {
             var valuesSize = values.length * Integer.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valuesSize)
+                   + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
     }
@@ -231,7 +243,7 @@ public final class ProtobufSizeCalculator {
         } else {
             var valuesSize = values.length * Integer.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valuesSize)
+                   + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
     }
@@ -242,7 +254,7 @@ public final class ProtobufSizeCalculator {
         } else {
             var valuesSize = values.length * Float.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valuesSize)
+                   + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
     }
@@ -253,7 +265,7 @@ public final class ProtobufSizeCalculator {
         } else {
             var valuesSize = values.length * Double.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
-                   + getVarIntSize(valuesSize)
+                   + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
     }

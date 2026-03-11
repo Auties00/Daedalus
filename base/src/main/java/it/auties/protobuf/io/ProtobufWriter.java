@@ -873,11 +873,7 @@ public abstract non-sealed class ProtobufWriter<OUTPUT> extends ProtobufIO {
 
         @Override
         public byte[] toOutput() {
-            if (buffer.length != position) {
-                throw ProtobufSerializationException.mismatch();
-            }else {
-                return buffer;
-            }
+            return buffer;
         }
 
         @Override
@@ -990,11 +986,7 @@ public abstract non-sealed class ProtobufWriter<OUTPUT> extends ProtobufIO {
 
         @Override
         public ByteBuffer toOutput() {
-            if (buffer.hasRemaining()) {
-                throw ProtobufSerializationException.mismatch();
-            } else {
-                return buffer;
-            }
+            return buffer;
         }
 
         @Override
