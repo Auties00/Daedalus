@@ -642,20 +642,20 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public int readRawVarInt32() {
-            if (buffer.length - offset < VARINT32_FAST_PATH_BYTES) {
-                var unsafeResult = getVarInt32SlowUnsafe();
-                if (offset > limit) {
-                    throw ProtobufDeserializationException.truncatedMessage();
-                }
-                return unsafeResult;
+            if (buffer.length - offset >= VARINT32_FAST_PATH_BYTES) {
+                var word = getLongLE(buffer, offset);
+                var cont = ~word & VARINT32_CONT_BITS;
+                var spread = cont ^ (cont - 1);
+                var mask = spread & VARINT32_PAYLOAD_BITS;
+                offset += Long.bitCount(spread) >>> 3;
+                return (int) Long.compress(word, mask);
             }
 
-            var word = getLongLE(buffer, offset);
-            var cont = ~word & VARINT32_CONT_BITS;
-            var spread = cont ^ (cont - 1);
-            var mask = spread & VARINT32_PAYLOAD_BITS;
-            offset += Long.bitCount(spread) >>> 3;
-            return (int) Long.compress(word, mask);
+            var unsafeResult = getVarInt32SlowUnsafe();
+            if (offset > limit) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
+            return unsafeResult;
         }
 
         private int getVarInt32SlowUnsafe() {
@@ -680,28 +680,28 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public long readRawVarInt64() {
-            if (buffer.length - offset < VARINT64_FAST_PATH_BYTES) {
-                var unsafeResult = getVarInt64SlowUnsafe();
-                if (offset > limit) {
-                    throw ProtobufDeserializationException.truncatedMessage();
-                }
-                return unsafeResult;
+            if (buffer.length - offset >= VARINT64_FAST_PATH_BYTES) {
+                var lo = getLongLE(buffer, offset);
+                var hi = getLongLE(buffer, offset + Long.BYTES);
+                var loCont = ~lo & VARINT64_LO_CONT_BITS;
+                var loContM1 = loCont - 1;
+                var loSpread = loCont ^ loContM1;
+                var loMask = loSpread & INT64_PEXT_MASK_LOW;
+                var loResult = Long.compress(lo, loMask);
+                var hiEnable = loContM1 >> 63;
+                var hiCont = ~hi & VARINT64_HI_CONT_BITS;
+                var hiSpread = (hiCont ^ (hiCont - 1)) & hiEnable;
+                var hiMask = hiSpread & VARINT64_HI_PAYLOAD_BITS;
+                var hiResult = Long.compress(hi, hiMask);
+                offset += (Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3;
+                return loResult | (hiResult << 56);
             }
 
-            var lo = getLongLE(buffer, offset);
-            var hi = getLongLE(buffer, offset + Long.BYTES);
-            var loCont = ~lo & VARINT64_LO_CONT_BITS;
-            var loContM1 = loCont - 1;
-            var loSpread = loCont ^ loContM1;
-            var loMask = loSpread & INT64_PEXT_MASK_LOW;
-            var loResult = Long.compress(lo, loMask);
-            var hiEnable = loContM1 >> 63;
-            var hiCont = ~hi & VARINT64_HI_CONT_BITS;
-            var hiSpread = (hiCont ^ (hiCont - 1)) & hiEnable;
-            var hiMask = hiSpread & VARINT64_HI_PAYLOAD_BITS;
-            var hiResult = Long.compress(hi, hiMask);
-            offset += (Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3;
-            return loResult | (hiResult << 56);
+            var unsafeResult = getVarInt64SlowUnsafe();
+            if (offset > limit) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
+            return unsafeResult;
         }
 
         private long getVarInt64SlowUnsafe() {
@@ -934,17 +934,17 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public int readRawVarInt32() {
-            if (buffer.remaining() < VARINT32_FAST_PATH_BYTES) {
-                return getVarInt32Slow();
+            if (buffer.remaining() >= VARINT32_FAST_PATH_BYTES) {
+                var position = buffer.position();
+                var word = getLongLE(buffer, position);
+                var cont = ~word & VARINT32_CONT_BITS;
+                var spread = cont ^ (cont - 1);
+                var mask = spread & VARINT32_PAYLOAD_BITS;
+                buffer.position(position + (Long.bitCount(spread) >>> 3));
+                return (int) Long.compress(word, mask);
             }
 
-            var position = buffer.position();
-            var word = getLongLE(buffer, position);
-            var cont = ~word & VARINT32_CONT_BITS;
-            var spread = cont ^ (cont - 1);
-            var mask = spread & VARINT32_PAYLOAD_BITS;
-            buffer.position(position + (Long.bitCount(spread) >>> 3));
-            return (int) Long.compress(word, mask);
+            return getVarInt32Slow();
         }
 
         private int getVarInt32Slow() {
@@ -969,24 +969,25 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public long readRawVarInt64() {
-            if (buffer.remaining() < VARINT64_FAST_PATH_BYTES) {
-                return getVarInt64Slow();
+            if (buffer.remaining() >= VARINT64_FAST_PATH_BYTES) {
+                var offset = buffer.position();
+                var lo = getLongLE(buffer, offset);
+                var hi = getLongLE(buffer, offset + 8);
+                var loCont = ~lo & VARINT64_LO_CONT_BITS;
+                var loContM1 = loCont - 1;
+                var loSpread = loCont ^ loContM1;
+                var loMask = loSpread & INT64_PEXT_MASK_LOW;
+                var loResult = Long.compress(lo, loMask);
+                var hiEnable = loContM1 >> 63;
+                var hiCont = ~hi & VARINT64_HI_CONT_BITS;
+                var hiSpread = (hiCont ^ (hiCont - 1)) & hiEnable;
+                var hiMask = hiSpread & VARINT64_HI_PAYLOAD_BITS;
+                var hiResult = Long.compress(hi, hiMask);
+                buffer.position(offset + ((Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3));
+                return loResult | (hiResult << 56);
             }
-            var offset = buffer.position();
-            var lo = getLongLE(buffer, offset);
-            var hi = getLongLE(buffer, offset + 8);
-            var loCont = ~lo & VARINT64_LO_CONT_BITS;
-            var loContM1 = loCont - 1;
-            var loSpread = loCont ^ loContM1;
-            var loMask = loSpread & INT64_PEXT_MASK_LOW;
-            var loResult = Long.compress(lo, loMask);
-            var hiEnable = loContM1 >> 63;
-            var hiCont = ~hi & VARINT64_HI_CONT_BITS;
-            var hiSpread = (hiCont ^ (hiCont - 1)) & hiEnable;
-            var hiMask = hiSpread & VARINT64_HI_PAYLOAD_BITS;
-            var hiResult = Long.compress(hi, hiMask);
-            buffer.position(offset + ((Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3));
-            return loResult | (hiResult << 56);
+
+            return getVarInt64Slow();
         }
 
         private long getVarInt64Slow() {
@@ -1214,16 +1215,16 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public int readRawVarInt32() {
-            if (segment.byteSize() - position < VARINT32_FAST_PATH_BYTES) {
-                return getVarInt32Slow();
+            if (segment.byteSize() - position >= VARINT32_FAST_PATH_BYTES) {
+                var word = getLongLE(segment, position);
+                var cont = ~word & VARINT32_CONT_BITS;
+                var spread = cont ^ (cont - 1);
+                var mask = spread & VARINT32_PAYLOAD_BITS;
+                position += Long.bitCount(spread) >>> 3;
+                return (int) Long.compress(word, mask);
             }
 
-            var word = getLongLE(segment, position);
-            var cont = ~word & VARINT32_CONT_BITS;
-            var spread = cont ^ (cont - 1);
-            var mask = spread & VARINT32_PAYLOAD_BITS;
-            position += Long.bitCount(spread) >>> 3;
-            return (int) Long.compress(word, mask);
+            return getVarInt32Slow();
         }
 
         private int getVarInt32Slow() {
@@ -1248,24 +1249,24 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public long readRawVarInt64() {
-            if (segment.byteSize() - position < VARINT64_FAST_PATH_BYTES) {
-                return getVarInt64Slow();
+            if (segment.byteSize() - position >= VARINT64_FAST_PATH_BYTES) {
+                var lo = getLongLE(segment, position);
+                var hi = getLongLE(segment, position + Long.BYTES);
+                var loCont = ~lo & VARINT64_LO_CONT_BITS;
+                var loContM1 = loCont - 1;
+                var loSpread = loCont ^ loContM1;
+                var loMask = loSpread & INT64_PEXT_MASK_LOW;
+                var loResult = Long.compress(lo, loMask);
+                var hiEnable = loContM1 >> 63;
+                var hiCont = ~hi & VARINT64_HI_CONT_BITS;
+                var hiSpread = (hiCont ^ (hiCont - 1)) & hiEnable;
+                var hiMask = hiSpread & VARINT64_HI_PAYLOAD_BITS;
+                var hiResult = Long.compress(hi, hiMask);
+                position += (Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3;
+                return loResult | (hiResult << 56);
             }
 
-            var lo = getLongLE(segment, position);
-            var hi = getLongLE(segment, position + Long.BYTES);
-            var loCont = ~lo & VARINT64_LO_CONT_BITS;
-            var loContM1 = loCont - 1;
-            var loSpread = loCont ^ loContM1;
-            var loMask = loSpread & INT64_PEXT_MASK_LOW;
-            var loResult = Long.compress(lo, loMask);
-            var hiEnable = loContM1 >> 63;
-            var hiCont = ~hi & VARINT64_HI_CONT_BITS;
-            var hiSpread = (hiCont ^ (hiCont - 1)) & hiEnable;
-            var hiMask = hiSpread & VARINT64_HI_PAYLOAD_BITS;
-            var hiResult = Long.compress(hi, hiMask);
-            position += (Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3;
-            return loResult | (hiResult << 56);
+            return getVarInt64Slow();
         }
 
         private long getVarInt64Slow() {
@@ -1635,21 +1636,21 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
         @Override
         public int readRawVarInt32() {
             var expectedRead = VARINT32_FAST_PATH_BYTES - Math.max(bufferLimit - bufferPosition, 0);
-            if(expectedRead > 0 && consumeStream(buffer, bufferPosition, expectedRead) != expectedRead) {
-                var unsafeResult = getVarInt32SlowUnsafe();
-                if(bufferPosition > bufferLimit) {
-                    throw ProtobufDeserializationException.truncatedMessage();
-                }
-                return unsafeResult;
+            if (expectedRead <= 0 || consumeStream(buffer, bufferPosition, expectedRead) == expectedRead) {
+                var word = getLongLE(buffer, 0);
+                var cont = ~word & VARINT32_CONT_BITS;
+                var spread = cont ^ (cont - 1);
+                var mask = spread & VARINT32_PAYLOAD_BITS;
+                var read = Long.bitCount(spread) >>> 3;
+                bufferPosition += read;
+                return (int) Long.compress(word, mask);
             }
 
-            var word = getLongLE(buffer, 0);
-            var cont = ~word & VARINT32_CONT_BITS;
-            var spread = cont ^ (cont - 1);
-            var mask = spread & VARINT32_PAYLOAD_BITS;
-            var read = Long.bitCount(spread) >>> 3;
-            bufferPosition += read;
-            return (int) Long.compress(word, mask);
+            var unsafeResult = getVarInt32SlowUnsafe();
+            if (bufferPosition > bufferLimit) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
+            return unsafeResult;
         }
 
         // This method is unsafe
@@ -1678,28 +1679,28 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
         @Override
         public long readRawVarInt64() {
             var expectedRead = VARINT64_FAST_PATH_BYTES - Math.max(bufferLimit - bufferPosition, 0);
-            if(expectedRead > 0 && consumeStream(buffer, bufferPosition, expectedRead) != expectedRead) {
-                var unsafeResult = getVarInt64SlowUnsafe();
-                if(bufferPosition > bufferLimit) {
-                    throw ProtobufDeserializationException.truncatedMessage();
-                }
-                return unsafeResult;
+            if (expectedRead <= 0 || consumeStream(buffer, bufferPosition, expectedRead) == expectedRead) {
+                var lo = getLongLE(buffer, 0);
+                var hi = getLongLE(buffer, Long.BYTES);
+                var loCont = ~lo & VARINT64_LO_CONT_BITS;
+                var loContM1 = loCont - 1;
+                var loSpread = loCont ^ loContM1;
+                var loMask = loSpread & INT64_PEXT_MASK_LOW;
+                var loResult = Long.compress(lo, loMask);
+                var hiEnable = loContM1 >> 63;
+                var hiCont = ~hi & VARINT64_HI_CONT_BITS;
+                var hiSpread = (hiCont ^ (hiCont - 1)) & hiEnable;
+                var hiMask = hiSpread & VARINT64_HI_PAYLOAD_BITS;
+                var hiResult = Long.compress(hi, hiMask);
+                bufferPosition += (Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3;
+                return loResult | (hiResult << 56);
             }
 
-            var lo = getLongLE(buffer, 0);
-            var hi = getLongLE(buffer, Long.BYTES);
-            var loCont = ~lo & VARINT64_LO_CONT_BITS;
-            var loContM1 = loCont - 1;
-            var loSpread = loCont ^ loContM1;
-            var loMask = loSpread & INT64_PEXT_MASK_LOW;
-            var loResult = Long.compress(lo, loMask);
-            var hiEnable = loContM1 >> 63;
-            var hiCont = ~hi & VARINT64_HI_CONT_BITS;
-            var hiSpread = (hiCont ^ (hiCont - 1)) & hiEnable;
-            var hiMask = hiSpread & VARINT64_HI_PAYLOAD_BITS;
-            var hiResult = Long.compress(hi, hiMask);
-            bufferPosition += (Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3;
-            return loResult | (hiResult << 56);
+            var unsafeResult = getVarInt64SlowUnsafe();
+            if (bufferPosition > bufferLimit) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
+            return unsafeResult;
         }
 
         // This method is unsafe
