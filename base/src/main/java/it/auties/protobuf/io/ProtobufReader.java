@@ -13,6 +13,7 @@ package it.auties.protobuf.io;
 import it.auties.protobuf.exception.ProtobufDeserializationException;
 import it.auties.protobuf.model.ProtobufUnknownValue;
 import it.auties.protobuf.model.ProtobufWireType;
+import it.auties.protobuf.platform.BMI2;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -642,7 +643,7 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public int readRawVarInt32() {
-            if (buffer.length - offset >= VARINT32_FAST_PATH_BYTES) {
+            if (BMI2.isSupported() && buffer.length - offset >= VARINT32_FAST_PATH_BYTES) {
                 var word = getLongLE(buffer, offset);
                 var cont = ~word & VARINT32_CONT_BITS;
                 var spread = cont ^ (cont - 1);
@@ -680,7 +681,7 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public long readRawVarInt64() {
-            if (buffer.length - offset >= VARINT64_FAST_PATH_BYTES) {
+            if (BMI2.isSupported() && buffer.length - offset >= VARINT64_FAST_PATH_BYTES) {
                 var lo = getLongLE(buffer, offset);
                 var hi = getLongLE(buffer, offset + Long.BYTES);
                 var loCont = ~lo & VARINT64_LO_CONT_BITS;
@@ -934,7 +935,7 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public int readRawVarInt32() {
-            if (buffer.remaining() >= VARINT32_FAST_PATH_BYTES) {
+            if (BMI2.isSupported() && buffer.remaining() >= VARINT32_FAST_PATH_BYTES) {
                 var position = buffer.position();
                 var word = getLongLE(buffer, position);
                 var cont = ~word & VARINT32_CONT_BITS;
@@ -969,7 +970,7 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public long readRawVarInt64() {
-            if (buffer.remaining() >= VARINT64_FAST_PATH_BYTES) {
+            if (BMI2.isSupported() && buffer.remaining() >= VARINT64_FAST_PATH_BYTES) {
                 var offset = buffer.position();
                 var lo = getLongLE(buffer, offset);
                 var hi = getLongLE(buffer, offset + 8);
@@ -1215,7 +1216,7 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public int readRawVarInt32() {
-            if (segment.byteSize() - position >= VARINT32_FAST_PATH_BYTES) {
+            if (BMI2.isSupported() && segment.byteSize() - position >= VARINT32_FAST_PATH_BYTES) {
                 var word = getLongLE(segment, position);
                 var cont = ~word & VARINT32_CONT_BITS;
                 var spread = cont ^ (cont - 1);
@@ -1249,7 +1250,7 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
 
         @Override
         public long readRawVarInt64() {
-            if (segment.byteSize() - position >= VARINT64_FAST_PATH_BYTES) {
+            if (BMI2.isSupported() && segment.byteSize() - position >= VARINT64_FAST_PATH_BYTES) {
                 var lo = getLongLE(segment, position);
                 var hi = getLongLE(segment, position + Long.BYTES);
                 var loCont = ~lo & VARINT64_LO_CONT_BITS;
@@ -1636,7 +1637,7 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
         @Override
         public int readRawVarInt32() {
             var expectedRead = VARINT32_FAST_PATH_BYTES - Math.max(bufferLimit - bufferPosition, 0);
-            if (expectedRead <= 0 || consumeStream(buffer, bufferPosition, expectedRead) == expectedRead) {
+            if (BMI2.isSupported() &&  (expectedRead <= 0 || consumeStream(buffer, bufferPosition, expectedRead) == expectedRead)) {
                 var word = getLongLE(buffer, 0);
                 var cont = ~word & VARINT32_CONT_BITS;
                 var spread = cont ^ (cont - 1);
@@ -1679,7 +1680,7 @@ public abstract non-sealed class ProtobufReader extends ProtobufIO {
         @Override
         public long readRawVarInt64() {
             var expectedRead = VARINT64_FAST_PATH_BYTES - Math.max(bufferLimit - bufferPosition, 0);
-            if (expectedRead <= 0 || consumeStream(buffer, bufferPosition, expectedRead) == expectedRead) {
+            if (BMI2.isSupported() && (expectedRead <= 0 || consumeStream(buffer, bufferPosition, expectedRead) == expectedRead)) {
                 var lo = getLongLE(buffer, 0);
                 var hi = getLongLE(buffer, Long.BYTES);
                 var loCont = ~lo & VARINT64_LO_CONT_BITS;

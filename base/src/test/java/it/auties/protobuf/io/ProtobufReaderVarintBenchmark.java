@@ -1,9 +1,8 @@
 package it.auties.protobuf.io;
 
+import it.auties.protobuf.platform.BMI2;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -19,7 +18,6 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Warmup(iterations = 5, time = 1)
 @Measurement(iterations = 5, time = 1)
-@Fork(value = 2, jvmArgsAppend = {"--add-modules=jdk.incubator.vector"})
 @State(Scope.Thread)
 public class ProtobufReaderVarintBenchmark {
 
@@ -100,7 +98,7 @@ public class ProtobufReaderVarintBenchmark {
     }
 
     @CompilerControl(CompilerControl.Mode.DONT_INLINE)
-    public static int decodeBranchy(byte[] buffer, int offset) {
+    public static int decodeGoogle(byte[] buffer, int offset) {
         int x;
         if ((x = buffer[offset++]) >= 0) {
             return x;
@@ -117,51 +115,46 @@ public class ProtobufReaderVarintBenchmark {
     }
 
     @CompilerControl(CompilerControl.Mode.DONT_INLINE)
-    public static int decodePext(byte[] buffer, int offset) {
-        var word = (long) LONG_LE.get(buffer, offset);
-        var cont = ~word & VARINT32_CONT_BITS;
-        var spread = cont ^ (cont - 1);
-        var mask = spread & VARINT32_PAYLOAD_BITS;
-        return (int) Long.compress(word, mask);
-    }
-
-    @CompilerControl(CompilerControl.Mode.DONT_INLINE)
-    public static int decodePextFallback(byte[] buffer, int offset, int end) {
-        if (offset + 8 <= end) {
+    public static int decodePext(byte[] buffer, int offset, int end) {
+        if (BMI2.isSupported() && offset + 8 <= end) {
             var word = (long) LONG_LE.get(buffer, offset);
             var cont = ~word & VARINT32_CONT_BITS;
             var spread = cont ^ (cont - 1);
             var mask = spread & VARINT32_PAYLOAD_BITS;
             return (int) Long.compress(word, mask);
         }
-        return decodeBranchy(buffer, offset);
+        return decodeGoogle(buffer, offset);
     }
 
     @Benchmark
-    public void branchy(Blackhole bh) {
+    @Fork(value = 2)
+    public void google(Blackhole bh) {
         for (int i = 0; i < COUNT; i++) {
-            bh.consume(decodeBranchy(buffer, offsets[i]));
+            bh.consume(decodeGoogle(buffer, offsets[i]));
         }
     }
 
     @Benchmark
+    @Fork(value = 2, jvmArgsAppend = {
+            "--add-modules=jdk.incubator.vector",
+            "-XX:+UnlockDiagnosticVMOptions",
+            "-XX:ControlIntrinsic=+_compress_l"
+    })
     public void pext(Blackhole bh) {
         for (int i = 0; i < COUNT; i++) {
-            bh.consume(decodePext(buffer, offsets[i]));
+            bh.consume(decodePext(bufferTight, offsets[i], end));
         }
     }
 
     @Benchmark
-    public void pextFallback(Blackhole bh) {
+    @Fork(value = 2, jvmArgsAppend = {
+            "--add-modules=jdk.incubator.vector",
+            "-XX:+UnlockDiagnosticVMOptions",
+            "-XX:ControlIntrinsic=-_compress_l"
+    })
+    public void pextNoIntrinsic(Blackhole bh) {
         for (int i = 0; i < COUNT; i++) {
-            bh.consume(decodePextFallback(bufferTight, offsets[i], end));
-        }
-    }
-
-    @Benchmark
-    public void pextFallbackPadded(Blackhole bh) {
-        for (int i = 0; i < COUNT; i++) {
-            bh.consume(decodePextFallback(buffer, offsets[i], buffer.length));
+            bh.consume(decodePext(buffer, offsets[i], end));
         }
     }
 }
