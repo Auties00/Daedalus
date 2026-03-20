@@ -3,8 +3,8 @@ package it.auties.protobuf.builtin;
 import it.auties.protobuf.annotation.ProtobufDeserializer;
 import it.auties.protobuf.annotation.ProtobufMixin;
 import it.auties.protobuf.annotation.ProtobufSerializer;
-import it.auties.protobuf.io.ProtobufReader;
-import it.auties.protobuf.io.ProtobufWriter;
+import it.auties.protobuf.io.reader.ProtobufReader;
+import it.auties.protobuf.io.writer.ProtobufWriter;
 
 import java.lang.StableValue;
 import java.nio.charset.StandardCharsets;

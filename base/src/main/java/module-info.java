@@ -7,4 +7,7 @@ module it.auties.protobuf.base {
     exports it.auties.protobuf.io;
     exports it.auties.protobuf.model;
     exports it.auties.protobuf.builtin;
+    exports it.auties.protobuf.io.reader;
+    exports it.auties.protobuf.io.writer;
+    exports it.auties.protobuf.io.calculator;
 }

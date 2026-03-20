@@ -1,7 +1,7 @@
 package it.auties.protobuf.annotation;
 
-import it.auties.protobuf.io.ProtobufReader;
-import it.auties.protobuf.io.ProtobufWriter;
+import it.auties.protobuf.io.reader.ProtobufReader;
+import it.auties.protobuf.io.writer.ProtobufWriter;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

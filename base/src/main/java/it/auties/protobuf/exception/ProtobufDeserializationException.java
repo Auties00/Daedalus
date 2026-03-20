@@ -1,5 +1,7 @@
 package it.auties.protobuf.exception;
 
+import it.auties.protobuf.io.reader.ProtobufReader;
+
 /**
  * Represents an exception that occurs during the deserialization of a Protocol Buffers message.
  * This class extends {@link ProtobufException} and provides various static methods to create
@@ -108,7 +110,7 @@ public final class ProtobufDeserializationException extends ProtobufException {
      * @param size the negative length value that was encountered
      * @return a {@code ProtobufDeserializationException} with a message explaining the error
      */
-    public static ProtobufDeserializationException negativeLength(int size) {
+    public static ProtobufDeserializationException negativeLength(long size) {
         return new ProtobufDeserializationException("A message specified a negative block length for a length-delimited field: " + size);
     }
 
@@ -131,7 +133,7 @@ public final class ProtobufDeserializationException extends ProtobufException {
      * @return a {@code ProtobufDeserializationException} with a detailed message specifying the reserved index
      */
     @SuppressWarnings("unused") // Used by ProtobufObjectDeserializationGenerator
-    public static ProtobufDeserializationException reservedIndex(int index) {
+    public static ProtobufDeserializationException reservedIndex(long index) {
         return new ProtobufDeserializationException(index + " is marked as reserved");
     }
 
@@ -144,5 +146,17 @@ public final class ProtobufDeserializationException extends ProtobufException {
      */
     public static ProtobufDeserializationException invalidPropertyState(String reason) {
         return new ProtobufDeserializationException("Invalid property state: " + reason);
+    }
+
+    /**
+     * Creates a new {@code ProtobufDeserializationException} indicating that a length delimited property was too large to be deserialized.
+     * <p>
+     * This can happen, for example, if a caller attempts to read a length delimited property with a {@code length > Integer.MAX_VALUE} from a {@link ProtobufReader} backed by a {@code byte[]}.
+     *
+     * @param length the length of the length delimited property that was too large to be deserialized
+     * @return a {@code ProtobufDeserializationException} with a detailed message describing the invalid state
+     */
+    public static ProtobufDeserializationException lengthDelimitedPropertyOverflow(long length) {
+        return new ProtobufDeserializationException("Message size(" + length + ") is too large to be deserialized");
     }
 }

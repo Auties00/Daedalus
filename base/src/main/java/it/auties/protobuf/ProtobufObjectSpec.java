@@ -3,7 +3,7 @@ package it.auties.protobuf;
 
 import it.auties.protobuf.exception.ProtobufDeserializationException;
 import it.auties.protobuf.model.ProtobufUnknownValue;
-import it.auties.protobuf.io.ProtobufReader;
+import it.auties.protobuf.io.reader.ProtobufReader;
 
 import java.util.HashMap;
 import java.util.Map;

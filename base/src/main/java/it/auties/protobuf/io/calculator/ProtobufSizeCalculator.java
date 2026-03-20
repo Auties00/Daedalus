@@ -1,4 +1,4 @@
-package it.auties.protobuf.io;
+package it.auties.protobuf.io.calculator;
 
 import it.auties.protobuf.model.ProtobufWireType;
 
@@ -62,12 +62,11 @@ public final class ProtobufSizeCalculator {
     }
 
     public static long getBoolPropertySize(long fieldIndex, Boolean value) {
-        if(value == null) {
-            return 0;
-        } else {
+        if (value != null) {
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_VAR_INT)
                    + 1; // getVarInt64Size(0 or 1) = 1
         }
+        return 0;
     }
 
     public static long getFixed64PropertySize(long fieldIndex, long ignored) {
@@ -76,12 +75,11 @@ public final class ProtobufSizeCalculator {
     }
 
     public static long getFixed64PropertySize(long fieldIndex, Long value) {
-        if(value == null) {
-            return 0;
-        } else {
+        if (value != null) {
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_FIXED64)
                    + Long.BYTES;
         }
+        return 0;
     }
 
     public static long getLengthDelimitedPropertySize(long fieldIndex, long length) {
@@ -96,18 +94,15 @@ public final class ProtobufSizeCalculator {
     }
 
     public static long getFixed32PropertySize(long fieldIndex, Integer value) {
-        if(value == null) {
-            return 0;
-        } else {
+        if (value != null) {
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_FIXED32)
                    + Integer.BYTES;
         }
+        return 0;
     }
 
     public static int getVarIntPackedSize(long fieldIndex, byte[] values) {
-        if (values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valueSize = 0;
             for (var value : values) {
                 valueSize += getVarInt64Size(value);
@@ -116,12 +111,11 @@ public final class ProtobufSizeCalculator {
                    + getVarInt64Size(valueSize)
                    + valueSize;
         }
+        return 0;
     }
 
     public static int getVarIntPackedSize(long fieldIndex, short[] values) {
-        if (values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valueSize = 0;
             for (var value : values) {
                 valueSize += getVarInt64Size(value);
@@ -130,12 +124,11 @@ public final class ProtobufSizeCalculator {
                    + getVarInt64Size(valueSize)
                    + valueSize;
         }
+        return 0;
     }
 
     public static int getVarIntPackedSize(long fieldIndex, int[] values) {
-        if (values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valueSize = 0;
             for (var value : values) {
                 valueSize += getVarInt64Size(value);
@@ -144,12 +137,11 @@ public final class ProtobufSizeCalculator {
                    + getVarInt64Size(valueSize)
                    + valueSize;
         }
+        return 0;
     }
 
     public static int getVarIntPackedSize(long fieldIndex, long[] values) {
-        if (values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valueSize = 0;
             for (var value : values) {
                 valueSize += getVarInt64Size(value);
@@ -158,115 +150,106 @@ public final class ProtobufSizeCalculator {
                    + getVarInt64Size(valueSize)
                    + valueSize;
         }
+        return 0;
     }
 
     public static int getBoolPackedSize(long fieldIndex, boolean[] values) {
-        if(values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valuesSize = values.length;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
                    + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
+        return 0;
     }
 
     public static int getFixed64PackedSize(long fieldIndex, byte[] values) {
-        if (values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valuesSize = values.length * Long.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
                    + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
+        return 0;
     }
 
     public static int getFixed64PackedSize(long fieldIndex, short[] values) {
-        if (values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valuesSize = values.length * Long.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
                    + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
+        return 0;
     }
 
     public static int getFixed64PackedSize(long fieldIndex, int[] values) {
-        if (values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valuesSize = values.length * Long.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
                    + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
+        return 0;
     }
 
     public static int getFixed64PackedSize(long fieldIndex, long[] values) {
-        if (values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valuesSize = values.length * Long.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
                    + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
+        return 0;
     }
 
     public static int getFixed32PackedSize(long fieldIndex, byte[] values) {
-        if (values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valuesSize = values.length * Integer.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
                    + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
+        return 0;
     }
 
     public static int getFixed32PackedSize(long fieldIndex, short[] values) {
-        if (values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valuesSize = values.length * Integer.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
                    + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
+        return 0;
     }
     
     public static int getFixed32PackedSize(long fieldIndex, int[] values) {
-        if (values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valuesSize = values.length * Integer.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
                    + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
+        return 0;
     }
 
     public static int getFloatPackedSize(long fieldIndex, float[] values) {
-        if (values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valuesSize = values.length * Float.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
                    + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
+        return 0;
     }
 
     public static int getDoublePackedSize(long fieldIndex, double[] values) {
-        if (values == null) {
-            return 0;
-        } else {
+        if (values != null) {
             var valuesSize = values.length * Double.BYTES;
             return getPropertyWireTagSize(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED)
                    + getVarInt64Size(valuesSize)
                    + valuesSize;
         }
+        return 0;
     }
 }

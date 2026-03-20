@@ -1,0 +1,156 @@
+package it.auties.protobuf.io.writer;
+
+import it.auties.protobuf.exception.ProtobufSerializationException;
+import it.auties.protobuf.io.ProtobufDataType;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
+import java.nio.ByteBuffer;
+
+final class ProtobufStreamWriter extends ProtobufWriter<OutputStream> {
+    private static final int BUFFER_LENGTH = 8192;
+
+    private final OutputStream outputStream;
+    private final byte[] buffer;
+
+    ProtobufStreamWriter(OutputStream outputStream) {
+        this(outputStream, BUFFER_LENGTH);
+    }
+
+    ProtobufStreamWriter(OutputStream outputStream, int tempBufferLength) {
+        this.outputStream = outputStream;
+        this.buffer = new byte[tempBufferLength];
+    }
+
+    @Override
+    public void writeRawByte(byte entry) {
+        try {
+            outputStream.write(entry);
+        } catch (IOException e) {
+            throw new ProtobufSerializationException("Cannot write to output stream", e);
+        }
+    }
+
+    @Override
+    public void writeRawBytes(byte[] entry, int offset, int length) {
+        try {
+            outputStream.write(entry, offset, length);
+        } catch (IOException e) {
+            throw new ProtobufSerializationException("Cannot write to output stream", e);
+        }
+    }
+
+    @Override
+    public void writeRawBuffer(ByteBuffer entry) {
+        try {
+            if (entry.hasArray()) {
+                outputStream.write(entry.array(), entry.arrayOffset() + entry.position(), entry.remaining());
+                return;
+            }
+
+            while (entry.hasRemaining()) {
+                var readable = Math.min(entry.remaining(), buffer.length);
+                entry.put(buffer, entry.position(), readable);
+                outputStream.write(buffer, 0, readable);
+            }
+        } catch (IOException e) {
+            throw new ProtobufSerializationException("Cannot write to output stream", e);
+        }
+    }
+
+    @Override
+    public void writeRawMemorySegment(MemorySegment entry) {
+        try {
+            var heapBase = entry.heapBase();
+            if(heapBase.isPresent() && heapBase.get() instanceof byte[] array) {
+                writeRawBytes(array);
+                return;
+            }
+
+            var offset = 0L;
+            var limit = entry.byteSize();
+            while (offset < limit) {
+                var readable = (int) Math.min(limit - offset, buffer.length);
+                MemorySegment.copy(
+                        entry,
+                        ValueLayout.JAVA_BYTE,
+                        offset,
+                        buffer,
+                        0,
+                        readable
+                );
+                outputStream.write(buffer, 0, readable);
+                offset += readable;
+            }
+        } catch (IOException e) {
+            throw new ProtobufSerializationException("Cannot write to output stream", e);
+        }
+    }
+
+    @Override
+    public void writeRawFixedInt32(int entry) {
+        try {
+            ARRAY_AS_INT32_LE.set(buffer, 0, entry);
+            outputStream.write(buffer, 0, Integer.BYTES);
+        } catch (IOException e) {
+            throw new ProtobufSerializationException("Cannot write to output stream", e);
+        }
+    }
+
+    @Override
+    public void writeRawFixedInt64(long entry) {
+        try {
+            ARRAY_AS_INT64_LE.set(buffer, 0, entry);
+            outputStream.write(buffer, 0, Long.BYTES);
+        } catch (IOException e) {
+            throw new ProtobufSerializationException("Cannot write to output stream", e);
+        }
+    }
+
+    @Override
+    public void writeRawFloat(float entry) {
+        try {
+            ARRAY_AS_FLOAT_LE.set(buffer, 0, entry);
+            outputStream.write(buffer, 0, Float.BYTES);
+        } catch (IOException e) {
+            throw new ProtobufSerializationException("Cannot write to output stream", e);
+        }
+    }
+
+    @Override
+    public void writeRawDouble(double entry) {
+        try {
+            ARRAY_AS_DOUBLE_LE.set(buffer, 0, entry);
+            outputStream.write(buffer, 0, Double.BYTES);
+        } catch (IOException e) {
+            throw new ProtobufSerializationException("Cannot write to output stream", e);
+        }
+    }
+
+    @Override
+    public void writeRawVarInt32(int entry) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeRawVarInt64(long entry) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public OutputStream toOutput() {
+        return outputStream;
+    }
+
+    @Override
+    public ProtobufDataType rawDataTypePreference() {
+        return ProtobufDataType.BYTE_ARRAY;
+    }
+
+    @Override
+    public void close() throws IOException {
+        outputStream.close();
+    }
+}
