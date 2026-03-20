@@ -115,6 +115,51 @@ final class ProtobufMemorySegmentWriter extends ProtobufWriter<MemorySegment> {
     }
 
     @Override
+    public void writeRawPackedFixedInt32(int[] input) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeRawPackedFixedInt64(long[] input) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeRawPackedFloat(float[] input) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeRawPackedDouble(double[] input) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeRawPackedVarInt32(int[] input) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeRawPackedZigZagVarInt32(int[] input) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeRawPackedVarInt64(long[] input) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeRawPackedZigZagVarInt64(long[] input) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void writeRawPackedBool(boolean[] input) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public MemorySegment toOutput() {
         return memorySegment;
     }
