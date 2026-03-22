@@ -12,6 +12,7 @@ import java.util.function.Supplier;
  *
  * @see ProtobufWireType
  */
+@SuppressWarnings("preview")
 public sealed interface ProtobufUnknownValue {
     /**
      * Represents an unknown field value that has {@link ProtobufWireType#WIRE_TYPE_VAR_INT} wire type.
@@ -65,7 +66,7 @@ public sealed interface ProtobufUnknownValue {
              */
             @Override
             public Supplier<String> asString() {
-                return StableValue.supplier(() -> new String(value, StandardCharsets.UTF_8));
+                return LazyConstant.of(() -> new String(value, StandardCharsets.UTF_8));
             }
         }
 
@@ -91,7 +92,7 @@ public sealed interface ProtobufUnknownValue {
              */
             @Override
             public Supplier<String> asString() {
-                return StableValue.supplier(() -> {
+                return LazyConstant.of(() -> {
                     if (value.hasArray()) {
                         return new String(value.array(), value.arrayOffset() + value.position(), value.remaining(), StandardCharsets.UTF_8);
                     } else {
@@ -137,7 +138,12 @@ public sealed interface ProtobufUnknownValue {
              */
             @Override
             public Supplier<String> asString() {
-                return StableValue.supplier(() -> value.getString(0, StandardCharsets.UTF_8));
+                return LazyConstant.of(() -> {
+                    var heapBase = value.heapBase();
+                    return heapBase.isPresent() && heapBase.get() instanceof byte[] array
+                            ? new String(array, StandardCharsets.UTF_8)
+                            : value.getString(0, StandardCharsets.UTF_8);
+                });
             }
         }
     }

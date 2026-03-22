@@ -6,27 +6,29 @@ import it.auties.protobuf.annotation.ProtobufMixin;
 import it.auties.protobuf.annotation.ProtobufSerializer;
 import it.auties.protobuf.exception.ProtobufSerializationException;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
+import java.util.concurrent.*;
 
 @SuppressWarnings("unused")
 @ProtobufMixin
 public final class FutureMixin {
     @ProtobufDefaultValue
-    public static <T> CompletableFuture<T> newCompletableFuture() {
+    public static <T> Future<T> newFuture() {
         return CompletableFuture.completedFuture(null);
     }
 
     @ProtobufDeserializer
-    public static <T> CompletableFuture<T> ofNullable(T value) {
+    public static <T> Future<T> ofValue(T value) {
         return CompletableFuture.completedFuture(value);
     }
 
     @ProtobufSerializer
-    public static <T> T toValue(CompletableFuture<T> future) {
+    public static <T> T toValue(Future<T> future) {
         try {
-            return future == null ? null : future.getNow(null);
-        } catch (CompletionException ex) {
+            return future == null ? null : future.get();
+        } catch (ExecutionException | CancellationException ex) {
+            throw new ProtobufSerializationException("Cannot serialize future", ex);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
             throw new ProtobufSerializationException("Cannot serialize future", ex);
         }
     }

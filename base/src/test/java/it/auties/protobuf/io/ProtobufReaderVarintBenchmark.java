@@ -116,7 +116,7 @@ public class ProtobufReaderVarintBenchmark {
 
     @CompilerControl(CompilerControl.Mode.DONT_INLINE)
     public static int decodePext(byte[] buffer, int offset, int end) {
-        if (BMI2.isSupported() && offset + 8 <= end) {
+        if (BMI2.isHardwareSupported() && offset + 8 <= end) {
             var word = (long) LONG_LE.get(buffer, offset);
             var cont = ~word & VARINT32_CONT_BITS;
             var spread = cont ^ (cont - 1);

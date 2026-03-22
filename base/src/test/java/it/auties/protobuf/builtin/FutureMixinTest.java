@@ -4,6 +4,8 @@ import it.auties.protobuf.exception.ProtobufSerializationException;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -12,64 +14,64 @@ class FutureMixinTest {
     // Default value
 
     @Test
-    void newCompletableFutureIsCompleted() {
-        var result = FutureMixin.newCompletableFuture();
+    void newFutureIsCompleted() {
+        var result = FutureMixin.newFuture();
         assertTrue(result.isDone());
     }
 
     @Test
-    void newCompletableFutureHasNullValue() {
-        var result = FutureMixin.newCompletableFuture();
-        assertNull(result.getNow(new Object()));
+    void newFutureHasNullValue() throws ExecutionException, InterruptedException {
+        var result = FutureMixin.newFuture();
+        assertNull(result.get());
     }
 
     @Test
-    void newCompletableFutureIsNotCompletedExceptionally() {
-        var result = FutureMixin.newCompletableFuture();
-        assertFalse(result.isCompletedExceptionally());
+    void newFutureIsNotCompletedExceptionally() {
+        var result = FutureMixin.newFuture();
+        assertFalse(result.isDone());
     }
 
     @Test
-    void newCompletableFutureReturnsDistinctInstances() {
-        assertNotSame(FutureMixin.newCompletableFuture(), FutureMixin.newCompletableFuture());
+    void newFutureReturnsDistinctInstances() {
+        assertNotSame(FutureMixin.newFuture(), FutureMixin.newFuture());
     }
 
     // Deserializer
 
     @Test
-    void ofNullableWithNullValue() {
-        CompletableFuture<String> result = FutureMixin.ofNullable(null);
+    void ofNullableWithNullValue() throws ExecutionException, InterruptedException {
+        Future<String> result = FutureMixin.ofValue(null);
         assertNotNull(result);
         assertTrue(result.isDone());
-        assertNull(result.getNow("fallback"));
+        assertNull(result.get());
     }
 
     @Test
-    void ofNullableWithStringValue() {
-        var result = FutureMixin.ofNullable("hello");
+    void ofNullableWithStringValue() throws ExecutionException, InterruptedException {
+        var result = FutureMixin.ofValue("hello");
         assertTrue(result.isDone());
-        assertEquals("hello", result.getNow(null));
+        assertEquals("hello", result.get());
     }
 
     @Test
-    void ofNullableWithIntegerValue() {
-        var result = FutureMixin.ofNullable(42);
+    void ofNullableWithIntegerValue() throws ExecutionException, InterruptedException {
+        var result = FutureMixin.ofValue(42);
         assertTrue(result.isDone());
-        assertEquals(42, result.getNow(null));
+        assertEquals(42, result.get());
     }
 
     @Test
-    void ofNullableWithComplexObject() {
+    void ofNullableWithComplexObject() throws ExecutionException, InterruptedException {
         var list = java.util.List.of(1, 2, 3);
-        var result = FutureMixin.ofNullable(list);
+        var result = FutureMixin.ofValue(list);
         assertTrue(result.isDone());
-        assertSame(list, result.getNow(null));
+        assertSame(list, result.get());
     }
 
     @Test
     void ofNullableIsNotCompletedExceptionally() {
-        var result = FutureMixin.ofNullable("test");
-        assertFalse(result.isCompletedExceptionally());
+        var result = FutureMixin.ofValue("test");
+        assertFalse(result.isDone());
     }
 
     // Serializer
@@ -110,20 +112,20 @@ class FutureMixinTest {
     @Test
     void roundTripWithStringValue() {
         String original = "round-trip";
-        var future = FutureMixin.ofNullable(original);
+        var future = FutureMixin.ofValue(original);
         String result = FutureMixin.toValue(future);
         assertEquals(original, result);
     }
 
     @Test
     void roundTripWithNullValue() {
-        var future = FutureMixin.ofNullable(null);
+        var future = FutureMixin.ofValue(null);
         assertNull(FutureMixin.toValue(future));
     }
 
     @Test
     void roundTripWithIntegerValue() {
-        var future = FutureMixin.ofNullable(Integer.MAX_VALUE);
+        var future = FutureMixin.ofValue(Integer.MAX_VALUE);
         assertEquals(Integer.MAX_VALUE, FutureMixin.toValue(future));
     }
 }

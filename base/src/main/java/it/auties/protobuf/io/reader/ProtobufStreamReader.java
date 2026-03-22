@@ -253,7 +253,7 @@ class ProtobufStreamReader extends ProtobufReader {
     public int readRawVarInt32() {
         assertReadable();
 
-        if (tryEnsureAvailable(VARINT32_FAST_PATH_BYTES) && BMI2.isSupported()) {
+        if (tryEnsureAvailable(VARINT32_FAST_PATH_BYTES) && BMI2.isHardwareSupported()) {
             var word = (long) ARRAY_AS_INT64_LE.get(buffer, bufferPosition);
             var cont = ~word & VARINT32_CONT_BITS;
             var spread = cont ^ (cont - 1);
@@ -303,7 +303,7 @@ class ProtobufStreamReader extends ProtobufReader {
     public long readRawVarInt64() {
         assertReadable();
 
-        if (tryEnsureAvailable(VARINT64_FAST_PATH_BYTES) && BMI2.isSupported()) {
+        if (tryEnsureAvailable(VARINT64_FAST_PATH_BYTES) && BMI2.isHardwareSupported()) {
             var lo = (long) ARRAY_AS_INT64_LE.get(buffer, bufferPosition);
             var hi = (long) ARRAY_AS_INT64_LE.get(buffer, bufferPosition + Long.BYTES);
             var loCont = ~lo & VARINT64_LO_CONT_BITS;

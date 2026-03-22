@@ -242,7 +242,8 @@ public final class BMI2 {
         throw new UnsupportedOperationException("This is a utility class and it cannot be instantiated.");
     }
 
-    public static boolean isSupported() {
+    // Microcode implementations are not considered valid implementations
+    public static boolean isHardwareSupported() {
         return VALUE;
     }
 }

@@ -6,7 +6,6 @@ import it.auties.protobuf.platform.BMI2;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
-import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Objects;
@@ -151,7 +150,7 @@ final class ProtobufMemorySegmentReader extends ProtobufReader {
 
     @Override
     public int readRawVarInt32() {
-        if (BMI2.isSupported() && segment.byteSize() - position >= VARINT32_FAST_PATH_BYTES) {
+        if (BMI2.isHardwareSupported() && segment.byteSize() - position >= VARINT32_FAST_PATH_BYTES) {
             var word = segment.get(VARINT64_FAST_PATH_LAYOUT, position);
             var cont = ~word & VARINT32_CONT_BITS;
             var spread = cont ^ (cont - 1);
@@ -185,7 +184,7 @@ final class ProtobufMemorySegmentReader extends ProtobufReader {
 
     @Override
     public long readRawVarInt64() {
-        if (BMI2.isSupported() && segment.byteSize() - position >= VARINT64_FAST_PATH_BYTES) {
+        if (BMI2.isHardwareSupported() && segment.byteSize() - position >= VARINT64_FAST_PATH_BYTES) {
             var lo = segment.get(VARINT64_FAST_PATH_LAYOUT, position);
             var hi = segment.get(VARINT64_FAST_PATH_LAYOUT, position + Long.BYTES);
             var loCont = ~lo & VARINT64_LO_CONT_BITS;

@@ -6,11 +6,10 @@ import it.auties.protobuf.annotation.ProtobufSerializer;
 import it.auties.protobuf.io.reader.ProtobufReader;
 import it.auties.protobuf.io.writer.ProtobufWriter;
 
-import java.lang.StableValue;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Supplier;
 
-@SuppressWarnings("unused")
+@SuppressWarnings({"unused", "preview"})
 @ProtobufMixin
 public final class StringMixin {
     @ProtobufDeserializer
@@ -55,12 +54,12 @@ public final class StringMixin {
         return switch (reader.rawDataTypePreference()) {
             case BYTE_ARRAY -> {
                 var source = reader.readRawBytes(length);
-                yield StableValue.supplier(() -> new String(source, StandardCharsets.UTF_8));
+                yield LazyConstant.of(() -> new String(source, StandardCharsets.UTF_8));
             }
 
             case BYTE_BUFFER -> {
                 var source = reader.readRawBuffer(length);
-                yield StableValue.supplier(() -> {
+                yield LazyConstant.of(() -> {
                     if (source.hasArray()) {
                         return new String(source.array(), source.arrayOffset() + source.position(), source.remaining(), StandardCharsets.UTF_8);
                     } else {
@@ -73,7 +72,7 @@ public final class StringMixin {
 
             case MEMORY_SEGMENT -> {
                 var source = reader.readRawMemorySegment(length);
-                yield StableValue.supplier(() -> source.getString(0, StandardCharsets.UTF_8));
+                yield LazyConstant.of(() -> source.getString(0, StandardCharsets.UTF_8));
             }
         };
     }

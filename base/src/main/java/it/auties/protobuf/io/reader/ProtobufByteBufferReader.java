@@ -155,7 +155,7 @@ final class ProtobufByteBufferReader extends ProtobufReader {
 
     @Override
     public int readRawVarInt32() {
-        if (BMI2.isSupported() && buffer.remaining() >= VARINT32_FAST_PATH_BYTES) {
+        if (BMI2.isHardwareSupported() && buffer.remaining() >= VARINT32_FAST_PATH_BYTES) {
             var position = buffer.position();
             var word = (long) BUFFER_AS_INT64_LE.get(buffer, position);
             var cont = ~word & VARINT32_CONT_BITS;
@@ -190,7 +190,7 @@ final class ProtobufByteBufferReader extends ProtobufReader {
 
     @Override
     public long readRawVarInt64() {
-        if (BMI2.isSupported() && buffer.remaining() >= VARINT64_FAST_PATH_BYTES) {
+        if (BMI2.isHardwareSupported() && buffer.remaining() >= VARINT64_FAST_PATH_BYTES) {
             var offset = buffer.position();
             var lo = (long) BUFFER_AS_INT64_LE.get(buffer, offset);
             var hi = (long) BUFFER_AS_INT64_LE.get(buffer, offset + 8);
