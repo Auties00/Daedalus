@@ -3,6 +3,8 @@ package it.auties.protobuf.io.reader;
 import it.auties.protobuf.exception.ProtobufDeserializationException;
 import it.auties.protobuf.io.ProtobufDataType;
 import it.auties.protobuf.platform.BMI2;
+import jdk.incubator.vector.ByteVector;
+import jdk.incubator.vector.VectorOperators;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -419,28 +421,126 @@ class ProtobufStreamReader extends ProtobufReader {
         return result;
     }
 
+    private void ensurePayloadBuffered(int length) {
+        if (bufferLimit - bufferPosition >= length) {
+            return;
+        }
+        // Payload spans buffer boundary — copy to a contiguous array and point bufferPosition at it
+        var payload = readRawBytes(length);
+        // readRawBytes consumed the data; put it back so readRawVarInt* can consume it
+        System.arraycopy(payload, 0, buffer, 0, length);
+        bufferPosition = 0;
+        bufferLimit = length;
+    }
+
     @Override
     public int[] readRawPackedVarInt32() {
         assertReadable();
-        throw new UnsupportedOperationException();
+        var length = readLengthDelimitedPropertyLength();
+        ensurePayloadBuffered(length);
+
+        var count = countVarInts(buffer, bufferPosition, length);
+        var end = bufferPosition + length;
+        var result = new int[count];
+        var dst = 0;
+
+        // BMI2 implies x86-64, which guarantees SSE2 — so SPECIES_128 is always hardware-supported
+        // when this branch is taken. Long.compress (PEXT) also requires BMI2.
+        if (BMI2.isHardwareSupported()) {
+            var pairs = count / 2;
+            for (var i = 0; i < pairs; i++) {
+                if (end - bufferPosition < 16) break;
+                var bv = ByteVector.fromArray(B128, buffer, bufferPosition);
+                var bitmask = (int) bv.compare(VectorOperators.LT, (byte) 0).toLong() & 0x3FF;
+                var entry = VARINT32_2X_LOOKUP_STEP1[bitmask];
+                var shuffleIdx = entry & 0xFF;
+                var firstLen = (entry >>> 8) & 0xFF;
+                var secondLen = (entry >>> 16) & 0xFF;
+                var indices = ByteVector.fromArray(B128, VARINT32_2X_SHUFFLE_TABLE, shuffleIdx * 16);
+                var shuffled = indices.selectFrom(bv);
+                var lv = shuffled.reinterpretAsLongs();
+                result[dst] = (int) Long.compress(lv.lane(0), VARINT32_PEXT_MASKS[firstLen]);
+                result[dst + 1] = (int) Long.compress(lv.lane(1), VARINT32_PEXT_MASKS[secondLen]);
+                bufferPosition += firstLen + secondLen;
+                position += firstLen + secondLen;
+                dst += 2;
+            }
+        }
+
+        while (dst < count) {
+            result[dst++] = readRawVarInt32();
+        }
+        return result;
     }
 
     @Override
     public int[] readRawPackedZigZagVarInt32() {
         assertReadable();
-        throw new UnsupportedOperationException();
+        var length = readLengthDelimitedPropertyLength();
+        ensurePayloadBuffered(length);
+
+        var count = countVarInts(buffer, bufferPosition, length);
+        var end = bufferPosition + length;
+        var result = new int[count];
+        var dst = 0;
+
+        // BMI2 implies x86-64, which guarantees SSE2 — so SPECIES_128 is always hardware-supported
+        // when this branch is taken. Long.compress (PEXT) also requires BMI2.
+        if (BMI2.isHardwareSupported()) {
+            var pairs = count / 2;
+            for (var i = 0; i < pairs; i++) {
+                if (end - bufferPosition < 16) break;
+                var bv = ByteVector.fromArray(B128, buffer, bufferPosition);
+                var bitmask = (int) bv.compare(VectorOperators.LT, (byte) 0).toLong() & 0x3FF;
+                var entry = VARINT32_2X_LOOKUP_STEP1[bitmask];
+                var shuffleIdx = entry & 0xFF;
+                var firstLen = (entry >>> 8) & 0xFF;
+                var secondLen = (entry >>> 16) & 0xFF;
+                var indices = ByteVector.fromArray(B128, VARINT32_2X_SHUFFLE_TABLE, shuffleIdx * 16);
+                var shuffled = indices.selectFrom(bv);
+                var lv = shuffled.reinterpretAsLongs();
+                var v0 = (int) Long.compress(lv.lane(0), VARINT32_PEXT_MASKS[firstLen]);
+                var v1 = (int) Long.compress(lv.lane(1), VARINT32_PEXT_MASKS[secondLen]);
+                result[dst] = (v0 >>> 1) ^ -(v0 & 1);
+                result[dst + 1] = (v1 >>> 1) ^ -(v1 & 1);
+                bufferPosition += firstLen + secondLen;
+                position += firstLen + secondLen;
+                dst += 2;
+            }
+        }
+
+        while (dst < count) {
+            result[dst++] = readRawZigZagVarInt32();
+        }
+        return result;
     }
 
     @Override
     public long[] readRawPackedVarInt64() {
         assertReadable();
-        throw new UnsupportedOperationException();
+        var length = readLengthDelimitedPropertyLength();
+        ensurePayloadBuffered(length);
+
+        var count = countVarInts(buffer, bufferPosition, length);
+        var result = new long[count];
+        for (var i = 0; i < count; i++) {
+            result[i] = readRawVarInt64();
+        }
+        return result;
     }
 
     @Override
     public long[] readRawPackedZigZagVarInt64() {
         assertReadable();
-        throw new UnsupportedOperationException();
+        var length = readLengthDelimitedPropertyLength();
+        ensurePayloadBuffered(length);
+
+        var count = countVarInts(buffer, bufferPosition, length);
+        var result = new long[count];
+        for (var i = 0; i < count; i++) {
+            result[i] = readRawZigZagVarInt64();
+        }
+        return result;
     }
 
     @Override

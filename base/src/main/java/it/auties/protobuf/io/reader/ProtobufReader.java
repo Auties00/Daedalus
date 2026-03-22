@@ -16,6 +16,9 @@ import it.auties.protobuf.io.writer.ProtobufWriter;
 import it.auties.protobuf.model.ProtobufUnknownValue;
 import it.auties.protobuf.model.ProtobufWireType;
 
+import jdk.incubator.vector.ByteVector;
+import jdk.incubator.vector.VectorSpecies;
+
 import java.io.InputStream;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandles;
@@ -62,6 +65,58 @@ public abstract class ProtobufReader implements AutoCloseable{
 
     protected static final int VARINT32_FAST_PATH_BYTES = Long.BYTES;
     protected static final int VARINT64_FAST_PATH_BYTES = Long.BYTES * 2;
+
+    protected static final VectorSpecies<Byte> B128 = ByteVector.SPECIES_128;
+
+    // SIMD 2x lookup tables for packed varint32 decoding
+
+    // Maps a 10-bit MSB bitmask to packed (shuffleIndex | firstLen << 8 | secondLen << 16).
+    // The bitmask encodes which of the first 10 bytes have their MSB set (continuation bits).
+    protected static final int[] VARINT32_2X_LOOKUP_STEP1 = new int[1024];
+
+    // Flat shuffle table: 100 entries x 16 bytes.
+    // Entry index = (firstLen-1)*10 + (secondLen-1).
+    // First varint bytes -> positions 0..7, second varint bytes -> positions 8..15.
+    // Padding positions use index 0 (don't-care; per-length PEXT masks ignore them).
+    protected static final byte[] VARINT32_2X_SHUFFLE_TABLE = new byte[100 * 16];
+
+    // Per-length PEXT masks for u32 varint: index by byte-length (0-10).
+    // Only lengths 1-5 are valid for u32; entries 6-10 repeat the 5-byte mask.
+    protected static final long[] VARINT32_PEXT_MASKS = new long[11];
+
+    static {
+        // Build per-length masks
+        VARINT32_PEXT_MASKS[1]  = 0x000000000000007fL;
+        VARINT32_PEXT_MASKS[2]  = 0x0000000000007f7fL;
+        VARINT32_PEXT_MASKS[3]  = 0x00000000007f7f7fL;
+        VARINT32_PEXT_MASKS[4]  = 0x000000007f7f7f7fL;
+        VARINT32_PEXT_MASKS[5]  = 0x0000000f7f7f7f7fL;
+        VARINT32_PEXT_MASKS[6]  = 0x0000000f7f7f7f7fL;
+        VARINT32_PEXT_MASKS[7]  = 0x0000000f7f7f7f7fL;
+        VARINT32_PEXT_MASKS[8]  = 0x0000000f7f7f7f7fL;
+        VARINT32_PEXT_MASKS[9]  = 0x0000000f7f7f7f7fL;
+        VARINT32_PEXT_MASKS[10] = 0x0000000f7f7f7f7fL;
+
+        // Build shuffle table
+        for (int fl = 1; fl <= 10; fl++) {
+            for (int sl = 1; sl <= 10; sl++) {
+                var base = ((fl - 1) * 10 + (sl - 1)) * 16;
+                for (int i = 0; i < 8; i++) {
+                    VARINT32_2X_SHUFFLE_TABLE[base + i] = (byte) (i < fl ? i : 0);
+                    VARINT32_2X_SHUFFLE_TABLE[base + 8 + i] = (byte) (i < sl ? Math.min(fl + i, 15) : 0);
+                }
+            }
+        }
+
+        // Build bitmask → entry lookup
+        for (int bm = 0; bm < 1024; bm++) {
+            var notBm = (~bm) & 0x3FF;
+            var fl = notBm == 0 ? 10 : Math.min(Integer.numberOfTrailingZeros(notBm) + 1, 10);
+            var notBm2 = notBm >>> fl;
+            var sl = notBm2 == 0 ? 10 : Math.min(Integer.numberOfTrailingZeros(notBm2) + 1, 10);
+            VARINT32_2X_LOOKUP_STEP1[bm] = ((fl - 1) * 10 + (sl - 1)) | (fl << 8) | (sl << 16);
+        }
+    }
 
     protected static int countVarInts(byte[] buf, int off, int len) {
         int count = 0, ptr = off, end = off + len;
