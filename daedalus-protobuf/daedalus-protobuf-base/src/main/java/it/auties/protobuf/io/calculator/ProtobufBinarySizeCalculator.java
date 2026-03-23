@@ -38,7 +38,7 @@ public final class ProtobufBinarySizeCalculator {
     }
 
     private ProtobufBinarySizeCalculator() {
-        throw new UnsupportedOperationException("ProtobufSizeCalculator is a utility class");
+        throw new UnsupportedOperationException("ProtobufBinarySizeCalculator is a utility class");
     }
 
     public static int getPropertyWireTagSize(long fieldIndex, int wireType) {

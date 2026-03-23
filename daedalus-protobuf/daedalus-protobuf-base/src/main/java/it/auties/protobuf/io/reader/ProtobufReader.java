@@ -1,8 +1,15 @@
 package it.auties.protobuf.io.reader;
 
+import it.auties.protobuf.io.reader.text.ProtobufTextByteArrayReader;
+import jdk.incubator.vector.ByteVector;
+import jdk.incubator.vector.VectorSpecies;
+
 import java.io.InputStream;
 import java.lang.foreign.MemorySegment;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 /**
  * A sealed interface representing a Protocol Buffer reader.
@@ -15,60 +22,92 @@ import java.nio.ByteBuffer;
  * <p>
  * Generated Spec classes provide separate overloaded {@code decode} methods for each reader type.
  */
-public sealed interface ProtobufReader extends AutoCloseable permits ProtobufBinaryReader, ProtobufTextReader {
-    static ProtobufBinaryReader fromBytes(byte[] bytes) {
+public sealed abstract class ProtobufReader implements AutoCloseable permits ProtobufBinaryReader, ProtobufTextReader {
+    public static ProtobufBinaryReader fromBinaryBytes(byte[] bytes) {
         return ProtobufBinaryReader.fromBytes(bytes);
     }
 
-    static ProtobufBinaryReader fromBytes(byte[] bytes, int offset, int length) {
+    public static ProtobufBinaryReader fromBinaryBytes(byte[] bytes, int offset, int length) {
         return ProtobufBinaryReader.fromBytes(bytes, offset, length);
     }
 
-    static ProtobufBinaryReader fromBuffer(ByteBuffer buffer) {
+    public static ProtobufBinaryReader fromBinaryBuffer(ByteBuffer buffer) {
         return ProtobufBinaryReader.fromBuffer(buffer);
     }
 
-    static ProtobufBinaryReader fromStream(InputStream stream) {
+    public static ProtobufBinaryReader fromBinaryStream(InputStream stream) {
         return ProtobufBinaryReader.fromStream(stream);
     }
 
-    static ProtobufBinaryReader fromStream(InputStream stream, boolean autoclose) {
+    public static ProtobufBinaryReader fromBinaryStream(InputStream stream, boolean autoclose) {
         return ProtobufBinaryReader.fromStream(stream, autoclose);
     }
 
-    static ProtobufBinaryReader fromStream(InputStream stream, boolean autoclose, int bufferSize) {
+    public static ProtobufBinaryReader fromBinaryStream(InputStream stream, boolean autoclose, int bufferSize) {
         return ProtobufBinaryReader.fromStream(stream, autoclose, bufferSize);
     }
 
-    static ProtobufBinaryReader fromLimitedStream(InputStream stream, long limit) {
+    public static ProtobufBinaryReader fromBinaryLimitedStream(InputStream stream, long limit) {
         return ProtobufBinaryReader.fromLimitedStream(stream, limit);
     }
 
-    static ProtobufBinaryReader fromLimitedStream(InputStream stream, long limit, boolean autoclose) {
+    public static ProtobufBinaryReader fromBinaryLimitedStream(InputStream stream, long limit, boolean autoclose) {
         return ProtobufBinaryReader.fromLimitedStream(stream, limit, autoclose);
     }
 
-    static ProtobufBinaryReader fromLimitedStream(InputStream stream, long limit, boolean autoclose, int bufferSize) {
+    public static ProtobufBinaryReader fromBinaryLimitedStream(InputStream stream, long limit, boolean autoclose, int bufferSize) {
         return ProtobufBinaryReader.fromLimitedStream(stream, limit, autoclose, bufferSize);
     }
 
-    static ProtobufBinaryReader fromMemorySegment(MemorySegment segment) {
+    public static ProtobufBinaryReader fromBinaryMemorySegment(MemorySegment segment) {
         return ProtobufBinaryReader.fromMemorySegment(segment);
     }
 
-    static ProtobufJsonStringReader fromJson(String json) {
-        return new ProtobufJsonStringReader(json);
+    public static ProtobufTextReader fromTextString(String sequence) {
+        return ProtobufTextReader.fromString(sequence);
     }
 
-    static ProtobufJsonByteArrayReader fromJson(byte[] json) {
-        return new ProtobufJsonByteArrayReader(json);
+    public static ProtobufTextReader fromTextCharSequence(CharSequence sequence) {
+        return ProtobufTextReader.fromCharSequence(sequence);
     }
 
-    static ProtobufTextFormatStringReader fromTextFormat(String textproto) {
-        return new ProtobufTextFormatStringReader(textproto);
+    public static ProtobufTextReader fromTextBytes(byte[] bytes) {
+        return ProtobufTextReader.fromBytes(bytes);
     }
 
-    static ProtobufTextFormatByteArrayReader fromTextFormat(byte[] textproto) {
-        return new ProtobufTextFormatByteArrayReader(textproto);
+    public static ProtobufTextReader fromTextBytes(byte[] bytes, int offset, int length) {
+        return ProtobufTextReader.fromBytes(bytes, offset, length);
+    }
+
+    public static ProtobufTextReader fromTextBuffer(ByteBuffer buffer) {
+        return ProtobufTextReader.fromBuffer(buffer);
+    }
+
+    public static ProtobufTextReader fromTextStream(InputStream stream) {
+        return ProtobufTextReader.fromStream(stream);
+    }
+
+    public static ProtobufTextReader fromTextStream(InputStream stream, boolean autoclose) {
+        return ProtobufTextReader.fromStream(stream, autoclose);
+    }
+
+    public static ProtobufTextReader fromTextStream(InputStream stream, boolean autoclose, int bufferSize) {
+        return ProtobufTextReader.fromStream(stream, autoclose, bufferSize);
+    }
+
+    public static ProtobufTextReader fromTextLimitedStream(InputStream stream, long limit) {
+        return ProtobufTextReader.fromLimitedStream(stream, limit);
+    }
+
+    public static ProtobufTextReader fromTextLimitedStream(InputStream stream, long limit, boolean autoclose) {
+        return ProtobufTextReader.fromLimitedStream(stream, limit, autoclose);
+    }
+
+    public static ProtobufTextReader fromTextLimitedStream(InputStream stream, long limit, boolean autoclose, int bufferSize) {
+        return ProtobufTextReader.fromLimitedStream(stream, limit, autoclose, bufferSize);
+    }
+
+    public static ProtobufTextReader fromTextMemorySegment(MemorySegment segment) {
+        return ProtobufTextReader.fromMemorySegment(segment);
     }
 }

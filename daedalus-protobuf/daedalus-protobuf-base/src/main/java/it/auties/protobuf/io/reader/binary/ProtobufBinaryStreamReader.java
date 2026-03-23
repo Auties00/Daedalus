@@ -1,7 +1,8 @@
-package it.auties.protobuf.io.reader;
+package it.auties.protobuf.io.reader.binary;
 
 import it.auties.protobuf.exception.ProtobufDeserializationException;
 import it.auties.protobuf.io.ProtobufDataType;
+import it.auties.protobuf.io.reader.ProtobufBinaryReader;
 import it.auties.protobuf.platform.BMI2;
 import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.VectorOperators;
@@ -13,7 +14,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.*;
 
-final class ProtobufBinaryStreamReader extends ProtobufBinaryReader {
+public final class ProtobufBinaryStreamReader extends ProtobufBinaryReader {
     private static final int DEFAULT_BUFFER_SIZE = 8192;
 
     private final InputStream inputStream;
@@ -28,11 +29,11 @@ final class ProtobufBinaryStreamReader extends ProtobufBinaryReader {
 
     private ProtobufBinaryStreamReader lengthDelimitedReader;
 
-    ProtobufBinaryStreamReader(InputStream inputStream, boolean autoclose, long limit) {
-        this(inputStream, autoclose, limit, DEFAULT_BUFFER_SIZE);
+    public ProtobufBinaryStreamReader(InputStream inputStream, long limit, boolean autoclose) {
+        this(inputStream, limit, autoclose, DEFAULT_BUFFER_SIZE);
     }
 
-    ProtobufBinaryStreamReader(InputStream inputStream, boolean autoclose, long limit, int bufferSize) {
+    public ProtobufBinaryStreamReader(InputStream inputStream, long limit, boolean autoclose, int bufferSize) {
         Objects.requireNonNull(inputStream, "inputStream cannot be null");
         if (bufferSize < VARINT64_FAST_PATH_BYTES) {
             throw new IllegalArgumentException("Buffer size must be at least " + VARINT64_FAST_PATH_BYTES);

@@ -1,17 +1,18 @@
-package it.auties.protobuf.io.writer;
+package it.auties.protobuf.io.writer.binary;
 
 import it.auties.protobuf.exception.ProtobufSerializationException;
 import it.auties.protobuf.io.ProtobufDataType;
+import it.auties.protobuf.io.writer.ProtobufBinaryWriter;
 
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 
-final class ProtobufBinaryByteArrayWriter extends ProtobufBinaryWriter<byte[]> {
+public final class ProtobufBinaryByteArrayWriter extends ProtobufBinaryWriter<byte[]> {
     private final byte[] buffer;
     private int position;
 
-    ProtobufBinaryByteArrayWriter(byte[] buffer, int offset) {
+    public ProtobufBinaryByteArrayWriter(byte[] buffer, int offset) {
         this.buffer = buffer;
         this.position = offset;
     }

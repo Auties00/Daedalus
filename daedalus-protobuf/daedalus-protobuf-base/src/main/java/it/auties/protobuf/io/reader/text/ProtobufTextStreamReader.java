@@ -1,8 +1,45 @@
-package it.auties.protobuf.io.reader;
+package it.auties.protobuf.io.reader.text;
 
-public final class ProtobufTextFormatStringReader extends ProtobufTextReader {
-    public ProtobufTextFormatStringReader(String input) {
-        throw new UnsupportedOperationException();
+import it.auties.protobuf.io.reader.ProtobufTextReader;
+
+import java.io.InputStream;
+import java.util.Objects;
+
+public final class ProtobufTextStreamReader extends ProtobufTextReader {
+    private static final int DEFAULT_BUFFER_SIZE = 8192;
+
+    private final InputStream inputStream;
+    private final boolean autoclose;
+    private long position;
+    private final long limit;
+    private boolean finished;
+
+    private final byte[] buffer;
+    private int bufferPosition;
+    private int bufferLimit;
+
+    private ProtobufTextStreamReader lengthDelimitedReader;
+
+    public ProtobufTextStreamReader(InputStream inputStream, long limit, boolean autoclose) {
+        this(inputStream, limit, autoclose, DEFAULT_BUFFER_SIZE);
+    }
+
+    public ProtobufTextStreamReader(InputStream inputStream, long limit, boolean autoclose, int bufferSize) {
+        Objects.requireNonNull(inputStream, "inputStream cannot be null");
+        this.inputStream = inputStream;
+        this.autoclose = autoclose;
+        this.limit = limit;
+        this.buffer = new byte[bufferSize];
+    }
+
+    private ProtobufTextStreamReader(InputStream inputStream, long limit, byte[] buffer, int bufferPosition, int bufferLimit, long position) {
+        this.inputStream = inputStream;
+        this.autoclose = false;
+        this.limit = limit;
+        this.buffer = buffer;
+        this.bufferPosition = bufferPosition;
+        this.bufferLimit = bufferLimit;
+        this.position = position;
     }
 
     @Override public void readStartObject() { throw new UnsupportedOperationException(); }

@@ -1,7 +1,22 @@
-package it.auties.protobuf.io.writer;
+package it.auties.protobuf.io.writer.text;
 
-public final class ProtobufTextFormatByteArrayWriter extends ProtobufTextWriter<byte[]> {
-    @Override public byte[] toOutput() { throw new UnsupportedOperationException(); }
+import it.auties.protobuf.io.writer.ProtobufTextWriter;
+
+import java.util.Objects;
+
+public final class ProtobufTextByteArrayWriter extends ProtobufTextWriter<byte[]> {
+    private final byte[] buffer;
+    private final int limit;
+    private int offset;
+
+    public ProtobufTextByteArrayWriter(byte[] buffer, int offset, int limit) {
+        Objects.requireNonNull(buffer, "buffer cannot be null");
+        Objects.checkFromToIndex(offset, limit, buffer.length);
+        this.buffer = buffer;
+        this.offset = offset;
+        this.limit = limit;
+    }
+
     @Override public void writeStartObject() { throw new UnsupportedOperationException(); }
     @Override public void writeStartObjectProperty(String fieldName) { throw new UnsupportedOperationException(); }
     @Override public void writeStartObjectElement() { throw new UnsupportedOperationException(); }
@@ -41,5 +56,6 @@ public final class ProtobufTextFormatByteArrayWriter extends ProtobufTextWriter<
     @Override public void writeBytesElement(byte[] value) { throw new UnsupportedOperationException(); }
     @Override public void writeEnumElement(int number, String enumName) { throw new UnsupportedOperationException(); }
     @Override public void writeNullElement() { throw new UnsupportedOperationException(); }
+    @Override public byte[] toOutput() { throw new UnsupportedOperationException(); }
     @Override public void close() {}
 }

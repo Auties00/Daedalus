@@ -1,7 +1,8 @@
-package it.auties.protobuf.io.reader;
+package it.auties.protobuf.io.reader.binary;
 
 import it.auties.protobuf.exception.ProtobufDeserializationException;
 import it.auties.protobuf.io.ProtobufDataType;
+import it.auties.protobuf.io.reader.ProtobufBinaryReader;
 import it.auties.protobuf.platform.BMI2;
 import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.VectorOperators;
@@ -12,14 +13,14 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Objects;
 
-final class ProtobufBinaryMemorySegmentReader extends ProtobufBinaryReader {
+public final class ProtobufBinaryMemorySegmentReader extends ProtobufBinaryReader {
     private static final ValueLayout.OfLong VARINT64_FAST_PATH_LAYOUT = ValueLayout.JAVA_LONG_UNALIGNED
             .withOrder(ByteOrder.LITTLE_ENDIAN);
 
     private final MemorySegment segment;
     private long position;
 
-    ProtobufBinaryMemorySegmentReader(MemorySegment segment) {
+    public ProtobufBinaryMemorySegmentReader(MemorySegment segment) {
         Objects.requireNonNull(segment, "segment cannot be null");
         this.segment = segment;
         this.position = 0;

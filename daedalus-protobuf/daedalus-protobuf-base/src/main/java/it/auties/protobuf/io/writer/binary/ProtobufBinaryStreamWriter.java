@@ -1,7 +1,8 @@
-package it.auties.protobuf.io.writer;
+package it.auties.protobuf.io.writer.binary;
 
 import it.auties.protobuf.exception.ProtobufSerializationException;
 import it.auties.protobuf.io.ProtobufDataType;
+import it.auties.protobuf.io.writer.ProtobufBinaryWriter;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -9,17 +10,17 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteBuffer;
 
-final class ProtobufBinaryStreamWriter extends ProtobufBinaryWriter<OutputStream> {
+public final class ProtobufBinaryStreamWriter extends ProtobufBinaryWriter<OutputStream> {
     private static final int BUFFER_LENGTH = 8192;
 
     private final OutputStream outputStream;
     private final byte[] buffer;
 
-    ProtobufBinaryStreamWriter(OutputStream outputStream) {
+    public ProtobufBinaryStreamWriter(OutputStream outputStream) {
         this(outputStream, BUFFER_LENGTH);
     }
 
-    ProtobufBinaryStreamWriter(OutputStream outputStream, int tempBufferLength) {
+    public ProtobufBinaryStreamWriter(OutputStream outputStream, int tempBufferLength) {
         this.outputStream = outputStream;
         this.buffer = new byte[tempBufferLength];
     }

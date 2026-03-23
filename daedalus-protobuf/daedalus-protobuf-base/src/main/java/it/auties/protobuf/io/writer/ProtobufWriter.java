@@ -3,6 +3,7 @@ package it.auties.protobuf.io.writer;
 import java.io.OutputStream;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 
 /**
  * A sealed interface representing a Protocol Buffer writer.
@@ -16,53 +17,85 @@ import java.nio.ByteBuffer;
  * Generated Spec classes provide separate overloaded {@code encode} methods for each writer type.
  */
 public sealed interface ProtobufWriter<OUTPUT> extends AutoCloseable permits ProtobufBinaryWriter, ProtobufTextWriter {
-    static ProtobufBinaryWriter<byte[]> toBytes(int length) {
+    OUTPUT toOutput();
+
+    static ProtobufBinaryWriter<byte[]> toBinaryBytes(int length) {
         return ProtobufBinaryWriter.toBytes(length);
     }
 
-    static ProtobufBinaryWriter<byte[]> toBytes(byte[] bytes, int offset) {
+    static ProtobufBinaryWriter<byte[]> toBinaryBytes(byte[] bytes, int offset) {
         return ProtobufBinaryWriter.toBytes(bytes, offset);
     }
 
-    static ProtobufBinaryWriter<ByteBuffer> toHeapBuffer(int length) {
+    static ProtobufBinaryWriter<ByteBuffer> toBinaryHeapBuffer(int length) {
         return ProtobufBinaryWriter.toHeapBuffer(length);
     }
 
-    static ProtobufBinaryWriter<ByteBuffer> toDirectBuffer(int length) {
+    static ProtobufBinaryWriter<ByteBuffer> toBinaryDirectBuffer(int length) {
         return ProtobufBinaryWriter.toDirectBuffer(length);
     }
 
-    static ProtobufBinaryWriter<ByteBuffer> toBuffer(ByteBuffer buffer) {
+    static ProtobufBinaryWriter<ByteBuffer> toBinaryBuffer(ByteBuffer buffer) {
         return ProtobufBinaryWriter.toBuffer(buffer);
     }
 
-    static ProtobufBinaryWriter<MemorySegment> toMemorySegment(MemorySegment segment) {
+    static ProtobufBinaryWriter<MemorySegment> toBinaryMemorySegment(MemorySegment segment) {
         return ProtobufBinaryWriter.toMemorySegment(segment);
     }
 
-    static ProtobufBinaryWriter<OutputStream> toStream(OutputStream stream) {
+    static ProtobufBinaryWriter<OutputStream> toBinaryStream(OutputStream stream) {
         return ProtobufBinaryWriter.toStream(stream);
     }
 
-    static ProtobufBinaryWriter<OutputStream> toStream(OutputStream stream, int tempBufferLength) {
+    static ProtobufBinaryWriter<OutputStream> toBinaryStream(OutputStream stream, int tempBufferLength) {
         return ProtobufBinaryWriter.toStream(stream, tempBufferLength);
     }
 
-    static ProtobufJsonStringWriter toJsonString() {
-        return new ProtobufJsonStringWriter();
+    static ProtobufTextWriter<byte[]> toTextBytes(int length) {
+        return ProtobufTextWriter.toBytes(length);
     }
 
-    static ProtobufJsonByteArrayWriter toJsonBytes() {
-        return new ProtobufJsonByteArrayWriter();
+    static ProtobufTextWriter<byte[]> toTextBytes(byte[] bytes, int offset) {
+        return ProtobufTextWriter.toBytes(bytes, offset);
     }
 
-    static ProtobufTextFormatStringWriter toTextFormatString() {
-        return new ProtobufTextFormatStringWriter();
+    static ProtobufTextWriter<ByteBuffer> toTextHeapBuffer(int length) {
+        return ProtobufTextWriter.toHeapBuffer(length);
     }
 
-    static ProtobufTextFormatByteArrayWriter toTextFormatBytes() {
-        return new ProtobufTextFormatByteArrayWriter();
+    static ProtobufTextWriter<ByteBuffer> toTextDirectBuffer(int length) {
+        return ProtobufTextWriter.toDirectBuffer(length);
     }
 
-    OUTPUT toOutput();
+    static ProtobufTextWriter<ByteBuffer> toTextBuffer(ByteBuffer buffer) {
+        return ProtobufTextWriter.toBuffer(buffer);
+    }
+
+    static ProtobufTextWriter<OutputStream> toTextStream(OutputStream stream) {
+        return ProtobufTextWriter.toStream(stream);
+    }
+
+    static ProtobufTextWriter<OutputStream> toTextStream(OutputStream stream, boolean autoclose) {
+        return ProtobufTextWriter.toStream(stream, autoclose);
+    }
+
+    static ProtobufTextWriter<OutputStream> toTextStream(OutputStream stream, boolean autoclose, int bufferSize) {
+        return ProtobufTextWriter.toStream(stream, autoclose, bufferSize);
+    }
+
+    static ProtobufTextWriter<MemorySegment> toTextMemorySegment(MemorySegment segment) {
+        return ProtobufTextWriter.toMemorySegment(segment);
+    }
+
+    static ProtobufTextWriter<String> toTextString(int initialCapacity) {
+        return ProtobufTextWriter.toString(initialCapacity);
+    }
+
+    static ProtobufTextWriter<? extends CharSequence> toTextCharSequence(int initialCapacity) {
+        return ProtobufTextWriter.toCharSequence(initialCapacity);
+    }
+
+    static ProtobufTextWriter<CharBuffer> toTextCharBuffer(CharBuffer buffer) {
+        return ProtobufTextWriter.toCharBuffer(buffer);
+    }
 }

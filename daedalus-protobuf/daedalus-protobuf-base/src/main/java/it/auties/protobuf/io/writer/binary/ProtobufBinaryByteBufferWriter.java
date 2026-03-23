@@ -1,26 +1,25 @@
-package it.auties.protobuf.io.writer;
+package it.auties.protobuf.io.writer.binary;
 
 import it.auties.protobuf.exception.ProtobufSerializationException;
 import it.auties.protobuf.io.ProtobufDataType;
+import it.auties.protobuf.io.writer.ProtobufBinaryWriter;
 
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
+import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 
-final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWriter<MemorySegment> {
-    private final MemorySegment memorySegment;
-    private long position;
+public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<ByteBuffer> {
+    private final ByteBuffer buffer;
 
-    ProtobufBinaryMemorySegmentWriter(MemorySegment memorySegment) {
-        this.memorySegment = memorySegment;
+    public ProtobufBinaryByteBufferWriter(ByteBuffer buffer) {
+        this.buffer = buffer;
     }
 
     @Override
     public void writeRawByte(byte entry) {
         try {
-            memorySegment.set(ValueLayout.JAVA_BYTE, position, entry);
-            position++;
-        } catch (IndexOutOfBoundsException _) {
+            buffer.put(entry);
+        } catch (BufferOverflowException _) {
             throw ProtobufSerializationException.underflow();
         }
     }
@@ -28,57 +27,47 @@ final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWriter<Memor
     @Override
     public void writeRawBytes(byte[] entry, int offset, int length) {
         try {
-            MemorySegment.copy(
-                    entry,
-                    offset,
-                    memorySegment,
-                    ValueLayout.JAVA_BYTE,
-                    position,
-                    length
-            );
-            position += length;
-        } catch (IndexOutOfBoundsException _) {
+            buffer.put(entry, offset, length);
+        } catch (BufferOverflowException _) {
             throw ProtobufSerializationException.underflow();
         }
     }
 
     @Override
     public void writeRawBuffer(ByteBuffer entry) {
-        writeRawMemorySegment(MemorySegment.ofBuffer(entry));
+        try {
+            buffer.put(entry.duplicate());
+        } catch (BufferOverflowException _) {
+            throw ProtobufSerializationException.underflow();
+        }
     }
 
     @Override
     public void writeRawMemorySegment(MemorySegment entry) {
         try {
-            var length = entry.byteSize();
-            MemorySegment.copy(
-                    entry,
-                    0,
-                    memorySegment,
-                    position,
-                    length
-            );
-            position += length;
+            buffer.put(entry.asByteBuffer());
+        } catch (BufferOverflowException _) {
+            throw ProtobufSerializationException.underflow();
+        }
+    }
+
+    @Override
+    public void writeRawFixedInt32(int value) {
+        try {
+            var position = buffer.position();
+            BUFFER_AS_INT32_LE.set(buffer, position, value);
+            buffer.position(position + Integer.BYTES);
         } catch (IndexOutOfBoundsException _) {
             throw ProtobufSerializationException.underflow();
         }
     }
 
     @Override
-    public void writeRawFixedInt32(int entry) {
+    public void writeRawFixedInt64(long value) {
         try {
-            memorySegment.set(ValueLayout.JAVA_INT_UNALIGNED, position, entry);
-            position += Integer.BYTES;
-        } catch (IndexOutOfBoundsException _) {
-            throw ProtobufSerializationException.underflow();
-        }
-    }
-
-    @Override
-    public void writeRawFixedInt64(long entry) {
-        try {
-            memorySegment.set(ValueLayout.JAVA_LONG_UNALIGNED, position, entry);
-            position += Long.BYTES;
+            var position = buffer.position();
+            BUFFER_AS_INT64_LE.set(buffer, position, value);
+            buffer.position(position + Long.BYTES);
         } catch (IndexOutOfBoundsException _) {
             throw ProtobufSerializationException.underflow();
         }
@@ -87,8 +76,9 @@ final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWriter<Memor
     @Override
     public void writeRawFloat(float entry) {
         try {
-            memorySegment.set(ValueLayout.JAVA_FLOAT_UNALIGNED, position, entry);
-            position += Float.BYTES;
+            var position = buffer.position();
+            BUFFER_AS_FLOAT_LE.set(buffer, position, entry);
+            buffer.position(position + Float.BYTES);
         } catch (IndexOutOfBoundsException _) {
             throw ProtobufSerializationException.underflow();
         }
@@ -97,8 +87,9 @@ final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWriter<Memor
     @Override
     public void writeRawDouble(double entry) {
         try {
-            memorySegment.set(ValueLayout.JAVA_DOUBLE_UNALIGNED, position, entry);
-            position += Double.BYTES;
+            var position = buffer.position();
+            BUFFER_AS_DOUBLE_LE.set(buffer, position, entry);
+            buffer.position(position + Double.BYTES);
         } catch (IndexOutOfBoundsException _) {
             throw ProtobufSerializationException.underflow();
         }
@@ -106,12 +97,14 @@ final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWriter<Memor
 
     @Override
     public void writeRawVarInt32(int entry) {
-        position += putVarInt32LE(memorySegment, position, entry);
+        var pos = buffer.position();
+        buffer.position(pos + putVarInt32LE(buffer, pos, entry));
     }
 
     @Override
     public void writeRawVarInt64(long entry) {
-        position += putVarInt64LE(memorySegment, position, entry);
+        var pos = buffer.position();
+        buffer.position(pos + putVarInt64LE(buffer, pos, entry));
     }
 
     @Override
@@ -145,28 +138,32 @@ final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWriter<Memor
     @Override
     public void writeRawPackedVarInt32(int[] input) {
         for (var value : input) {
-            position += putVarInt32LE(memorySegment, position, value);
+            var pos = buffer.position();
+            buffer.position(pos + putVarInt32LE(buffer, pos, value));
         }
     }
 
     @Override
     public void writeRawPackedZigZagVarInt32(int[] input) {
         for (var value : input) {
-            position += putVarInt32LE(memorySegment, position, (value << 1) ^ (value >> 31));
+            var pos = buffer.position();
+            buffer.position(pos + putVarInt32LE(buffer, pos, (value << 1) ^ (value >> 31)));
         }
     }
 
     @Override
     public void writeRawPackedVarInt64(long[] input) {
         for (var value : input) {
-            position += putVarInt64LE(memorySegment, position, value);
+            var pos = buffer.position();
+            buffer.position(pos + putVarInt64LE(buffer, pos, value));
         }
     }
 
     @Override
     public void writeRawPackedZigZagVarInt64(long[] input) {
         for (var value : input) {
-            position += putVarInt64LE(memorySegment, position, (value << 1) ^ (value >> 63));
+            var pos = buffer.position();
+            buffer.position(pos + putVarInt64LE(buffer, pos, (value << 1) ^ (value >> 63)));
         }
     }
 
@@ -177,14 +174,15 @@ final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWriter<Memor
         }
     }
 
+
     @Override
-    public MemorySegment toOutput() {
-        return memorySegment;
+    public ByteBuffer toOutput() {
+        return buffer;
     }
 
     @Override
     public ProtobufDataType rawDataTypePreference() {
-        return ProtobufDataType.MEMORY_SEGMENT;
+        return ProtobufDataType.BYTE_BUFFER;
     }
 
     @Override
@@ -192,59 +190,59 @@ final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWriter<Memor
 
     }
 
-    private static int putVarInt32LE(MemorySegment segment, long offset, int value) {
+    private static int putVarInt32LE(ByteBuffer buffer, int offset, int value) {
         if (value >= 0) {
-            if (segment.byteSize() - offset >= 8) {
+            if (buffer.limit() - offset >= 8) {
                 var nlz = Integer.numberOfLeadingZeros(value | 1) & 0x3F;
                 var size = VARINT32_SIZE_TABLE[nlz];
                 var loCont = VARINT32_LO_CONT_TABLE[nlz];
                 var scattered = Long.expand(value & 0xFFFFFFFFL, VARINT32_PAYLOAD_BITS);
-                segment.set(INT64_LE_LAYOUT, offset, scattered | loCont);
+                BUFFER_AS_INT64_LE.set(buffer, offset, scattered | loCont);
                 return size;
             }
 
-            return putVarInt32Slow(segment, offset, value);
+            return putVarInt32Slow(buffer, offset, value);
         }
 
-        return putVarInt64LE(segment, offset, value);
+        return putVarInt64LE(buffer, offset, value);
     }
 
-    private static int putVarInt32Slow(MemorySegment segment, long offset, int value) {
-        long pos = offset;
+    private static int putVarInt32Slow(ByteBuffer buffer, int offset, int value) {
+        int pos = offset;
         while (true) {
             if ((value & ~0x7F) == 0) {
-                segment.set(ValueLayout.JAVA_BYTE, pos++, (byte) value);
-                return (int) (pos - offset);
+                buffer.put(pos++, (byte) value);
+                return pos - offset;
             }
-            segment.set(ValueLayout.JAVA_BYTE, pos++, (byte) ((value & 0x7F) | 0x80));
+            buffer.put(pos++, (byte) ((value & 0x7F) | 0x80));
             value >>>= 7;
         }
     }
 
-    private static int putVarInt64LE(MemorySegment segment, long offset, long value) {
-        if (segment.byteSize() - offset >= 16) {
+    private static int putVarInt64LE(ByteBuffer buffer, int offset, long value) {
+        if (buffer.limit() - offset >= 16) {
             var nlz = Long.numberOfLeadingZeros(value | 1) & 0x7F;
             var size = VARINT64_SIZE_TABLE[nlz];
             var loCont = VARINT64_LO_CONT_TABLE[nlz];
             var hiCont = VARINT64_HI_CONT_TABLE[nlz];
             var lo = Long.expand(value, INT64_PEXT_MASK_LOW);
             var hi = Long.expand(value >>> 56, VARINT64_HI_PAYLOAD_BITS);
-            segment.set(INT64_LE_LAYOUT, offset, lo | loCont);
-            segment.set(INT64_LE_LAYOUT, offset + 8, hi | hiCont);
+            BUFFER_AS_INT64_LE.set(buffer, offset, lo | loCont);
+            BUFFER_AS_INT64_LE.set(buffer, offset + 8, hi | hiCont);
             return size;
         }
 
-        return putVarInt64Slow(segment, offset, value);
+        return putVarInt64Slow(buffer, offset, value);
     }
 
-    private static int putVarInt64Slow(MemorySegment segment, long offset, long value) {
-        long pos = offset;
+    private static int putVarInt64Slow(ByteBuffer buffer, int offset, long value) {
+        int pos = offset;
         while (true) {
             if ((value & ~0x7FL) == 0) {
-                segment.set(ValueLayout.JAVA_BYTE, pos++, (byte) value);
-                return (int) (pos - offset);
+                buffer.put(pos++, (byte) value);
+                return pos - offset;
             }
-            segment.set(ValueLayout.JAVA_BYTE, pos++, (byte) (((int) value & 0x7F) | 0x80));
+            buffer.put(pos++, (byte) (((int) value & 0x7F) | 0x80));
             value >>>= 7;
         }
     }

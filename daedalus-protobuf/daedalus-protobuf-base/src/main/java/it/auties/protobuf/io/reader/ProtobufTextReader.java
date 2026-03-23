@@ -1,5 +1,11 @@
 package it.auties.protobuf.io.reader;
 
+import it.auties.protobuf.io.reader.text.*;
+
+import java.io.InputStream;
+import java.lang.foreign.MemorySegment;
+import java.nio.ByteBuffer;
+
 /**
  * An abstract reader for text-based Protocol Buffer formats (JSON, textproto).
  * <p>
@@ -7,9 +13,56 @@ package it.auties.protobuf.io.reader;
  * using field names instead of field numbers. Generated Spec classes provide separate
  * {@code decode(ProtobufTextReader)} overloads that switch on field names.
  *
- * @see ProtobufBinaryReader
+ * @see ProtobufTextReader
  */
-public abstract non-sealed class ProtobufTextReader implements ProtobufReader {
+public abstract non-sealed class ProtobufTextReader extends ProtobufReader {
+    public static ProtobufTextReader fromString(String sequence) {
+        return new ProtobufTextCharSequenceReader(sequence);
+    }
+
+    public static ProtobufTextReader fromCharSequence(CharSequence sequence) {
+        return new ProtobufTextCharSequenceReader(sequence);
+    }
+
+    public static ProtobufTextReader fromBytes(byte[] bytes) {
+        return new ProtobufTextByteArrayReader(bytes, 0, bytes.length);
+    }
+
+    public static ProtobufTextReader fromBytes(byte[] bytes, int offset, int length) {
+        return new ProtobufTextByteArrayReader(bytes, offset, offset + length);
+    }
+
+    public static ProtobufTextReader fromBuffer(ByteBuffer buffer) {
+        return new ProtobufTextByteBufferReader(buffer);
+    }
+
+    public static ProtobufTextReader fromStream(InputStream stream) {
+        return fromStream(stream, true);
+    }
+
+    public static ProtobufTextReader fromStream(InputStream stream, boolean autoclose) {
+        return new ProtobufTextStreamReader(stream, -1, autoclose);
+    }
+
+    public static ProtobufTextReader fromStream(InputStream stream, boolean autoclose, int bufferSize) {
+        return new ProtobufTextStreamReader(stream, -1, autoclose, bufferSize);
+    }
+
+    public static ProtobufTextReader fromLimitedStream(InputStream stream, long limit) {
+        return fromLimitedStream(stream, limit, true);
+    }
+
+    public static ProtobufTextReader fromLimitedStream(InputStream stream, long limit, boolean autoclose) {
+        return new ProtobufTextStreamReader(stream, limit, autoclose);
+    }
+
+    public static ProtobufTextReader fromLimitedStream(InputStream stream, long limit, boolean autoclose, int bufferSize) {
+        return new ProtobufTextStreamReader(stream, limit, autoclose, bufferSize);
+    }
+
+    public static ProtobufTextReader fromMemorySegment(MemorySegment segment) {
+        return new ProtobufTextMemorySegmentReader(segment);
+    }
 
     protected String propertyName;
 

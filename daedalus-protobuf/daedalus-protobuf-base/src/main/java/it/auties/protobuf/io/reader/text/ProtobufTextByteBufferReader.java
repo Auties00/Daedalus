@@ -1,8 +1,17 @@
-package it.auties.protobuf.io.reader;
+package it.auties.protobuf.io.reader.text;
 
-public final class ProtobufJsonStringReader extends ProtobufTextReader {
-    public ProtobufJsonStringReader(String input) {
-        throw new UnsupportedOperationException();
+import it.auties.protobuf.io.reader.ProtobufTextReader;
+
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Objects;
+
+public final class ProtobufTextByteBufferReader extends ProtobufTextReader {
+    private final ByteBuffer buffer;
+
+    public ProtobufTextByteBufferReader(ByteBuffer buffer) {
+        Objects.requireNonNull(buffer, "buffer cannot be null");
+        this.buffer = buffer.duplicate();
     }
 
     @Override public void readStartObject() { throw new UnsupportedOperationException(); }

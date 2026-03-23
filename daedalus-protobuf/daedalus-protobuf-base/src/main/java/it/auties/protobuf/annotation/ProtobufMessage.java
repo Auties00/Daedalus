@@ -429,6 +429,22 @@ public @interface ProtobufMessage {
     ProtobufReservedRange[] reservedRanges() default {};
 
     /**
+     * Controls whether JSON serialization/deserialization code should be generated for this message.
+     * <p>
+     * When set to {@link ProtobufJsonCompatibility#ENABLED}, the JSON processor (daedalus-json module)
+     * must be active; if it is not, the compiler will issue a warning.
+     *
+     * <ul>
+     *     <li><strong>proto2:</strong> defaults to {@link ProtobufJsonCompatibility#DISABLED}</li>
+     *     <li><strong>proto3:</strong> defaults to {@link ProtobufJsonCompatibility#ENABLED}</li>
+     *     <li><strong>edition 2023+:</strong> defaults to {@link ProtobufJsonCompatibility#ENABLED}</li>
+     * </ul>
+     *
+     * @return the JSON compatibility strategy, defaulting to {@link ProtobufJsonCompatibility#EDITION_DEFAULT}
+     */
+    ProtobufJsonCompatibility generateJson() default ProtobufJsonCompatibility.EDITION_DEFAULT;
+
+    /**
      * Describes a {@link ProtobufType#FLOAT} field in a {@link ProtobufMessage}.
      */
     @Target({ElementType.FIELD, ElementType.METHOD})

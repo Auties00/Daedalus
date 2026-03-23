@@ -4,6 +4,10 @@ import it.auties.protobuf.exception.ProtobufDeserializationException;
 import it.auties.protobuf.io.ProtobufDataType;
 import it.auties.protobuf.io.calculator.ProtobufBinarySizeCalculator;
 import it.auties.protobuf.io.reader.ProtobufBinaryReader;
+import it.auties.protobuf.io.writer.binary.ProtobufBinaryByteArrayWriter;
+import it.auties.protobuf.io.writer.binary.ProtobufBinaryByteBufferWriter;
+import it.auties.protobuf.io.writer.binary.ProtobufBinaryMemorySegmentWriter;
+import it.auties.protobuf.io.writer.binary.ProtobufBinaryStreamWriter;
 import it.auties.protobuf.model.ProtobufUnknownValue;
 import it.auties.protobuf.model.ProtobufWireType;
 
@@ -56,9 +60,6 @@ public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements Protobu
     protected static final long VARINT64_LO_CONT_BITS = 0x80808080_80808080L;
     protected static final long VARINT64_HI_CONT_BITS = 0x8080L;
     protected static final long VARINT64_HI_PAYLOAD_BITS = 0x7F7FL;
-
-    protected static final int VARINT32_FAST_PATH_BYTES = Long.BYTES;
-    protected static final int VARINT64_FAST_PATH_BYTES = Long.BYTES * 2;
 
     protected static final int[] VARINT64_SIZE_TABLE = new int[128];
     protected static final long[] VARINT64_LO_CONT_TABLE = new long[128];
@@ -152,9 +153,8 @@ public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements Protobu
     public static ProtobufBinaryWriter<byte[]> toBytes(int length) {
         if (length < 0) {
             throw new IllegalArgumentException("length must not be negative");
-        } else {
-            return new ProtobufBinaryByteArrayWriter(new byte[length], 0);
         }
+        return new ProtobufBinaryByteArrayWriter(new byte[length], 0);
     }
 
     public static ProtobufBinaryWriter<byte[]> toBytes(byte[] bytes, int offset) {
@@ -166,26 +166,23 @@ public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements Protobu
     public static ProtobufBinaryWriter<ByteBuffer> toHeapBuffer(int length) {
         if (length < 0) {
             throw new IllegalArgumentException("length must not be negative");
-        } else {
-            return new ProtobufBinaryByteBufferWriter(ByteBuffer.allocate(length));
         }
+        return new ProtobufBinaryByteBufferWriter(ByteBuffer.allocate(length));
     }
 
     public static ProtobufBinaryWriter<ByteBuffer> toDirectBuffer(int length) {
         if (length < 0) {
             throw new IllegalArgumentException("length must not be negative");
-        } else {
-            return new ProtobufBinaryByteBufferWriter(ByteBuffer.allocateDirect(length));
         }
+        return new ProtobufBinaryByteBufferWriter(ByteBuffer.allocateDirect(length));
     }
 
     public static ProtobufBinaryWriter<ByteBuffer> toBuffer(ByteBuffer buffer) {
         Objects.requireNonNull(buffer, "buffer must not be null");
         if (buffer.isReadOnly()) {
             throw new IllegalArgumentException("buffer is read-only");
-        } else {
-            return new ProtobufBinaryByteBufferWriter(buffer);
         }
+        return new ProtobufBinaryByteBufferWriter(buffer);
     }
 
     public static ProtobufBinaryWriter<MemorySegment> toMemorySegment(MemorySegment segment) {

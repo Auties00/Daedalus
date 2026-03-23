@@ -1,7 +1,18 @@
-package it.auties.protobuf.io.writer;
+package it.auties.protobuf.io.writer.text;
 
-public final class ProtobufJsonByteArrayWriter extends ProtobufTextWriter<byte[]> {
-    @Override public byte[] toOutput() { throw new UnsupportedOperationException(); }
+import it.auties.protobuf.io.writer.ProtobufTextWriter;
+
+import java.nio.CharBuffer;
+import java.util.Objects;
+
+public final class ProtobufTextCharBufferWriter extends ProtobufTextWriter<CharBuffer> {
+    private final CharBuffer buffer;
+
+    public ProtobufTextCharBufferWriter(CharBuffer buffer) {
+        Objects.requireNonNull(buffer, "buffer cannot be null");
+        this.buffer = buffer.duplicate();
+    }
+
     @Override public void writeStartObject() { throw new UnsupportedOperationException(); }
     @Override public void writeStartObjectProperty(String fieldName) { throw new UnsupportedOperationException(); }
     @Override public void writeStartObjectElement() { throw new UnsupportedOperationException(); }
@@ -41,5 +52,6 @@ public final class ProtobufJsonByteArrayWriter extends ProtobufTextWriter<byte[]
     @Override public void writeBytesElement(byte[] value) { throw new UnsupportedOperationException(); }
     @Override public void writeEnumElement(int number, String enumName) { throw new UnsupportedOperationException(); }
     @Override public void writeNullElement() { throw new UnsupportedOperationException(); }
+    @Override public CharBuffer toOutput() { throw new UnsupportedOperationException(); }
     @Override public void close() {}
 }

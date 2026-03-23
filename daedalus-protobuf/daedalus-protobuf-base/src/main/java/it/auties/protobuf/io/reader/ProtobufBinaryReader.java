@@ -12,6 +12,10 @@ package it.auties.protobuf.io.reader;
 
 import it.auties.protobuf.exception.ProtobufDeserializationException;
 import it.auties.protobuf.io.ProtobufDataType;
+import it.auties.protobuf.io.reader.binary.ProtobufBinaryByteArrayReader;
+import it.auties.protobuf.io.reader.binary.ProtobufBinaryByteBufferReader;
+import it.auties.protobuf.io.reader.binary.ProtobufBinaryMemorySegmentReader;
+import it.auties.protobuf.io.reader.binary.ProtobufBinaryStreamReader;
 import it.auties.protobuf.io.writer.ProtobufBinaryWriter;
 import it.auties.protobuf.model.ProtobufUnknownValue;
 import it.auties.protobuf.model.ProtobufWireType;
@@ -35,7 +39,7 @@ import java.util.HashMap;
  *
  * @see ProtobufBinaryWriter
  */
-public abstract non-sealed class ProtobufBinaryReader implements ProtobufReader {
+public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
     protected static final VarHandle ARRAY_AS_INT16_LE = MethodHandles.byteArrayViewVarHandle(short[].class, ByteOrder.LITTLE_ENDIAN);
     protected static final VarHandle ARRAY_AS_INT32_LE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
     protected static final VarHandle ARRAY_AS_INT64_LE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
@@ -114,13 +118,6 @@ public abstract non-sealed class ProtobufBinaryReader implements ProtobufReader 
             var sl = notBm2 == 0 ? 10 : Math.min(Integer.numberOfTrailingZeros(notBm2) + 1, 10);
             VARINT32_2X_LOOKUP_STEP1[bm] = ((fl - 1) * 10 + (sl - 1)) | (fl << 8) | (sl << 16);
         }
-    }
-
-    protected int wireType;
-    protected long index;
-
-    protected ProtobufBinaryReader() {
-        resetPropertyTag();
     }
 
     protected static int countVarInts(byte[] buf, int off, int len) {
@@ -210,6 +207,13 @@ public abstract non-sealed class ProtobufBinaryReader implements ProtobufReader 
         }
     }
 
+    protected int wireType;
+    protected long index;
+
+    protected ProtobufBinaryReader() {
+        resetPropertyTag();
+    }
+
     public static ProtobufBinaryReader fromBytes(byte[] bytes) {
         return new ProtobufBinaryByteArrayReader(bytes, 0, bytes.length);
     }
@@ -223,36 +227,27 @@ public abstract non-sealed class ProtobufBinaryReader implements ProtobufReader 
     }
 
     public static ProtobufBinaryReader fromStream(InputStream stream) {
-        return new ProtobufBinaryStreamReader(stream, true, -1);
+        return fromStream(stream, true);
     }
 
     public static ProtobufBinaryReader fromStream(InputStream stream, boolean autoclose) {
-        return new ProtobufBinaryStreamReader(stream, autoclose, -1);
+        return new ProtobufBinaryStreamReader(stream, -1, autoclose);
     }
 
     public static ProtobufBinaryReader fromStream(InputStream stream, boolean autoclose, int bufferSize) {
-        return new ProtobufBinaryStreamReader(stream, autoclose, -1, bufferSize);
+        return new ProtobufBinaryStreamReader(stream, -1, autoclose, bufferSize);
     }
 
     public static ProtobufBinaryReader fromLimitedStream(InputStream stream, long limit) {
-        if (limit < 0) {
-            throw new IllegalArgumentException("Limit cannot be negative");
-        }
-        return new ProtobufBinaryStreamReader(stream, true, limit);
+        return fromLimitedStream(stream, limit, true);
     }
 
     public static ProtobufBinaryReader fromLimitedStream(InputStream stream, long limit, boolean autoclose) {
-        if (limit < 0) {
-            throw new IllegalArgumentException("Limit cannot be negative");
-        }
-        return new ProtobufBinaryStreamReader(stream, autoclose, limit);
+        return new ProtobufBinaryStreamReader(stream, limit, autoclose);
     }
 
     public static ProtobufBinaryReader fromLimitedStream(InputStream stream, long limit, boolean autoclose, int bufferSize) {
-        if (limit < 0) {
-            throw new IllegalArgumentException("Limit cannot be negative");
-        }
-        return new ProtobufBinaryStreamReader(stream, autoclose, limit, bufferSize);
+        return new ProtobufBinaryStreamReader(stream, limit, autoclose, bufferSize);
     }
 
     public static ProtobufBinaryReader fromMemorySegment(MemorySegment segment) {

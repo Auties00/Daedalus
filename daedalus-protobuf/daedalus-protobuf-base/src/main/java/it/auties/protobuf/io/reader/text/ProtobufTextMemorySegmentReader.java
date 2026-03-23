@@ -1,8 +1,20 @@
-package it.auties.protobuf.io.reader;
+package it.auties.protobuf.io.reader.text;
 
-public final class ProtobufTextFormatByteArrayReader extends ProtobufTextReader {
-    public ProtobufTextFormatByteArrayReader(byte[] input) {
-        throw new UnsupportedOperationException();
+import it.auties.protobuf.io.reader.ProtobufTextReader;
+
+import java.lang.foreign.MemorySegment;
+import java.lang.foreign.ValueLayout;
+import java.nio.ByteOrder;
+import java.util.Objects;
+
+public final class ProtobufTextMemorySegmentReader extends ProtobufTextReader {
+    private final MemorySegment segment;
+    private long position;
+
+    public ProtobufTextMemorySegmentReader(MemorySegment segment) {
+        Objects.requireNonNull(segment, "segment cannot be null");
+        this.segment = segment;
+        this.position = 0;
     }
 
     @Override public void readStartObject() { throw new UnsupportedOperationException(); }

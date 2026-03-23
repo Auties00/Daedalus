@@ -1,5 +1,13 @@
 package it.auties.protobuf.io.writer;
 
+import it.auties.protobuf.io.writer.text.*;
+
+import java.io.OutputStream;
+import java.lang.foreign.MemorySegment;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.util.Objects;
+
 /**
  * An abstract writer for text-based Protocol Buffer formats (JSON, textproto).
  * <p>
@@ -10,6 +18,80 @@ package it.auties.protobuf.io.writer;
  * @see ProtobufBinaryWriter
  */
 public abstract non-sealed class ProtobufTextWriter<OUTPUT> implements ProtobufWriter<OUTPUT> {
+    public static ProtobufTextWriter<byte[]> toBytes(int length) {
+        if (length < 0) {
+            throw new IllegalArgumentException("length must not be negative");
+        }
+        return new ProtobufTextByteArrayWriter(new byte[length], 0, length);
+    }
+
+    public static ProtobufTextWriter<byte[]> toBytes(byte[] bytes, int offset) {
+        Objects.requireNonNull(bytes, "bytes must not be null");
+        Objects.checkIndex(offset, bytes.length);
+        return new ProtobufTextByteArrayWriter(bytes, offset, bytes.length);
+    }
+
+    public static ProtobufTextWriter<ByteBuffer> toHeapBuffer(int length) {
+        if (length < 0) {
+            throw new IllegalArgumentException("length must not be negative");
+        }
+        return new ProtobufTextByteBufferWriter(ByteBuffer.allocate(length));
+    }
+
+    public static ProtobufTextWriter<ByteBuffer> toDirectBuffer(int length) {
+        if (length < 0) {
+            throw new IllegalArgumentException("length must not be negative");
+        }
+        return new ProtobufTextByteBufferWriter(ByteBuffer.allocateDirect(length));
+    }
+
+    public static ProtobufTextWriter<ByteBuffer> toBuffer(ByteBuffer buffer) {
+        Objects.requireNonNull(buffer, "buffer must not be null");
+        if (buffer.isReadOnly()) {
+            throw new IllegalArgumentException("buffer is read-only");
+        }
+        return new ProtobufTextByteBufferWriter(buffer);
+    }
+
+    public static ProtobufTextWriter<OutputStream> toStream(OutputStream stream) {
+        Objects.requireNonNull(stream, "stream must not be null");
+        return new ProtobufTextStreamWriter(stream, true);
+    }
+
+    public static ProtobufTextWriter<OutputStream> toStream(OutputStream stream, boolean autoclose) {
+        Objects.requireNonNull(stream, "stream must not be null");
+        return new ProtobufTextStreamWriter(stream, autoclose);
+    }
+
+    public static ProtobufTextWriter<OutputStream> toStream(OutputStream stream, boolean autoclose, int bufferSize) {
+        Objects.requireNonNull(stream, "stream must not be null");
+        return new ProtobufTextStreamWriter(stream, autoclose, bufferSize);
+    }
+
+    public static ProtobufTextWriter<MemorySegment> toMemorySegment(MemorySegment segment) {
+        Objects.requireNonNull(segment, "segment must not be null");
+        return new ProtobufTextMemorySegmentWriter(segment);
+    }
+
+    public static ProtobufTextWriter<? extends CharSequence> toCharSequence(int initialCapacity) {
+        return toString(initialCapacity);
+    }
+
+    public static ProtobufTextWriter<String> toString(int initialCapacity) {
+        if (initialCapacity < 0) {
+            throw new IllegalArgumentException("initialCapacity must not be negative");
+        }
+        return new ProtobufTextCharSequenceWriter(initialCapacity);
+    }
+
+    public static ProtobufTextWriter<CharBuffer> toCharBuffer(CharBuffer buffer) {
+        Objects.requireNonNull(buffer, "buffer must not be null");
+        if (buffer.isReadOnly()) {
+            throw new IllegalArgumentException("buffer is read-only");
+        }
+        return new ProtobufTextCharBufferWriter(buffer);
+    }
+
     public abstract void writeStartObject();
 
     public abstract void writeStartObjectProperty(String fieldName);

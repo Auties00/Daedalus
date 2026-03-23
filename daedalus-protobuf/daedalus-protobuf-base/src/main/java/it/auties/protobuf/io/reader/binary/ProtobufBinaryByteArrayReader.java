@@ -1,7 +1,8 @@
-package it.auties.protobuf.io.reader;
+package it.auties.protobuf.io.reader.binary;
 
 import it.auties.protobuf.exception.ProtobufDeserializationException;
 import it.auties.protobuf.io.ProtobufDataType;
+import it.auties.protobuf.io.reader.ProtobufBinaryReader;
 import it.auties.protobuf.platform.BMI2;
 import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.VectorOperators;
@@ -11,12 +12,12 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Objects;
 
-final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
+public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
     private final byte[] buffer;
     private final int limit;
     private int offset;
 
-    ProtobufBinaryByteArrayReader(byte[] buffer, int offset, int limit) {
+    public ProtobufBinaryByteArrayReader(byte[] buffer, int offset, int limit) {
         Objects.requireNonNull(buffer, "buffer cannot be null");
         Objects.checkFromToIndex(offset, limit, buffer.length);
         this.buffer = buffer;

@@ -1,7 +1,30 @@
-package it.auties.protobuf.io.writer;
+package it.auties.protobuf.io.writer.text;
 
-public final class ProtobufTextFormatStringWriter extends ProtobufTextWriter<String> {
-    @Override public String toOutput() { throw new UnsupportedOperationException(); }
+import it.auties.protobuf.io.writer.ProtobufTextWriter;
+
+import java.io.OutputStream;
+import java.util.Objects;
+
+public final class ProtobufTextStreamWriter extends ProtobufTextWriter<OutputStream> {
+    private static final int DEFAULT_BUFFER_SIZE = 8192;
+
+    private final OutputStream outputStream;
+    private final boolean autoclose;
+
+    private final byte[] buffer;
+    private int bufferPosition;
+
+    public ProtobufTextStreamWriter(OutputStream outputStream, boolean autoclose) {
+        this(outputStream, autoclose, DEFAULT_BUFFER_SIZE);
+    }
+
+    public ProtobufTextStreamWriter(OutputStream outputStream, boolean autoclose, int bufferSize) {
+        Objects.requireNonNull(outputStream, "outputStream cannot be null");
+        this.outputStream = outputStream;
+        this.autoclose = autoclose;
+        this.buffer = new byte[bufferSize];
+    }
+
     @Override public void writeStartObject() { throw new UnsupportedOperationException(); }
     @Override public void writeStartObjectProperty(String fieldName) { throw new UnsupportedOperationException(); }
     @Override public void writeStartObjectElement() { throw new UnsupportedOperationException(); }
@@ -41,5 +64,6 @@ public final class ProtobufTextFormatStringWriter extends ProtobufTextWriter<Str
     @Override public void writeBytesElement(byte[] value) { throw new UnsupportedOperationException(); }
     @Override public void writeEnumElement(int number, String enumName) { throw new UnsupportedOperationException(); }
     @Override public void writeNullElement() { throw new UnsupportedOperationException(); }
+    @Override public OutputStream toOutput() { throw new UnsupportedOperationException(); }
     @Override public void close() {}
 }
