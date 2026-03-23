@@ -1,2 +1,6 @@
-# Project exclude paths
-/target/
+# Build output
+**/target/
+
+# IDE
+.idea/
+*.iml
