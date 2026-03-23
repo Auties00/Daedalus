@@ -3,14 +3,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.github.auties00</groupId>
-    <artifactId>protobuf</artifactId>
+    <artifactId>daedalus</artifactId>
     <packaging>pom</packaging>
     <version>4.0.0</version>
     <modules>
-        <module>base</module>
-        <module>parser</module>
-        <module>schema</module>
-        <module>plugin</module>
+        <module>daedalus-protobuf</module>
+        <module>daedalus-json</module>
     </modules>
 
     <name>${project.groupId}:${project.artifactId}</name>
@@ -88,7 +86,7 @@
 
     <properties>
         <junit.version>5.9.0</junit.version>
-        <java.version>25</java.version>
+        <java.version>26</java.version>
     </properties>
 
     <build>

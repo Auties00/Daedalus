@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package example;
+
+message Person {
+    string name = 1;
+    int32 age = 2;
+    repeated string emails = 3;
+    optional PhoneNumber phone = 4;
+    map<string, string> metadata = 5;
+
+    oneof contact_info {
+        string email_address = 6;
+        string phone_number = 7;
+    }
+
+    enum PhoneType {
+        MOBILE = 0;
+        HOME = 1;
+        WORK = 2;
+    }
+
+    message PhoneNumber {
+        string number = 1;
+        PhoneType type = 2;
+    }
+
+    reserved 100, 101;
+    reserved "old_field", "deprecated_field";
+    reserved 200 to 300;
+}
+
+enum Status {
+    UNKNOWN = 0;
+    ACTIVE = 1;
+    INACTIVE = 2;
+    DELETED = 3;
+}
