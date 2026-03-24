@@ -1,11 +1,11 @@
 package it.auties.proto.ci;
 
-import it.auties.protobuf.annotation.ProtobufBuilder;
-import it.auties.protobuf.annotation.ProtobufMessage;
-import it.auties.protobuf.model.ProtobufString;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufBuilder;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.model.ProtobufString;
 import org.junit.jupiter.api.Test;
 
-import static it.auties.protobuf.model.ProtobufType.STRING;
+import static com.github.auties00.daedalus.protobuf.model.ProtobufType.STRING;
 
 public class MessageBuilderTest {
     @Test

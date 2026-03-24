@@ -1,8 +1,8 @@
 package com.google.protobuf;
 
-import it.auties.protobuf.annotation.ProtobufEnum;
-import it.auties.protobuf.annotation.ProtobufMessage;
-import it.auties.protobuf.annotation.ProtobufReservedRange;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufReservedRange;
 
 public final class JavaFeaturesProto {
     private JavaFeaturesProto() {}

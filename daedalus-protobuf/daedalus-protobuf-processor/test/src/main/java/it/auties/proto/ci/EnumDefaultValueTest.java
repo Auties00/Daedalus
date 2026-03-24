@@ -1,9 +1,9 @@
 package it.auties.proto.ci;
 
-import it.auties.protobuf.annotation.ProtobufDefaultValue;
-import it.auties.protobuf.annotation.ProtobufEnum;
-import it.auties.protobuf.annotation.ProtobufMessage;
-import it.auties.protobuf.model.ProtobufType;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufDefaultValue;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.model.ProtobufType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

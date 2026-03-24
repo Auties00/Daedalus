@@ -1,6 +1,6 @@
 package com.google.protobuf;
 
-import it.auties.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
 /**
  * {@code Any} contains an arbitrary serialized protocol buffer message along with a

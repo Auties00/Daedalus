@@ -15,8 +15,8 @@
     <url>https://github.com/Auties00/ModernProtobuf</url>
 
     <modules>
-        <module>daedalus-protobuf-base</module>
-        <module>daedalus-protobuf-parser</module>
+        <module>daedalus-protobuf-typesystem</module>
+        <module>daedalus-protobuf-compiler</module>
         <module>daedalus-protobuf-processor</module>
         <module>daedalus-protobuf-cli</module>
         <module>daedalus-protobuf-google-support</module>

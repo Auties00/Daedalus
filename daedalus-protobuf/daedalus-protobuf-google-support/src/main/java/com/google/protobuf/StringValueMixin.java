@@ -1,8 +1,8 @@
 package com.google.protobuf;
 
-import it.auties.protobuf.annotation.ProtobufDeserializer;
-import it.auties.protobuf.annotation.ProtobufMixin;
-import it.auties.protobuf.annotation.ProtobufSerializer;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufDeserializer;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMixin;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufSerializer;
 
 @SuppressWarnings("unused")
 @ProtobufMixin(scope = ProtobufMixin.Scope.GLOBAL)

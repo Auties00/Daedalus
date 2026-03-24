@@ -1,6 +1,6 @@
 package com.google.protobuf;
 
-import it.auties.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
 /**
  * Declares an API Interface to be included in this interface. The including

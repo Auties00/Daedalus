@@ -1,6 +1,6 @@
 package com.google.protobuf;
 
-import it.auties.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
 /**
  * A Timestamp represents a point in time independent of any time zone or local

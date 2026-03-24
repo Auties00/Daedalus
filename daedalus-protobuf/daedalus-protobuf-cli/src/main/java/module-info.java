@@ -1,6 +1,6 @@
-module it.auties.protobuf.schema {
-    requires it.auties.protobuf.base;
-    requires it.auties.protobuf.parser;
+module com.github.auties00.daedalus.protobuf.cli {
+    requires com.github.auties00.daedalus.protobuf.typesystem;
+    requires com.github.auties00.daedalus.protobuf.compiler;
     requires info.picocli;
     requires com.github.javaparser.core;
     requires com.fasterxml.jackson.databind;
@@ -9,6 +9,6 @@ module it.auties.protobuf.schema {
     requires java.logging;
     requires io.github.javadiffutils;
 
-    opens it.auties.protobuf.schema.cli to info.picocli;
-    opens it.auties.protobuf.schema.config to com.fasterxml.jackson.databind;
+    opens com.github.auties00.daedalus.protobuf.cli.command to info.picocli;
+    opens com.github.auties00.daedalus.protobuf.cli.config to com.fasterxml.jackson.databind;
 }

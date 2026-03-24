@@ -1,7 +1,7 @@
 package it.auties.proto.ci;
 
-import it.auties.protobuf.annotation.*;
-import it.auties.protobuf.model.ProtobufType;
+import com.github.auties00.daedalus.protobuf.annotation.*;
+import com.github.auties00.daedalus.protobuf.model.ProtobufType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

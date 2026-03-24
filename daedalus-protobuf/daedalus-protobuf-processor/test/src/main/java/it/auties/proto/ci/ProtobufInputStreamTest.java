@@ -1,9 +1,9 @@
 package it.auties.proto.ci;
 
-import it.auties.protobuf.annotation.ProtobufMessage;
-import it.auties.protobuf.model.ProtobufString;
-import it.auties.protobuf.model.ProtobufType;
-import it.auties.protobuf.io.ProtobufInputStream;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.model.ProtobufString;
+import com.github.auties00.daedalus.protobuf.model.ProtobufType;
+import com.github.auties00.daedalus.protobuf.io.ProtobufInputStream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 

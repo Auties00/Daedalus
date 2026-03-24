@@ -1,7 +1,7 @@
 package com.google.protobuf;
 
-import it.auties.protobuf.annotation.ProtobufMessage;
-import it.auties.protobuf.model.ProtobufType;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.model.ProtobufType;
 import java.util.Map;
 
 /**

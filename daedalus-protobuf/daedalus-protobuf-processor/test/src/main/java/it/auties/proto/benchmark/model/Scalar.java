@@ -1810,7 +1810,7 @@ public final class Scalar {
       descriptor;
   static {
     String[] descriptorData = {
-      "\n\014scalar.proto\022\022it.auties.protobuf\"\337\001\n\rS" +
+      "\n\014scalar.proto\022\022com.github.auties00.daedalus\"\337\001\n\rS" +
       "calarMessage\022\017\n\007fixed32\030\001 \001(\007\022\020\n\010sfixed3" +
       "2\030\002 \001(\017\022\r\n\005int32\030\003 \001(\005\022\016\n\006uint32\030\004 \001(\r\022\017" +
       "\n\007fixed64\030\005 \001(\006\022\020\n\010sfixed64\030\006 \001(\020\022\r\n\005int" +

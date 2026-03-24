@@ -1,6 +1,6 @@
 package com.google.protobuf;
 
-import it.auties.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
 /**
  * A protocol buffer option, which can be attached to a message, field,

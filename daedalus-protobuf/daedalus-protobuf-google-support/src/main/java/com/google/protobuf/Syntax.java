@@ -1,6 +1,6 @@
 package com.google.protobuf;
 
-import it.auties.protobuf.annotation.ProtobufEnum;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 
 /**
  * The syntax in which a protocol buffer element is defined.

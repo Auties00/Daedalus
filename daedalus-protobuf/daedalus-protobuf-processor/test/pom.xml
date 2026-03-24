@@ -44,7 +44,7 @@
     <dependencies>
         <dependency>
             <groupId>com.github.auties00</groupId>
-            <artifactId>daedalus-protobuf-base</artifactId>
+            <artifactId>daedalus-protobuf-typesystem</artifactId>
             <version>4.0.0</version>
         </dependency>
         <dependency>

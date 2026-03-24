@@ -1,13 +1,13 @@
 package it.auties.proto.ci;
 
-import it.auties.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static it.auties.protobuf.model.ProtobufType.UINT32;
+import static com.github.auties00.daedalus.protobuf.model.ProtobufType.UINT32;
 
 public class MessagePropertyPackedTest {
     @Test

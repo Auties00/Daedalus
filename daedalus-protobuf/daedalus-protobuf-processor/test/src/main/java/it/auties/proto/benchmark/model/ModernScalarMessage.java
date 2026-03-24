@@ -1,8 +1,8 @@
 package it.auties.proto.benchmark.model;
 
-import it.auties.protobuf.annotation.ProtobufMessage;
-import it.auties.protobuf.model.ProtobufString;
-import it.auties.protobuf.model.ProtobufType;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.model.ProtobufString;
+import com.github.auties00.daedalus.protobuf.model.ProtobufType;
 
 import java.nio.ByteBuffer;
 

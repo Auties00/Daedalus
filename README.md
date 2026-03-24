@@ -172,7 +172,7 @@ public final class Scalar {
         (com.google.protobuf.ExtensionRegistryLite) registry);
   }
   public interface ScalarMessageOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:it.auties.protobuf.ScalarMessage)
+      // @@protoc_insertion_point(interface_extends:com.github.auties00.daedalus.ScalarMessage)
       com.google.protobuf.MessageOrBuilder {
 
     /**
@@ -325,11 +325,11 @@ public final class Scalar {
     com.google.protobuf.ByteString getBytes();
   }
   /**
-   * Protobuf type {@code it.auties.protobuf.ScalarMessage}
+   * Protobuf type {@code com.github.auties00.daedalus.ScalarMessage}
    */
   public static final class ScalarMessage extends
       com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:it.auties.protobuf.ScalarMessage)
+      // @@protoc_insertion_point(message_implements:com.github.auties00.daedalus.ScalarMessage)
       ScalarMessageOrBuilder {
   private static final long serialVersionUID = 0L;
     // Use ScalarMessage.newBuilder() to construct.
@@ -350,15 +350,15 @@ public final class Scalar {
 
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return it.auties.protobuf.Scalar.internal_static_it_auties_protobuf_ScalarMessage_descriptor;
+      return com.github.auties00.daedalus.Scalar.internal_static_it_auties_protobuf_ScalarMessage_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return it.auties.protobuf.Scalar.internal_static_it_auties_protobuf_ScalarMessage_fieldAccessorTable
+      return com.github.auties00.daedalus.Scalar.internal_static_it_auties_protobuf_ScalarMessage_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              it.auties.protobuf.Scalar.ScalarMessage.class, it.auties.protobuf.Scalar.ScalarMessage.Builder.class);
+              com.github.auties00.daedalus.Scalar.ScalarMessage.class, com.github.auties00.daedalus.Scalar.ScalarMessage.Builder.class);
     }
 
     private int bitField0_;
@@ -762,10 +762,10 @@ public final class Scalar {
       if (obj == this) {
        return true;
       }
-      if (!(obj instanceof it.auties.protobuf.Scalar.ScalarMessage)) {
+      if (!(obj instanceof com.github.auties00.daedalus.Scalar.ScalarMessage)) {
         return super.equals(obj);
       }
-      it.auties.protobuf.Scalar.ScalarMessage other = (it.auties.protobuf.Scalar.ScalarMessage) obj;
+      com.github.auties00.daedalus.Scalar.ScalarMessage other = (com.github.auties00.daedalus.Scalar.ScalarMessage) obj;
 
       if (hasFixed32() != other.hasFixed32()) return false;
       if (hasFixed32()) {
@@ -909,44 +909,44 @@ public final class Scalar {
       return hash;
     }
 
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(byte[] data)
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return PARSER.parseFrom(data, extensionRegistry);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(java.io.InputStream input)
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -954,26 +954,26 @@ public final class Scalar {
           .parseWithIOException(PARSER, input, extensionRegistry);
     }
 
-    public static it.auties.protobuf.Scalar.ScalarMessage parseDelimitedFrom(java.io.InputStream input)
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input);
     }
 
-    public static it.auties.protobuf.Scalar.ScalarMessage parseDelimitedFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageV3
           .parseWithIOException(PARSER, input);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -986,7 +986,7 @@ public final class Scalar {
     public static Builder newBuilder() {
       return DEFAULT_INSTANCE.toBuilder();
     }
-    public static Builder newBuilder(it.auties.protobuf.Scalar.ScalarMessage prototype) {
+    public static Builder newBuilder(com.github.auties00.daedalus.Scalar.ScalarMessage prototype) {
       return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
     }
     @java.lang.Override
@@ -1002,26 +1002,26 @@ public final class Scalar {
       return builder;
     }
     /**
-     * Protobuf type {@code it.auties.protobuf.ScalarMessage}
+     * Protobuf type {@code com.github.auties00.daedalus.ScalarMessage}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:it.auties.protobuf.ScalarMessage)
-        it.auties.protobuf.Scalar.ScalarMessageOrBuilder {
+        // @@protoc_insertion_point(builder_implements:com.github.auties00.daedalus.ScalarMessage)
+        com.github.auties00.daedalus.Scalar.ScalarMessageOrBuilder {
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
-        return it.auties.protobuf.Scalar.internal_static_it_auties_protobuf_ScalarMessage_descriptor;
+        return com.github.auties00.daedalus.Scalar.internal_static_it_auties_protobuf_ScalarMessage_descriptor;
       }
 
       @java.lang.Override
       protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
           internalGetFieldAccessorTable() {
-        return it.auties.protobuf.Scalar.internal_static_it_auties_protobuf_ScalarMessage_fieldAccessorTable
+        return com.github.auties00.daedalus.Scalar.internal_static_it_auties_protobuf_ScalarMessage_fieldAccessorTable
             .ensureFieldAccessorsInitialized(
-                it.auties.protobuf.Scalar.ScalarMessage.class, it.auties.protobuf.Scalar.ScalarMessage.Builder.class);
+                com.github.auties00.daedalus.Scalar.ScalarMessage.class, com.github.auties00.daedalus.Scalar.ScalarMessage.Builder.class);
       }
 
-      // Construct using it.auties.protobuf.Scalar.ScalarMessage.newBuilder()
+      // Construct using com.github.auties00.daedalus.Scalar.ScalarMessage.newBuilder()
       private Builder() {
 
       }
@@ -1054,17 +1054,17 @@ public final class Scalar {
       @java.lang.Override
       public com.google.protobuf.Descriptors.Descriptor
           getDescriptorForType() {
-        return it.auties.protobuf.Scalar.internal_static_it_auties_protobuf_ScalarMessage_descriptor;
+        return com.github.auties00.daedalus.Scalar.internal_static_it_auties_protobuf_ScalarMessage_descriptor;
       }
 
       @java.lang.Override
-      public it.auties.protobuf.Scalar.ScalarMessage getDefaultInstanceForType() {
-        return it.auties.protobuf.Scalar.ScalarMessage.getDefaultInstance();
+      public com.github.auties00.daedalus.Scalar.ScalarMessage getDefaultInstanceForType() {
+        return com.github.auties00.daedalus.Scalar.ScalarMessage.getDefaultInstance();
       }
 
       @java.lang.Override
-      public it.auties.protobuf.Scalar.ScalarMessage build() {
-        it.auties.protobuf.Scalar.ScalarMessage result = buildPartial();
+      public com.github.auties00.daedalus.Scalar.ScalarMessage build() {
+        com.github.auties00.daedalus.Scalar.ScalarMessage result = buildPartial();
         if (!result.isInitialized()) {
           throw newUninitializedMessageException(result);
         }
@@ -1072,14 +1072,14 @@ public final class Scalar {
       }
 
       @java.lang.Override
-      public it.auties.protobuf.Scalar.ScalarMessage buildPartial() {
-        it.auties.protobuf.Scalar.ScalarMessage result = new it.auties.protobuf.Scalar.ScalarMessage(this);
+      public com.github.auties00.daedalus.Scalar.ScalarMessage buildPartial() {
+        com.github.auties00.daedalus.Scalar.ScalarMessage result = new com.github.auties00.daedalus.Scalar.ScalarMessage(this);
         if (bitField0_ != 0) { buildPartial0(result); }
         onBuilt();
         return result;
       }
 
-      private void buildPartial0(it.auties.protobuf.Scalar.ScalarMessage result) {
+      private void buildPartial0(com.github.auties00.daedalus.Scalar.ScalarMessage result) {
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
@@ -1171,16 +1171,16 @@ public final class Scalar {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof it.auties.protobuf.Scalar.ScalarMessage) {
-          return mergeFrom((it.auties.protobuf.Scalar.ScalarMessage)other);
+        if (other instanceof com.github.auties00.daedalus.Scalar.ScalarMessage) {
+          return mergeFrom((com.github.auties00.daedalus.Scalar.ScalarMessage)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(it.auties.protobuf.Scalar.ScalarMessage other) {
-        if (other == it.auties.protobuf.Scalar.ScalarMessage.getDefaultInstance()) return this;
+      public Builder mergeFrom(com.github.auties00.daedalus.Scalar.ScalarMessage other) {
+        if (other == com.github.auties00.daedalus.Scalar.ScalarMessage.getDefaultInstance()) return this;
         if (other.hasFixed32()) {
           setFixed32(other.getFixed32());
         }
@@ -1902,16 +1902,16 @@ public final class Scalar {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:it.auties.protobuf.ScalarMessage)
+      // @@protoc_insertion_point(builder_scope:com.github.auties00.daedalus.ScalarMessage)
     }
 
-    // @@protoc_insertion_point(class_scope:it.auties.protobuf.ScalarMessage)
-    private static final it.auties.protobuf.Scalar.ScalarMessage DEFAULT_INSTANCE;
+    // @@protoc_insertion_point(class_scope:com.github.auties00.daedalus.ScalarMessage)
+    private static final com.github.auties00.daedalus.Scalar.ScalarMessage DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new it.auties.protobuf.Scalar.ScalarMessage();
+      DEFAULT_INSTANCE = new com.github.auties00.daedalus.Scalar.ScalarMessage();
     }
 
-    public static it.auties.protobuf.Scalar.ScalarMessage getDefaultInstance() {
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
@@ -1947,7 +1947,7 @@ public final class Scalar {
     }
 
     @java.lang.Override
-    public it.auties.protobuf.Scalar.ScalarMessage getDefaultInstanceForType() {
+    public com.github.auties00.daedalus.Scalar.ScalarMessage getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
@@ -1967,7 +1967,7 @@ public final class Scalar {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\014scalar.proto\022\022it.auties.protobuf\"\337\001\n\rS" +
+      "\n\014scalar.proto\022\022com.github.auties00.daedalus\"\337\001\n\rS" +
       "calarMessage\022\017\n\007fixed32\030\001 \001(\007\022\020\n\010sfixed3" +
       "2\030\002 \001(\017\022\r\n\005int32\030\003 \001(\005\022\016\n\006uint32\030\004 \001(\r\022\017" +
       "\n\007fixed64\030\005 \001(\006\022\020\n\010sfixed64\030\006 \001(\020\022\r\n\005int" +
@@ -2004,7 +2004,7 @@ public final class Scalar {
       com.google.protobuf.ExtensionRegistryLite registry) {
   }
   public interface ScalarMessageOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:it.auties.protobuf.ScalarMessage)
+      // @@protoc_insertion_point(interface_extends:com.github.auties00.daedalus.ScalarMessage)
       com.google.protobuf.MessageLiteOrBuilder {
 
     /**
@@ -2157,12 +2157,12 @@ public final class Scalar {
     com.google.protobuf.ByteString getBytes();
   }
   /**
-   * Protobuf type {@code it.auties.protobuf.ScalarMessage}
+   * Protobuf type {@code com.github.auties00.daedalus.ScalarMessage}
    */
   public  static final class ScalarMessage extends
       com.google.protobuf.GeneratedMessageLite<
           ScalarMessage, ScalarMessage.Builder> implements
-      // @@protoc_insertion_point(message_implements:it.auties.protobuf.ScalarMessage)
+      // @@protoc_insertion_point(message_implements:com.github.auties00.daedalus.ScalarMessage)
       ScalarMessageOrBuilder {
     private ScalarMessage() {
       string_ = "";
@@ -2632,50 +2632,50 @@ public final class Scalar {
       bytes_ = getDefaultInstance().getBytes();
     }
 
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         java.nio.ByteBuffer data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return com.google.protobuf.GeneratedMessageLite.parseFrom(
           DEFAULT_INSTANCE, data);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         java.nio.ByteBuffer data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return com.google.protobuf.GeneratedMessageLite.parseFrom(
           DEFAULT_INSTANCE, data, extensionRegistry);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         com.google.protobuf.ByteString data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return com.google.protobuf.GeneratedMessageLite.parseFrom(
           DEFAULT_INSTANCE, data);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         com.google.protobuf.ByteString data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return com.google.protobuf.GeneratedMessageLite.parseFrom(
           DEFAULT_INSTANCE, data, extensionRegistry);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(byte[] data)
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(byte[] data)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return com.google.protobuf.GeneratedMessageLite.parseFrom(
           DEFAULT_INSTANCE, data);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         byte[] data,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws com.google.protobuf.InvalidProtocolBufferException {
       return com.google.protobuf.GeneratedMessageLite.parseFrom(
           DEFAULT_INSTANCE, data, extensionRegistry);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(java.io.InputStream input)
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(java.io.InputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageLite.parseFrom(
           DEFAULT_INSTANCE, input);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -2683,24 +2683,24 @@ public final class Scalar {
           DEFAULT_INSTANCE, input, extensionRegistry);
     }
 
-    public static it.auties.protobuf.Scalar.ScalarMessage parseDelimitedFrom(java.io.InputStream input)
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseDelimitedFrom(java.io.InputStream input)
         throws java.io.IOException {
       return parseDelimitedFrom(DEFAULT_INSTANCE, input);
     }
 
-    public static it.auties.protobuf.Scalar.ScalarMessage parseDelimitedFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseDelimitedFrom(
         java.io.InputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
       return parseDelimitedFrom(DEFAULT_INSTANCE, input, extensionRegistry);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         com.google.protobuf.CodedInputStream input)
         throws java.io.IOException {
       return com.google.protobuf.GeneratedMessageLite.parseFrom(
           DEFAULT_INSTANCE, input);
     }
-    public static it.auties.protobuf.Scalar.ScalarMessage parseFrom(
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage parseFrom(
         com.google.protobuf.CodedInputStream input,
         com.google.protobuf.ExtensionRegistryLite extensionRegistry)
         throws java.io.IOException {
@@ -2711,19 +2711,19 @@ public final class Scalar {
     public static Builder newBuilder() {
       return (Builder) DEFAULT_INSTANCE.createBuilder();
     }
-    public static Builder newBuilder(it.auties.protobuf.Scalar.ScalarMessage prototype) {
+    public static Builder newBuilder(com.github.auties00.daedalus.Scalar.ScalarMessage prototype) {
       return DEFAULT_INSTANCE.createBuilder(prototype);
     }
 
     /**
-     * Protobuf type {@code it.auties.protobuf.ScalarMessage}
+     * Protobuf type {@code com.github.auties00.daedalus.ScalarMessage}
      */
     public static final class Builder extends
         com.google.protobuf.GeneratedMessageLite.Builder<
-          it.auties.protobuf.Scalar.ScalarMessage, Builder> implements
-        // @@protoc_insertion_point(builder_implements:it.auties.protobuf.ScalarMessage)
-        it.auties.protobuf.Scalar.ScalarMessageOrBuilder {
-      // Construct using it.auties.protobuf.Scalar.ScalarMessage.newBuilder()
+          com.github.auties00.daedalus.Scalar.ScalarMessage, Builder> implements
+        // @@protoc_insertion_point(builder_implements:com.github.auties00.daedalus.ScalarMessage)
+        com.github.auties00.daedalus.Scalar.ScalarMessageOrBuilder {
+      // Construct using com.github.auties00.daedalus.Scalar.ScalarMessage.newBuilder()
       private Builder() {
         super(DEFAULT_INSTANCE);
       }
@@ -3218,7 +3218,7 @@ public final class Scalar {
         return this;
       }
 
-      // @@protoc_insertion_point(builder_scope:it.auties.protobuf.ScalarMessage)
+      // @@protoc_insertion_point(builder_scope:com.github.auties00.daedalus.ScalarMessage)
     }
     @java.lang.Override
     @java.lang.SuppressWarnings({"unchecked", "fallthrough"})
@@ -3227,7 +3227,7 @@ public final class Scalar {
         java.lang.Object arg0, java.lang.Object arg1) {
       switch (method) {
         case NEW_MUTABLE_INSTANCE: {
-          return new it.auties.protobuf.Scalar.ScalarMessage();
+          return new com.github.auties00.daedalus.Scalar.ScalarMessage();
         }
         case NEW_BUILDER: {
           return new Builder();
@@ -3260,13 +3260,13 @@ public final class Scalar {
           return DEFAULT_INSTANCE;
         }
         case GET_PARSER: {
-          com.google.protobuf.Parser<it.auties.protobuf.Scalar.ScalarMessage> parser = PARSER;
+          com.google.protobuf.Parser<com.github.auties00.daedalus.Scalar.ScalarMessage> parser = PARSER;
           if (parser == null) {
-            synchronized (it.auties.protobuf.Scalar.ScalarMessage.class) {
+            synchronized (com.github.auties00.daedalus.Scalar.ScalarMessage.class) {
               parser = PARSER;
               if (parser == null) {
                 parser =
-                    new DefaultInstanceBasedParser<it.auties.protobuf.Scalar.ScalarMessage>(
+                    new DefaultInstanceBasedParser<com.github.auties00.daedalus.Scalar.ScalarMessage>(
                         DEFAULT_INSTANCE);
                 PARSER = parser;
               }
@@ -3285,8 +3285,8 @@ public final class Scalar {
     }
 
 
-    // @@protoc_insertion_point(class_scope:it.auties.protobuf.ScalarMessage)
-    private static final it.auties.protobuf.Scalar.ScalarMessage DEFAULT_INSTANCE;
+    // @@protoc_insertion_point(class_scope:com.github.auties00.daedalus.ScalarMessage)
+    private static final com.github.auties00.daedalus.Scalar.ScalarMessage DEFAULT_INSTANCE;
     static {
       ScalarMessage defaultInstance = new ScalarMessage();
       // New instances are implicitly immutable so no need to make
@@ -3296,7 +3296,7 @@ public final class Scalar {
         ScalarMessage.class, defaultInstance);
     }
 
-    public static it.auties.protobuf.Scalar.ScalarMessage getDefaultInstance() {
+    public static com.github.auties00.daedalus.Scalar.ScalarMessage getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 

@@ -21,7 +21,7 @@
     <dependencies>
         <dependency>
             <groupId>com.github.auties00</groupId>
-            <artifactId>daedalus-protobuf-parser</artifactId>
+            <artifactId>daedalus-protobuf-compiler</artifactId>
             <version>4.0.0</version>
         </dependency>
 
@@ -77,7 +77,7 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>it.auties.protobuf.schema.SchemaMain</mainClass>
+                                    <mainClass>com.github.auties00.daedalus.schema.com.github.auties00.daedalus.cli.protobuf.com.github.auties00.daedalus.protobuf.cli.SchemaMain</mainClass>
                                     <manifestEntries>
                                         <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
                                     </manifestEntries>
@@ -104,10 +104,10 @@
                         <argument>--enable-preview</argument>
                         <argument>--enable-native-access=ALL-UNNAMED</argument>
                         <argument>--add-modules=jdk.incubator.vector</argument>
-                        <argument>-Djava.util.logging.config.class=it.auties.protobuf.schema.SuppressJLineLogging</argument>
+                        <argument>-Djava.util.logging.config.class=com.github.auties00.daedalus.schema.SuppressJLineLogging</argument>
                         <argument>-classpath</argument>
                         <classpath/>
-                        <argument>it.auties.protobuf.schema.SchemaMain</argument>
+                        <argument>com.github.auties00.daedalus.schema.com.github.auties00.daedalus.cli.protobuf.com.github.auties00.daedalus.protobuf.cli.SchemaMain</argument>
                     </arguments>
                 </configuration>
             </plugin>

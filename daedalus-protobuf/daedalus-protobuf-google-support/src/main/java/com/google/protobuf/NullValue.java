@@ -1,6 +1,6 @@
 package com.google.protobuf;
 
-import it.auties.protobuf.annotation.ProtobufEnum;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 
 /**
  * Represents a JSON {@code null}.

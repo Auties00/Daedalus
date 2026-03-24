@@ -1,5 +1,5 @@
-module  it.auties.protobuf.plugin {
+module  com.github.auties00.daedalus.protobuf.processor {
     requires jdk.compiler;
-    requires it.auties.protobuf.base;
+    requires com.github.auties00.daedalus.protobuf.typesystem;
     requires com.palantir.javapoet;
 }
