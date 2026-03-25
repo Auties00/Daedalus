@@ -1,6 +1,9 @@
 package com.github.auties00.daedalus.protobuf.annotation;
 
 import com.github.auties00.daedalus.protobuf.model.ProtobufEnumType;
+import com.github.auties00.daedalus.typesystem.annotation.TypeDefaultValue;
+import com.github.auties00.daedalus.typesystem.annotation.TypeDeserializer;
+import com.github.auties00.daedalus.typesystem.annotation.TypeSerializer;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -10,21 +13,21 @@ import java.lang.annotation.Target;
 /**
  * This annotation can be applied to enums, classes, records, sealed interfaces,
  * and sealed abstract classes to represent a Protobuf enum.
- * If no constant is annotated with {@link ProtobufDefaultValue}, {@code null} will be used implicitly.
+ * If no constant is annotated with {@link TypeDefaultValue}, {@code null} will be used implicitly.
  *
  * <p>There are two ways to define the protobuf index for each constant:
  * <ul>
  * <li>Annotate each constant ({@code static final} field or enum constant) with {@link Constant} to assign an explicit index.
- * <li>Use {@link ProtobufSerializer} and {@link ProtobufDeserializer} to define custom conversion logic between the type and its {@code int} index.
+ * <li>Use {@link TypeSerializer} and {@link TypeDeserializer} to define custom conversion logic between the type and its {@code int} index.
  * </ul>
  *
- * <p>{@link Constant} and {@link ProtobufSerializer}/{@link ProtobufDeserializer} cannot be mixed
+ * <p>{@link Constant} and {@link TypeSerializer}/{@link TypeDeserializer} cannot be mixed
  * in the same type. Use one approach or the other, never both.
  *
  * <p>When using {@link Constant}, all known instances are declared as {@code static final}
  * fields (or enum constants), so no deserializer is needed — the decoder
  * resolves instances by looking them up in the generated values map.
- * When using {@link ProtobufSerializer}/{@link ProtobufDeserializer}, the serializer
+ * When using {@link TypeSerializer}/{@link TypeDeserializer}, the serializer
  * converts an instance to its {@code int} index and the deserializer creates an instance
  * from an {@code int} index.
  * For sealed interfaces and sealed abstract classes, the permitted subtypes must each
@@ -50,7 +53,7 @@ import java.lang.annotation.Target;
  * }
  * }</pre>
  *
- * <h3>With {@link ProtobufSerializer}/{@link ProtobufDeserializer}:</h3>
+ * <h3>With {@link TypeSerializer}/{@link TypeDeserializer}:</h3>
  * <pre>{@code
  * @ProtobufEnum
  * public enum Status {
@@ -67,12 +70,12 @@ import java.lang.annotation.Target;
  *         this.index = index;
  *     }
  *
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     int index() {
  *         return index;
  *     }
  *
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     static Status of(int index) {
  *         return VALUES.get(index);
  *     }
@@ -83,10 +86,10 @@ import java.lang.annotation.Target;
  * <pre>{@code
  * @ProtobufMixin
  * public class StatusSpec {
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     public static int encode(Status protoInputObject) { ... }
  *
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     public static Status decode(int protoEnumIndex) { ... }
  * }
  * }</pre>
@@ -112,7 +115,7 @@ import java.lang.annotation.Target;
  * }
  * }</pre>
  *
- * <h3>Concrete with {@link ProtobufSerializer}/{@link ProtobufDeserializer}:</h3>
+ * <h3>Concrete with {@link TypeSerializer}/{@link TypeDeserializer}:</h3>
  * <pre>{@code
  * @ProtobufEnum
  * public final class Status {
@@ -122,12 +125,12 @@ import java.lang.annotation.Target;
  *         this.index = index;
  *     }
  *
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     int index() {
  *         return index;
  *     }
  *
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     static Status of(int index) {
  *         return new Status(index);
  *     }
@@ -155,7 +158,7 @@ import java.lang.annotation.Target;
  * }
  * }</pre>
  *
- * <h3>Sealed abstract with {@link ProtobufSerializer}/{@link ProtobufDeserializer}:</h3>
+ * <h3>Sealed abstract with {@link TypeSerializer}/{@link TypeDeserializer}:</h3>
  * <pre>{@code
  * @ProtobufEnum
  * public sealed abstract class Status {
@@ -165,12 +168,12 @@ import java.lang.annotation.Target;
  *         this.index = index;
  *     }
  *
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     int index() {
  *         return index;
  *     }
  *
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     static Status of(int index) {
  *         return switch (index) {
  *             case 0 -> new Active(0);
@@ -210,16 +213,16 @@ import java.lang.annotation.Target;
  * }
  * }</pre>
  *
- * <h3>With {@link ProtobufSerializer}/{@link ProtobufDeserializer}:</h3>
+ * <h3>With {@link TypeSerializer}/{@link TypeDeserializer}:</h3>
  * <pre>{@code
  * @ProtobufEnum
  * public record Status(int index) {
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     int index() {
  *         return index;
  *     }
  *
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     static Status of(int index) {
  *         return new Status(index);
  *     }
@@ -249,11 +252,11 @@ import java.lang.annotation.Target;
  * }
  * }</pre>
  *
- * <h3>With {@link ProtobufSerializer}/{@link ProtobufDeserializer}:</h3>
+ * <h3>With {@link TypeSerializer}/{@link TypeDeserializer}:</h3>
  * <pre>{@code
  * @ProtobufEnum
  * public sealed interface Status {
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     int index();
  *
  *     @ProtobufEnum
@@ -264,7 +267,7 @@ import java.lang.annotation.Target;
  *     record Inactive(int index) implements Status {
  *     }
  *
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     static Status of(int index) {
  *         return switch (index) {
  *             case 0 -> new Active(0);
@@ -276,8 +279,8 @@ import java.lang.annotation.Target;
  * }</pre>
  *
  * @see Constant
- * @see ProtobufSerializer
- * @see ProtobufDeserializer
+ * @see TypeSerializer
+ * @see TypeDeserializer
  **/
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
@@ -351,7 +354,7 @@ public @interface ProtobufEnum {
      * For enum constants, this visibility requirement is implicitly satisfied.
      *
      * <p>This annotation cannot be used together with
-     * {@link ProtobufSerializer}/{@link ProtobufDeserializer} in the same type.
+     * {@link TypeSerializer}/{@link TypeDeserializer} in the same type.
      *
      * @see ProtobufEnum
      */

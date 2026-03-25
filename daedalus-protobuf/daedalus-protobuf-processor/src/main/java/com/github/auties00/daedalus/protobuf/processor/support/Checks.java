@@ -1,7 +1,11 @@
 package com.github.auties00.daedalus.protobuf.processor.support;
 
-import com.github.auties00.daedalus.protobuf.annotation.*;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufAccessor;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufReservedRange;
 import com.github.auties00.daedalus.protobuf.model.ProtobufType;
+import com.github.auties00.daedalus.typesystem.annotation.TypeBuilder;
 
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.*;
@@ -194,7 +198,7 @@ public final class Checks {
     }
 
     private void checkBuilders(RoundEnvironment roundEnv) {
-        var builders = roundEnv.getElementsAnnotatedWith(ProtobufBuilder.class);
+        var builders = roundEnv.getElementsAnnotatedWith(TypeBuilder.class);
         for(var builder : builders) {
             checkBuilder(builder);
         }

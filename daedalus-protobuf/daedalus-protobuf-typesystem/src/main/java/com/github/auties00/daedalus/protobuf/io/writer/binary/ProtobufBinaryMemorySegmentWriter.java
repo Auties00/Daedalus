@@ -1,7 +1,7 @@
 package com.github.auties00.daedalus.protobuf.io.writer.binary;
 
 import com.github.auties00.daedalus.protobuf.exception.ProtobufSerializationException;
-import com.github.auties00.daedalus.protobuf.io.ProtobufDataType;
+import com.github.auties00.daedalus.protobuf.io.ProtobufIODataType;
 import com.github.auties00.daedalus.protobuf.io.writer.ProtobufBinaryWriter;
 
 import java.lang.foreign.MemorySegment;
@@ -184,8 +184,8 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
     }
 
     @Override
-    public ProtobufDataType rawDataTypePreference() {
-        return ProtobufDataType.MEMORY_SEGMENT;
+    public ProtobufIODataType rawDataTypePreference() {
+        return ProtobufIODataType.MEMORY_SEGMENT;
     }
 
     @Override

@@ -1,8 +1,9 @@
 package com.github.auties00.daedalus.protobuf.processor;
 
-import com.sun.source.tree.*;
-import com.sun.source.util.Trees;
-import com.github.auties00.daedalus.protobuf.annotation.*;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufAccessor;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.io.writer.ProtobufBinaryWriter;
 import com.github.auties00.daedalus.protobuf.model.ProtobufType;
 import com.github.auties00.daedalus.protobuf.processor.generator.*;
 import com.github.auties00.daedalus.protobuf.processor.graph.ProtobufConverterGraph;
@@ -10,7 +11,9 @@ import com.github.auties00.daedalus.protobuf.processor.model.*;
 import com.github.auties00.daedalus.protobuf.processor.support.Checks;
 import com.github.auties00.daedalus.protobuf.processor.support.Messages;
 import com.github.auties00.daedalus.protobuf.processor.support.Types;
-import com.github.auties00.daedalus.protobuf.io.writer.ProtobufBinaryWriter;
+import com.github.auties00.daedalus.typesystem.annotation.TypeBuilder;
+import com.sun.source.tree.*;
+import com.sun.source.util.Trees;
 
 import javax.annotation.processing.*;
 import javax.lang.model.SourceVersion;
@@ -26,8 +29,8 @@ import java.util.stream.IntStream;
 
 @SupportedAnnotationTypes({
         "com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage.ProtobufProperty",
-        "com.github.auties00.daedalus.protobuf.annotation.ProtobufSerializer",
-        "com.github.auties00.daedalus.protobuf.annotation.ProtobufDeserializer",
+        "com.github.auties00.daedalus.typesystem.annotation.ProtobufSerializer",
+        "com.github.auties00.daedalus.typesystem.annotation.ProtobufDeserializer",
         "com.github.auties00.daedalus.protobuf.annotation.ProtobufObject",
         "com.github.auties00.daedalus.protobuf.annotation.ProtobufBuilder",
         "com.github.auties00.daedalus.protobuf.annotation.ProtobufEnumIndex"
@@ -334,7 +337,7 @@ public class ProtobufJavacPlugin extends AbstractProcessor {
     // - ProtobufDeserializer
     // - ProtobufSerializer
     private void processObjectMethod(ProtobufObjectElement messageElement, ExecutableElement executableElement) {
-        var builder = executableElement.getAnnotation(ProtobufBuilder.class);
+        var builder = executableElement.getAnnotation(TypeBuilder.class);
         if(builder != null) {
             messageElement.addBuilder(builder.name(), executableElement.getParameters(), executableElement);
             return;

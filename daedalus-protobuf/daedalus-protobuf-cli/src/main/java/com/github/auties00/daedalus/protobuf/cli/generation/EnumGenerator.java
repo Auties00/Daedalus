@@ -1,5 +1,14 @@
 package com.github.auties00.daedalus.protobuf.cli.generation;
 
+import com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig;
+import com.github.auties00.daedalus.protobuf.cli.model.EnumConstantMode;
+import com.github.auties00.daedalus.protobuf.cli.model.EnumForm;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerRangeExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufLiteralExpression;
+import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufEnumConstantStatement;
+import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufEnumStatement;
+import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufReservedStatement;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.NodeList;
@@ -8,15 +17,6 @@ import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
-import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerExpression;
-import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerRangeExpression;
-import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufLiteralExpression;
-import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufEnumConstantStatement;
-import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufEnumStatement;
-import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufReservedStatement;
-import com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig;
-import com.github.auties00.daedalus.protobuf.cli.model.EnumConstantMode;
-import com.github.auties00.daedalus.protobuf.cli.model.EnumForm;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -65,7 +65,7 @@ public final class EnumGenerator {
 
         cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum");
         if (generateDefaultValue) {
-            cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufDefaultValue");
+            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufDefaultValue");
         }
 
         var enumForm = resolveEnumForm(protoFqn);
@@ -117,8 +117,8 @@ public final class EnumGenerator {
         cu.addType(enumDecl);
 
         if (constantMode == EnumConstantMode.SERIALIZER_DESERIALIZER) {
-            cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufSerializer");
-            cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufDeserializer");
+            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufSerializer");
+            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufDeserializer");
             cu.addImport("java.util.Arrays");
             cu.addImport("java.util.Map");
             cu.addImport("java.util.function.Function");
@@ -207,8 +207,8 @@ public final class EnumGenerator {
         cu.addType(classDecl);
 
         if (constantMode == EnumConstantMode.SERIALIZER_DESERIALIZER) {
-            cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufSerializer");
-            cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufDeserializer");
+            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufSerializer");
+            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufDeserializer");
         }
     }
 
@@ -309,8 +309,8 @@ public final class EnumGenerator {
                 ));
             }
         } else {
-            cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufSerializer");
-            cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufDeserializer");
+            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufSerializer");
+            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufDeserializer");
 
             var serializer = record.addMethod("index");
             serializer.setType("int");
@@ -385,8 +385,8 @@ public final class EnumGenerator {
                 );
             }
         } else {
-            cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufSerializer");
-            cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufDeserializer");
+            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufSerializer");
+            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufDeserializer");
 
             indexMethod.addAnnotation(new MarkerAnnotationExpr("ProtobufSerializer"));
 
@@ -501,8 +501,8 @@ public final class EnumGenerator {
                 );
             }
         } else {
-            cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufSerializer");
-            cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufDeserializer");
+            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufSerializer");
+            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufDeserializer");
 
             var serializer = classDecl.addMethod("index");
             serializer.setType("int");

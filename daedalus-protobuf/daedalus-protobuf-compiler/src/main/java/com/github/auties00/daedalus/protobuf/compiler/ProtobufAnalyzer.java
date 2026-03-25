@@ -2,7 +2,6 @@ package com.github.auties00.daedalus.protobuf.compiler;
 
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
-import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
 import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufSemanticException;
 import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufSyntaxException;
@@ -11,6 +10,7 @@ import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufInteger;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufIntegerRange;
 import com.github.auties00.daedalus.protobuf.compiler.tree.*;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.*;
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 
 import java.io.IOException;
 import java.math.BigInteger;
@@ -57,8 +57,8 @@ public final class ProtobufAnalyzer {
     private static final String TYPE_SELECTOR = ".";
     private static final String TYPE_SELECTOR_SPLITTER = "\\.";
 
-    private static final BigInteger FIELD_NUMBER_MIN = BigInteger.valueOf(ProtobufMessage.MIN_PROPERTY_INDEX);
-    private static final BigInteger FIELD_NUMBER_MAX = BigInteger.valueOf(ProtobufMessage.MAX_PROPERTY_INDEX);
+    private static final BigInteger FIELD_NUMBER_MIN = BigInteger.valueOf(ProtobufMessage.MIN_FIELD_INDEX);
+    private static final BigInteger FIELD_NUMBER_MAX = BigInteger.valueOf(ProtobufMessage.MAX_FIELD_INDEX);
 
     private static final BigInteger ENUM_CONSTANT_MIN = BigInteger.valueOf(ProtobufEnum.MIN_CONSTANT_INDEX);
     private static final BigInteger ENUM_CONSTANT_MAX = BigInteger.valueOf(ProtobufEnum.MAX_CONSTANT_INDEX);

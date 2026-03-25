@@ -1,6 +1,7 @@
 package com.github.auties00.daedalus.protobuf.io.reader;
 
-import com.github.auties00.daedalus.protobuf.io.reader.text.*;
+import com.github.auties00.daedalus.protobuf.io.reader.text.streamed.ProtobufTextStreamedReader;
+import com.github.auties00.daedalus.protobuf.io.reader.text.tokenized.ProtobufTextTokenizedReader;
 
 import java.io.InputStream;
 import java.lang.foreign.MemorySegment;
@@ -17,23 +18,23 @@ import java.nio.ByteBuffer;
  */
 public abstract non-sealed class ProtobufTextReader extends ProtobufReader {
     public static ProtobufTextReader fromString(String sequence) {
-        return new ProtobufTextCharSequenceReader(sequence);
+        return new ProtobufTextTokenizedReader(sequence);
     }
 
     public static ProtobufTextReader fromCharSequence(CharSequence sequence) {
-        return new ProtobufTextCharSequenceReader(sequence);
+        return new ProtobufTextTokenizedReader(sequence);
     }
 
     public static ProtobufTextReader fromBytes(byte[] bytes) {
-        return new ProtobufTextByteArrayReader(bytes, 0, bytes.length);
+        return new ProtobufTextTokenizedReader(bytes);
     }
 
     public static ProtobufTextReader fromBytes(byte[] bytes, int offset, int length) {
-        return new ProtobufTextByteArrayReader(bytes, offset, offset + length);
+        return new ProtobufTextTokenizedReader(bytes, offset, offset + length);
     }
 
     public static ProtobufTextReader fromBuffer(ByteBuffer buffer) {
-        return new ProtobufTextByteBufferReader(buffer);
+        return new ProtobufTextTokenizedReader(buffer);
     }
 
     public static ProtobufTextReader fromStream(InputStream stream) {
@@ -41,11 +42,11 @@ public abstract non-sealed class ProtobufTextReader extends ProtobufReader {
     }
 
     public static ProtobufTextReader fromStream(InputStream stream, boolean autoclose) {
-        return new ProtobufTextStreamReader(stream, -1, autoclose);
+        return new ProtobufTextStreamedReader(stream, -1, autoclose);
     }
 
     public static ProtobufTextReader fromStream(InputStream stream, boolean autoclose, int bufferSize) {
-        return new ProtobufTextStreamReader(stream, -1, autoclose, bufferSize);
+        return new ProtobufTextStreamedReader(stream, -1, autoclose, bufferSize);
     }
 
     public static ProtobufTextReader fromLimitedStream(InputStream stream, long limit) {
@@ -53,15 +54,15 @@ public abstract non-sealed class ProtobufTextReader extends ProtobufReader {
     }
 
     public static ProtobufTextReader fromLimitedStream(InputStream stream, long limit, boolean autoclose) {
-        return new ProtobufTextStreamReader(stream, limit, autoclose);
+        return new ProtobufTextStreamedReader(stream, limit, autoclose);
     }
 
     public static ProtobufTextReader fromLimitedStream(InputStream stream, long limit, boolean autoclose, int bufferSize) {
-        return new ProtobufTextStreamReader(stream, limit, autoclose, bufferSize);
+        return new ProtobufTextStreamedReader(stream, limit, autoclose, bufferSize);
     }
 
     public static ProtobufTextReader fromMemorySegment(MemorySegment segment) {
-        return new ProtobufTextMemorySegmentReader(segment);
+        return new ProtobufTextTokenizedReader(segment);
     }
 
     protected String propertyName;

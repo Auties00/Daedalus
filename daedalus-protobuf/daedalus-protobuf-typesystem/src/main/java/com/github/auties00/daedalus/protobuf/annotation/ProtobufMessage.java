@@ -1,7 +1,9 @@
 package com.github.auties00.daedalus.protobuf.annotation;
 
-import com.github.auties00.daedalus.protobuf.builtin.*;
+import com.github.auties00.daedalus.protobuf.adapter.StringMixin;
 import com.github.auties00.daedalus.protobuf.model.*;
+import com.github.auties00.daedalus.typesystem.adapter.*;
+import com.github.auties00.daedalus.typesystem.annotation.TypeMixin;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -44,17 +46,17 @@ import java.lang.annotation.Target;
  *
  * <p>The following Spec class is generated:
  * <pre>{@code
- * @ProtobufMixin(scope = ProtobufMixin.Scope.GLOBAL)
+ * @TypeMixin(scope = TypeMixin.Scope.GLOBAL)
  * public class MessageSpec {
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     public static void encode(Message protoInputObject, ProtobufBinaryWriter protoWriter) { ... }
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     public static void encode(Message protoInputObject, ProtobufTextWriter protoWriter) { ... }
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     public static Message decode(ProtobufBinaryReader protoReader) { ... }
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     public static Message decode(ProtobufTextReader protoReader) { ... }
- *     @ProtobufSize
+ *     @TypeSize
  *     public static int sizeOf(Message protoInputObject) { ... }
  * }
  * }</pre>
@@ -131,17 +133,17 @@ import java.lang.annotation.Target;
  *
  * <p>The following Spec class is generated:
  * <pre>{@code
- * @ProtobufMixin(scope = ProtobufMixin.Scope.GLOBAL)
+ * @TypeMixin(scope = TypeMixin.Scope.GLOBAL)
  * public class MessageSpec {
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     public static void encode(Message protoInputObject, ProtobufBinaryWriter protoWriter) { ... }
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     public static void encode(Message protoInputObject, ProtobufTextWriter protoWriter) { ... }
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     public static Message decode(ProtobufBinaryReader protoReader) { ... }
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     public static Message decode(ProtobufTextReader protoReader) { ... }
- *     @ProtobufSize
+ *     @TypeSize
  *     public static int sizeOf(Message protoInputObject) { ... }
  * }
  * }</pre>
@@ -188,17 +190,17 @@ import java.lang.annotation.Target;
  *
  * <p>The following Spec class is generated:
  * <pre>{@code
- * @ProtobufMixin(scope = ProtobufMixin.Scope.GLOBAL)
+ * @TypeMixin(scope = TypeMixin.Scope.GLOBAL)
  * public class MessageSpec {
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     public static void encode(Message protoInputObject, ProtobufBinaryWriter protoWriter) { ... }
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     public static void encode(Message protoInputObject, ProtobufTextWriter protoWriter) { ... }
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     public static Message decode(ProtobufBinaryReader protoReader) { ... }
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     public static Message decode(ProtobufTextReader protoReader) { ... }
- *     @ProtobufSize
+ *     @TypeSize
  *     public static int sizeOf(Message protoInputObject) { ... }
  * }
  * }</pre>
@@ -267,17 +269,17 @@ import java.lang.annotation.Target;
  *
  * <p>The following Spec class is generated, returning the generated implementation:
  * <pre>{@code
- * @ProtobufMixin(scope = ProtobufMixin.Scope.GLOBAL)
+ * @TypeMixin(scope = TypeMixin.Scope.GLOBAL)
  * public class MessageSpec {
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     public static void encode(Message protoInputObject, ProtobufBinaryWriter protoWriter) { ... }
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     public static void encode(Message protoInputObject, ProtobufTextWriter protoWriter) { ... }
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     public static Message decode(ProtobufBinaryReader protoReader) { ... }
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     public static Message decode(ProtobufTextReader protoReader) { ... }
- *     @ProtobufSize
+ *     @TypeSize
  *     public static int sizeOf(Message protoInputObject) { ... }
  * }
  * }</pre>
@@ -334,17 +336,17 @@ import java.lang.annotation.Target;
  *
  * <p>The following Spec class is generated:
  * <pre>{@code
- * @ProtobufMixin(scope = ProtobufMixin.Scope.GLOBAL)
+ * @TypeMixin(scope = TypeMixin.Scope.GLOBAL)
  * public class MessageSpec {
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     public static void encode(Message protoInputObject, ProtobufBinaryWriter protoWriter) { ... }
- *     @ProtobufSerializer
+ *     @TypeSerializer
  *     public static void encode(Message protoInputObject, ProtobufTextWriter protoWriter) { ... }
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     public static Message decode(ProtobufBinaryReader protoReader) { ... }
- *     @ProtobufDeserializer
+ *     @TypeDeserializer
  *     public static Message decode(ProtobufTextReader protoReader) { ... }
- *     @ProtobufSize
+ *     @TypeSize
  *     public static int sizeOf(Message protoInputObject) { ... }
  * }
  * }</pre>
@@ -1681,7 +1683,7 @@ public @interface ProtobufMessage {
 
         /**
          * This annotation can be applied to non-static methods in a type that is used as an unknown fields store
-         * or to static methods in a {@link ProtobufMixin} for an existing data structure.
+         * or to static methods in a {@link TypeMixin} for an existing data structure.
          * <h2>Usage Example:</h2>
          * <h3>In a custom type:</h3>
          * <pre>{@code
@@ -1704,9 +1706,9 @@ public @interface ProtobufMessage {
          *     }
          * }
          * }</pre>
-         * <h3>In a {@link ProtobufMixin}:</h3>
+         * <h3>In a {@link TypeMixin}:</h3>
          * <pre>{@code
-         * @ProtobufMixin
+         * @TypeMixin
          * final class ProtobufMapMixin {
          *     @ProtobufUnknownFields.Setter
          *     public static void addUnknownField(Map<Long, ProtobufUnknownValue> map, long index, ProtobufUnknownValue value) {

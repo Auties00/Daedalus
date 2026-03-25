@@ -1,7 +1,7 @@
 package com.github.auties00.daedalus.protobuf.io.reader.binary;
 
 import com.github.auties00.daedalus.protobuf.exception.ProtobufDeserializationException;
-import com.github.auties00.daedalus.protobuf.io.ProtobufDataType;
+import com.github.auties00.daedalus.protobuf.io.ProtobufIODataType;
 import com.github.auties00.daedalus.protobuf.io.reader.ProtobufBinaryReader;
 import com.github.auties00.daedalus.protobuf.platform.BMI2;
 import jdk.incubator.vector.ByteVector;
@@ -12,7 +12,7 @@ import java.io.InputStream;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.*;
+import java.util.Objects;
 
 public final class ProtobufBinaryStreamReader extends ProtobufBinaryReader {
     private static final int DEFAULT_BUFFER_SIZE = 8192;
@@ -146,8 +146,8 @@ public final class ProtobufBinaryStreamReader extends ProtobufBinaryReader {
     }
 
     @Override
-    public ProtobufDataType rawDataTypePreference() {
-        return ProtobufDataType.BYTE_ARRAY;
+    public ProtobufIODataType rawDataTypePreference() {
+        return ProtobufIODataType.BYTE_ARRAY;
     }
 
     @Override

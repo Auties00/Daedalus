@@ -27,16 +27,16 @@ public sealed interface ProtobufWriter<OUTPUT> extends AutoCloseable permits Pro
         return ProtobufBinaryWriter.toBytes(bytes, offset);
     }
 
-    static ProtobufBinaryWriter<ByteBuffer> toBinaryHeapBuffer(int length) {
-        return ProtobufBinaryWriter.toHeapBuffer(length);
-    }
-
-    static ProtobufBinaryWriter<ByteBuffer> toBinaryDirectBuffer(int length) {
-        return ProtobufBinaryWriter.toDirectBuffer(length);
+    static ProtobufBinaryWriter<ByteBuffer> toBinaryBuffer(int length) {
+        return ProtobufBinaryWriter.toBuffer(length);
     }
 
     static ProtobufBinaryWriter<ByteBuffer> toBinaryBuffer(ByteBuffer buffer) {
         return ProtobufBinaryWriter.toBuffer(buffer);
+    }
+
+    static ProtobufBinaryWriter<ByteBuffer> toBinaryDirectBuffer(int length) {
+        return ProtobufBinaryWriter.toDirectBuffer(length);
     }
 
     static ProtobufBinaryWriter<MemorySegment> toBinaryMemorySegment(MemorySegment segment) {

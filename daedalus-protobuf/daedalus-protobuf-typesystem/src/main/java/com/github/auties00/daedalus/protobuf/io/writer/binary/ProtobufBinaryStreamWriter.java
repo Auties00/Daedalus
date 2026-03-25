@@ -1,7 +1,7 @@
 package com.github.auties00.daedalus.protobuf.io.writer.binary;
 
 import com.github.auties00.daedalus.protobuf.exception.ProtobufSerializationException;
-import com.github.auties00.daedalus.protobuf.io.ProtobufDataType;
+import com.github.auties00.daedalus.protobuf.io.ProtobufIODataType;
 import com.github.auties00.daedalus.protobuf.io.writer.ProtobufBinaryWriter;
 
 import java.io.IOException;
@@ -219,8 +219,8 @@ public final class ProtobufBinaryStreamWriter extends ProtobufBinaryWriter<Outpu
     }
 
     @Override
-    public ProtobufDataType rawDataTypePreference() {
-        return ProtobufDataType.BYTE_ARRAY;
+    public ProtobufIODataType rawDataTypePreference() {
+        return ProtobufIODataType.BYTE_ARRAY;
     }
 
     @Override

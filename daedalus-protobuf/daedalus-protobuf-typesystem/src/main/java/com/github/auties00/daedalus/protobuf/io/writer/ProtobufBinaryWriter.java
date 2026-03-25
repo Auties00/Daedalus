@@ -1,7 +1,7 @@
 package com.github.auties00.daedalus.protobuf.io.writer;
 
 import com.github.auties00.daedalus.protobuf.exception.ProtobufDeserializationException;
-import com.github.auties00.daedalus.protobuf.io.ProtobufDataType;
+import com.github.auties00.daedalus.protobuf.io.ProtobufIODataType;
 import com.github.auties00.daedalus.protobuf.io.calculator.ProtobufBinarySizeCalculator;
 import com.github.auties00.daedalus.protobuf.io.reader.ProtobufBinaryReader;
 import com.github.auties00.daedalus.protobuf.io.writer.binary.ProtobufBinaryByteArrayWriter;
@@ -163,7 +163,7 @@ public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements Protobu
         return new ProtobufBinaryByteArrayWriter(bytes, offset);
     }
 
-    public static ProtobufBinaryWriter<ByteBuffer> toHeapBuffer(int length) {
+    public static ProtobufBinaryWriter<ByteBuffer> toBuffer(int length) {
         if (length < 0) {
             throw new IllegalArgumentException("length must not be negative");
         }
@@ -621,7 +621,7 @@ public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements Protobu
 
     public abstract void writeRawPackedBool(boolean[] input);
 
-    public abstract ProtobufDataType rawDataTypePreference();
+    public abstract ProtobufIODataType rawDataTypePreference();
 
     public abstract OUTPUT toOutput();
 }

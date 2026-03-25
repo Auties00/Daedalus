@@ -1,7 +1,7 @@
 package com.github.auties00.daedalus.protobuf.io.reader.binary;
 
 import com.github.auties00.daedalus.protobuf.exception.ProtobufDeserializationException;
-import com.github.auties00.daedalus.protobuf.io.ProtobufDataType;
+import com.github.auties00.daedalus.protobuf.io.ProtobufIODataType;
 import com.github.auties00.daedalus.protobuf.io.reader.ProtobufBinaryReader;
 import com.github.auties00.daedalus.protobuf.platform.BMI2;
 import jdk.incubator.vector.ByteVector;
@@ -79,8 +79,8 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
     }
 
     @Override
-    public ProtobufDataType rawDataTypePreference() {
-        return ProtobufDataType.BYTE_ARRAY;
+    public ProtobufIODataType rawDataTypePreference() {
+        return ProtobufIODataType.BYTE_ARRAY;
     }
 
     @Override

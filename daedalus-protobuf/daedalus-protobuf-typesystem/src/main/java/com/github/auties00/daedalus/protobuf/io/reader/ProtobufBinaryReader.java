@@ -11,9 +11,9 @@
 package com.github.auties00.daedalus.protobuf.io.reader;
 
 import com.github.auties00.daedalus.protobuf.exception.ProtobufDeserializationException;
-import com.github.auties00.daedalus.protobuf.io.ProtobufDataType;
+import com.github.auties00.daedalus.protobuf.io.ProtobufIODataType;
 import com.github.auties00.daedalus.protobuf.io.reader.binary.ProtobufBinaryByteArrayReader;
-import com.github.auties00.daedalus.protobuf.io.reader.binary.ProtobufBinaryByteBufferReader;
+import com.github.auties00.daedalus.protobuf.io.reader.binary.ProtobufBinaryDirectByteBufferReader;
 import com.github.auties00.daedalus.protobuf.io.reader.binary.ProtobufBinaryMemorySegmentReader;
 import com.github.auties00.daedalus.protobuf.io.reader.binary.ProtobufBinaryStreamReader;
 import com.github.auties00.daedalus.protobuf.io.writer.ProtobufBinaryWriter;
@@ -223,7 +223,13 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
     }
 
     public static ProtobufBinaryReader fromBuffer(ByteBuffer buffer) {
-        return new ProtobufBinaryByteBufferReader(buffer);
+        if(buffer.hasArray()) {
+            var offset = buffer.arrayOffset() + buffer.position();
+            var length = buffer.remaining();
+            return new ProtobufBinaryByteArrayReader(buffer.array(), offset, offset + length);
+        } else {
+            return new ProtobufBinaryDirectByteBufferReader(buffer);
+        }
     }
 
     public static ProtobufBinaryReader fromStream(InputStream stream) {
@@ -251,7 +257,10 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
     }
 
     public static ProtobufBinaryReader fromMemorySegment(MemorySegment segment) {
-        return new ProtobufBinaryMemorySegmentReader(segment);
+        var heapBase = segment.heapBase();
+        return heapBase.isPresent() && heapBase.get() instanceof byte[] array
+                ? new ProtobufBinaryByteArrayReader(array, 0, array.length)
+                : new ProtobufBinaryMemorySegmentReader(segment);
     }
 
     public int propertyWireType() {
@@ -699,5 +708,5 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
 
     public abstract boolean isFinished();
 
-    public abstract ProtobufDataType rawDataTypePreference();
+    public abstract ProtobufIODataType rawDataTypePreference();
 }
