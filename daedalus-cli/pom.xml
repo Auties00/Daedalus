@@ -11,10 +11,28 @@
 
     <artifactId>daedalus-cli</artifactId>
 
+    <name>${project.groupId}:${project.artifactId}</name>
+    <description>Central CLI framework for Daedalus with plugin-based extension support</description>
+    <url>https://github.com/Auties00/ModernProtobuf</url>
+
     <properties>
         <maven.compiler.source>26</maven.compiler.source>
         <maven.compiler.target>26</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
+            <version>4.7.6</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.williamcallahan</groupId>
+            <artifactId>tui4j</artifactId>
+            <version>0.3.3</version>
+        </dependency>
+    </dependencies>
 
 </project>

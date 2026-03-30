@@ -7,8 +7,8 @@
     <packaging>pom</packaging>
     <version>4.0.0</version>
     <modules>
-        <module>daedalus-protobuf</module>
-        <module>daedalus-json</module>
+        <module>daedalus-datatype/daedalus-protobuf</module>
+        <module>daedalus-datatype/daedalus-json</module>
         <module>daedalus-typesystem</module>
         <module>daedalus-processor</module>
         <module>daedalus-cli</module>
