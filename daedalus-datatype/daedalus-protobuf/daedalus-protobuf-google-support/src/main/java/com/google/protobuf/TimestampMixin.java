@@ -1,20 +1,20 @@
 package com.google.protobuf;
 
-import com.github.auties00.daedalus.protobuf.annotation.ProtobufDeserializer;
-import com.github.auties00.daedalus.protobuf.annotation.ProtobufMixin;
-import com.github.auties00.daedalus.protobuf.annotation.ProtobufSerializer;
+import com.github.auties00.daedalus.typesystem.annotation.TypeDeserializer;
+import com.github.auties00.daedalus.typesystem.annotation.TypeMixin;
+import com.github.auties00.daedalus.typesystem.annotation.TypeSerializer;
 
 import java.time.Instant;
 
 @SuppressWarnings("unused")
-@ProtobufMixin(scope = ProtobufMixin.Scope.GLOBAL)
+@TypeMixin(scope = TypeMixin.Scope.GLOBAL)
 public final class TimestampMixin {
-    @ProtobufDeserializer
+    @TypeDeserializer
     public static Instant ofNullable(Timestamp value) {
         return value == null ? null : Instant.ofEpochSecond(value.seconds(), value.nanos());
     }
 
-    @ProtobufSerializer
+    @TypeSerializer
     public static Timestamp toNullable(Instant value) {
         return value == null ? null : new Timestamp(value.getEpochSecond(), value.getNano());
     }

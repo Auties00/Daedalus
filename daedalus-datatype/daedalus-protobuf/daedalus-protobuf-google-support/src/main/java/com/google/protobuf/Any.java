@@ -52,7 +52,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  * whose name is the type URL in brackets. For example, an {@code Any} containing a
  * {@code foo.Bar} message may be written {@code [type.googleapis.com/foo.Bar] { a: 2 }}.
  *
- * <p>Protobuf type {@code google.protobuf.Any}
+ * <p>Protobuf type {@code com.google.protobuf.Any}
  */
 @ProtobufMessage
 public final class Any {
@@ -61,7 +61,7 @@ public final class Any {
      * Identifies the type of the serialized Protobuf message with a URI reference
      * consisting of a prefix ending in a slash and the fully-qualified type name.
      *
-     * <p>Example: type.googleapis.com/google.protobuf.StringValue
+     * <p>Example: type.googleapis.com/com.google.protobuf.StringValue
      *
      * <p>This string must contain at least one {@code /} character, and the content after
      * the last {@code /} must be the fully-qualified name of the type in canonical

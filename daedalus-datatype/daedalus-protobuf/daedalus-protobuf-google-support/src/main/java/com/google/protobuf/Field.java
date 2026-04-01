@@ -14,7 +14,7 @@ import java.util.SequencedCollection;
  * information necessary to model the schema and preserve semantics. Instead
  * make use of FileDescriptorSet which preserves the necessary information.
  *
- * <p>Protobuf type {@code google.protobuf.Field}
+ * <p>Protobuf type {@code com.google.protobuf.Field}
  */
 @ProtobufMessage
 public final class Field {
@@ -22,7 +22,7 @@ public final class Field {
     /**
      * Basic field types.
      *
-     * <p>Protobuf enum {@code google.protobuf.Field.Kind}
+     * <p>Protobuf enum {@code com.google.protobuf.Field.Kind}
      */
     @ProtobufEnum
     public enum Kind {
@@ -144,7 +144,7 @@ public final class Field {
     /**
      * Whether a field is optional, required, or repeated.
      *
-     * <p>Protobuf enum {@code google.protobuf.Field.Cardinality}
+     * <p>Protobuf enum {@code com.google.protobuf.Field.Cardinality}
      */
     @ProtobufEnum
     public enum Cardinality {
@@ -207,7 +207,7 @@ public final class Field {
 
     /**
      * The field type URL, without the scheme, for message or enumeration
-     * types. Example: {@code "type.googleapis.com/google.protobuf.Timestamp"}.
+     * types. Example: {@code "type.googleapis.com/com.google.protobuf.Timestamp"}.
      *
      * <p><code>string type_url = 6;</code>
      */

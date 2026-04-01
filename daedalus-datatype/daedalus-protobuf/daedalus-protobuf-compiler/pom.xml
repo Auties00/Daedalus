@@ -24,5 +24,39 @@
             <artifactId>daedalus-protobuf-typesystem</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.auties00</groupId>
+            <artifactId>daedalus-protobuf-google-support</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>unpack-proto-resources</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>unpack</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>com.github.auties00</groupId>
+                                    <artifactId>daedalus-protobuf-google-support</artifactId>
+                                    <version>${project.version}</version>
+                                    <outputDirectory>${project.build.directory}/classes</outputDirectory>
+                                    <includes>google/protobuf/**/*.proto</includes>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

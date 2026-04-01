@@ -5,7 +5,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 /**
  * The syntax in which a protocol buffer element is defined.
  *
- * <p>Protobuf enum {@code google.protobuf.Syntax}
+ * <p>Protobuf enum {@code com.google.protobuf.Syntax}
  */
 @ProtobufEnum
 public enum Syntax {

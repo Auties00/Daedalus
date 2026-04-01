@@ -8,7 +8,7 @@ import java.util.SequencedCollection;
 /**
  * Represents a JSON array.
  *
- * <p>Protobuf type {@code google.protobuf.ListValue}
+ * <p>Protobuf type {@code com.google.protobuf.ListValue}
  */
 @ProtobufMessage
 public final class ListValue {

@@ -1,18 +1,18 @@
 package com.google.protobuf;
 
-import com.github.auties00.daedalus.protobuf.annotation.ProtobufDeserializer;
-import com.github.auties00.daedalus.protobuf.annotation.ProtobufMixin;
-import com.github.auties00.daedalus.protobuf.annotation.ProtobufSerializer;
+import com.github.auties00.daedalus.typesystem.annotation.TypeDeserializer;
+import com.github.auties00.daedalus.typesystem.annotation.TypeMixin;
+import com.github.auties00.daedalus.typesystem.annotation.TypeSerializer;
 
 @SuppressWarnings("unused")
-@ProtobufMixin(scope = ProtobufMixin.Scope.GLOBAL)
+@TypeMixin(scope = TypeMixin.Scope.GLOBAL)
 public final class DurationMixin {
-    @ProtobufDeserializer
+    @TypeDeserializer
     public static java.time.Duration ofNullable(Duration value) {
         return value == null ? null : java.time.Duration.ofSeconds(value.seconds(), value.nanos());
     }
 
-    @ProtobufSerializer
+    @TypeSerializer
     public static Duration toNullable(java.time.Duration value) {
         return value == null ? null : new Duration(value.getSeconds(), value.getNano());
     }

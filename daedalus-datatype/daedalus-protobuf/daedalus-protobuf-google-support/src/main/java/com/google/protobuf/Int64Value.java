@@ -10,7 +10,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  * <p>Not recommended for use in new APIs, but still useful for legacy APIs and
  * has no plan to be removed.
  *
- * <p>Protobuf type {@code google.protobuf.Int64Value}
+ * <p>Protobuf type {@code com.google.protobuf.Int64Value}
  */
 @ProtobufMessage
 public final class Int64Value {

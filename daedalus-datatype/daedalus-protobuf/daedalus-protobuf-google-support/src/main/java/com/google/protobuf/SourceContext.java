@@ -6,7 +6,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  * {@code SourceContext} represents information about the source of a
  * protobuf element, like the file in which it is defined.
  *
- * <p>Protobuf type {@code google.protobuf.SourceContext}
+ * <p>Protobuf type {@code com.google.protobuf.SourceContext}
  */
 @ProtobufMessage
 public final class SourceContext {

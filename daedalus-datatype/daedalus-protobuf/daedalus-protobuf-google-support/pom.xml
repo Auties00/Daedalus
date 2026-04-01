@@ -10,45 +10,17 @@
     <artifactId>daedalus-protobuf-google-support</artifactId>
 
     <name>${project.groupId}:${project.artifactId}</name>
-    <description>Google well-known protobuf types and Java standard library mixins</description>
+    <description>Google well-known types and descriptor protos for the daedalus protobuf implementation</description>
     <url>https://github.com/Auties00/ModernProtobuf</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.14.0</version>
-                <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
-                    <encoding>UTF-8</encoding>
-                    <annotationProcessorPaths>
-                        <annotationProcessorPath>
-                            <groupId>com.github.auties00</groupId>
-                            <artifactId>daedalus-protobuf-processor</artifactId>
-                            <version>${project.version}</version>
-                        </annotationProcessorPath>
-                    </annotationProcessorPaths>
-                    <compilerArgs>--enable-preview</compilerArgs>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
     <dependencies>
         <dependency>
             <groupId>com.github.auties00</groupId>
             <artifactId>daedalus-protobuf-typesystem</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.github.auties00</groupId>
-            <artifactId>daedalus-protobuf-processor</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

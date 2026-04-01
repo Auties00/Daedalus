@@ -101,7 +101,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  *   }
  * </pre>
  *
- * <p>Protobuf type {@code google.protobuf.Mixin}
+ * <p>Protobuf type {@code com.google.protobuf.Mixin}
  */
 @ProtobufMessage
 public final class Mixin {

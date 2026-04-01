@@ -233,7 +233,7 @@ import java.util.SequencedCollection;
  * request should verify the included field paths, and return an
  * {@code INVALID_ARGUMENT} error if any path is unmappable.
  *
- * <p>Protobuf type {@code google.protobuf.FieldMask}
+ * <p>Protobuf type {@code com.google.protobuf.FieldMask}
  */
 @ProtobufMessage
 public final class FieldMask {

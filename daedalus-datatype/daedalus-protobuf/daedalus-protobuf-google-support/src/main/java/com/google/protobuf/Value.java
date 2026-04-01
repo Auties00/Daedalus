@@ -10,7 +10,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  * list of values. A producer of value is expected to set one of these
  * variants. Absence of any variant is an invalid state.
  *
- * <p>Protobuf type {@code google.protobuf.Value}
+ * <p>Protobuf type {@code com.google.protobuf.Value}
  */
 @ProtobufMessage
 public final class Value {

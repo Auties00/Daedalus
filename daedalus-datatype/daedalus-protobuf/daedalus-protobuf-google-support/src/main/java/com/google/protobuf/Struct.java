@@ -19,7 +19,7 @@ import java.util.Map;
  * <p>If you do not intend to parse arbitrary JSON into your message, a custom
  * typed message should be preferred instead of using this type.
  *
- * <p>Protobuf type {@code google.protobuf.Struct}
+ * <p>Protobuf type {@code com.google.protobuf.Struct}
  */
 @ProtobufMessage
 public final class Struct {

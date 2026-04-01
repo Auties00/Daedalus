@@ -107,7 +107,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  * <a href="http://joda-time.sourceforge.net/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime(">http://joda-time.sourceforge.net/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime(</a>)
  * ) to obtain a formatter capable of generating timestamps in this format.
  *
- * <p>Protobuf type {@code google.protobuf.Timestamp}
+ * <p>Protobuf type {@code com.google.protobuf.Timestamp}
  */
 @ProtobufMessage
 public final class Timestamp {

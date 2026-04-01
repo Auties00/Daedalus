@@ -3,12 +3,23 @@ package com.google.protobuf;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufReservedRange;
+
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.SequencedCollection;
 
 public final class DescriptorProtos {
     private DescriptorProtos() {}
+
+    /**
+     * Sealed interface representing the base type for all descriptor proto types.
+     */
+    public sealed interface Descriptor
+            permits FileDescriptorProto, DescriptorProto, FieldDescriptorProto,
+                    EnumDescriptorProto, EnumValueDescriptorProto,
+                    ServiceDescriptorProto, MethodDescriptorProto,
+                    OneofDescriptorProto {}
 
     /**
      * The full set of known editions.
@@ -139,7 +150,7 @@ public final class DescriptorProtos {
      * <p>Protobuf type {@code google.protobuf.FileDescriptorProto}
      */
     @ProtobufMessage
-    public static final class FileDescriptorProto {
+    public static final class FileDescriptorProto implements Descriptor {
 
         /**
          * file name, relative to root of source tree
@@ -354,7 +365,7 @@ public final class DescriptorProtos {
      * <p>Protobuf type {@code google.protobuf.DescriptorProto}
      */
     @ProtobufMessage
-    public static final class DescriptorProto {
+    public static final class DescriptorProto implements Descriptor {
 
         /**
          * <p>Protobuf type {@code google.protobuf.DescriptorProto.ExtensionRange}
@@ -723,7 +734,6 @@ public final class DescriptorProtos {
          *
          * <p><code>VerificationState verification = 3;</code>
          */
-        // proto default: UNVERIFIED
         @ProtobufMessage.EnumField(index = 3)
         DescriptorProtos.ExtensionRangeOptions.VerificationState verification;
 
@@ -736,7 +746,7 @@ public final class DescriptorProtos {
             this.uninterpretedOption = uninterpretedOption;
             this.declaration = declaration;
             this.features = features;
-            this.verification = verification;
+            this.verification = Objects.requireNonNullElse(verification, DescriptorProtos.ExtensionRangeOptions.VerificationState.UNVERIFIED);
         }
 
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
@@ -762,7 +772,7 @@ public final class DescriptorProtos {
      * <p>Protobuf type {@code google.protobuf.FieldDescriptorProto}
      */
     @ProtobufMessage
-    public static final class FieldDescriptorProto {
+    public static final class FieldDescriptorProto implements Descriptor {
 
         /**
          * <p>Protobuf enum {@code google.protobuf.FieldDescriptorProto.Type}
@@ -1068,7 +1078,7 @@ public final class DescriptorProtos {
      * <p>Protobuf type {@code google.protobuf.OneofDescriptorProto}
      */
     @ProtobufMessage
-    public static final class OneofDescriptorProto {
+    public static final class OneofDescriptorProto implements Descriptor {
 
         /**
          * <p><code>string name = 1;</code>
@@ -1102,7 +1112,7 @@ public final class DescriptorProtos {
      * <p>Protobuf type {@code google.protobuf.EnumDescriptorProto}
      */
     @ProtobufMessage
-    public static final class EnumDescriptorProto {
+    public static final class EnumDescriptorProto implements Descriptor {
 
         /**
          * Range of reserved numeric values. Reserved values may not be used by
@@ -1239,7 +1249,7 @@ public final class DescriptorProtos {
      * <p>Protobuf type {@code google.protobuf.EnumValueDescriptorProto}
      */
     @ProtobufMessage
-    public static final class EnumValueDescriptorProto {
+    public static final class EnumValueDescriptorProto implements Descriptor {
 
         /**
          * <p><code>string name = 1;</code>
@@ -1284,7 +1294,7 @@ public final class DescriptorProtos {
      * <p>Protobuf type {@code google.protobuf.ServiceDescriptorProto}
      */
     @ProtobufMessage(reservedIndexes = {4}, reservedNames = {"stream"})
-    public static final class ServiceDescriptorProto {
+    public static final class ServiceDescriptorProto implements Descriptor {
 
         /**
          * <p><code>string name = 1;</code>
@@ -1333,7 +1343,7 @@ public final class DescriptorProtos {
      * <p>Protobuf type {@code google.protobuf.MethodDescriptorProto}
      */
     @ProtobufMessage
-    public static final class MethodDescriptorProto {
+    public static final class MethodDescriptorProto implements Descriptor {
 
         /**
          * <p><code>string name = 1;</code>
@@ -1367,7 +1377,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool client_streaming = 5;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 5)
         boolean clientStreaming;
 
@@ -1376,7 +1385,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool server_streaming = 6;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 6)
         boolean serverStreaming;
 
@@ -1488,7 +1496,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool java_multiple_files = 10;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 10)
         boolean javaMultipleFiles;
 
@@ -1515,14 +1522,12 @@ public final class DescriptorProtos {
          *
          * <p><code>bool java_string_check_utf8 = 27;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 27)
         boolean javaStringCheckUtf8;
 
         /**
          * <p><code>OptimizeMode optimize_for = 9;</code>
          */
-        // proto default: SPEED
         @ProtobufMessage.EnumField(index = 9)
         DescriptorProtos.FileOptions.OptimizeMode optimizeFor;
 
@@ -1555,21 +1560,18 @@ public final class DescriptorProtos {
          *
          * <p><code>bool cc_generic_services = 16;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 16)
         boolean ccGenericServices;
 
         /**
          * <p><code>bool java_generic_services = 17;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 17)
         boolean javaGenericServices;
 
         /**
          * <p><code>bool py_generic_services = 18;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 18)
         boolean pyGenericServices;
 
@@ -1581,7 +1583,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool deprecated = 23;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 23)
         boolean deprecated;
 
@@ -1710,7 +1711,7 @@ public final class DescriptorProtos {
             this.javaMultipleFiles = javaMultipleFiles;
             this.javaGenerateEqualsAndHash = javaGenerateEqualsAndHash;
             this.javaStringCheckUtf8 = javaStringCheckUtf8;
-            this.optimizeFor = optimizeFor;
+            this.optimizeFor = Objects.requireNonNullElse(optimizeFor, DescriptorProtos.FileOptions.OptimizeMode.SPEED);
             this.goPackage = goPackage;
             this.ccGenericServices = ccGenericServices;
             this.javaGenericServices = javaGenericServices;
@@ -1847,7 +1848,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool message_set_wire_format = 1;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 1)
         boolean messageSetWireFormat;
 
@@ -1858,7 +1858,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool no_standard_descriptor_accessor = 2;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 2)
         boolean noStandardDescriptorAccessor;
 
@@ -1870,7 +1869,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool deprecated = 3;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 3)
         boolean deprecated;
 
@@ -2243,7 +2241,6 @@ public final class DescriptorProtos {
          *
          * <p><code>CType ctype = 1;</code>
          */
-        // proto default: STRING
         @ProtobufMessage.EnumField(index = 1)
         DescriptorProtos.FieldOptions.CType ctype;
 
@@ -2276,7 +2273,6 @@ public final class DescriptorProtos {
          *
          * <p><code>JSType jstype = 6;</code>
          */
-        // proto default: JS_NORMAL
         @ProtobufMessage.EnumField(index = 6)
         DescriptorProtos.FieldOptions.JSType jstype;
 
@@ -2306,7 +2302,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool lazy = 5;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 5)
         boolean lazy;
 
@@ -2317,7 +2312,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool unverified_lazy = 15;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 15)
         boolean unverifiedLazy;
 
@@ -2329,7 +2323,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool deprecated = 3;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 3)
         boolean deprecated;
 
@@ -2339,7 +2332,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool weak = 10;</code>
          */
-        // proto default: false
         @Deprecated
         @ProtobufMessage.BoolField(index = 10)
         boolean weak;
@@ -2350,7 +2342,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool debug_redact = 16;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 16)
         boolean debugRedact;
 
@@ -2413,9 +2404,9 @@ public final class DescriptorProtos {
                 DescriptorProtos.FieldOptions.FeatureSupport featureSupport,
                 List<DescriptorProtos.UninterpretedOption> uninterpretedOption
         ) {
-            this.ctype = ctype;
+            this.ctype = Objects.requireNonNullElse(ctype, DescriptorProtos.FieldOptions.CType.STRING);
             this.packed = packed;
-            this.jstype = jstype;
+            this.jstype = Objects.requireNonNullElse(jstype, DescriptorProtos.FieldOptions.JSType.JS_NORMAL);
             this.lazy = lazy;
             this.unverifiedLazy = unverifiedLazy;
             this.deprecated = deprecated;
@@ -2554,7 +2545,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool deprecated = 3;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 3)
         boolean deprecated;
 
@@ -2642,7 +2632,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool deprecated = 1;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 1)
         boolean deprecated;
 
@@ -2664,7 +2653,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool debug_redact = 3;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 3)
         boolean debugRedact;
 
@@ -2745,7 +2733,6 @@ public final class DescriptorProtos {
          *
          * <p><code>bool deprecated = 33;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 33)
         boolean deprecated;
 
@@ -2820,14 +2807,12 @@ public final class DescriptorProtos {
          *
          * <p><code>bool deprecated = 33;</code>
          */
-        // proto default: false
         @ProtobufMessage.BoolField(index = 33)
         boolean deprecated;
 
         /**
          * <p><code>IdempotencyLevel idempotency_level = 34;</code>
          */
-        // proto default: IDEMPOTENCY_UNKNOWN
         @ProtobufMessage.EnumField(index = 34)
         DescriptorProtos.MethodOptions.IdempotencyLevel idempotencyLevel;
 
@@ -2857,7 +2842,7 @@ public final class DescriptorProtos {
                 List<DescriptorProtos.UninterpretedOption> uninterpretedOption
         ) {
             this.deprecated = deprecated;
-            this.idempotencyLevel = idempotencyLevel;
+            this.idempotencyLevel = Objects.requireNonNullElse(idempotencyLevel, DescriptorProtos.MethodOptions.IdempotencyLevel.IDEMPOTENCY_UNKNOWN);
             this.features = features;
             this.uninterpretedOption = uninterpretedOption;
         }

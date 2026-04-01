@@ -10,7 +10,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  * FieldOptions, EnumOptions, EnumValueOptions, ServiceOptions, or MethodOptions
  * are strongly discouraged.
  *
- * <p>Protobuf type {@code google.protobuf.Option}
+ * <p>Protobuf type {@code com.google.protobuf.Option}
  */
 @ProtobufMessage
 public final class Option {
@@ -30,7 +30,7 @@ public final class Option {
      * The option's value packed in an Any message. If the value is a primitive,
      * the corresponding wrapper type defined in google/protobuf/wrappers.proto
      * should be used. If the value is an enum, it should be stored as an int32
-     * value using the google.protobuf.Int32Value type.
+     * value using the com.google.protobuf.Int32Value type.
      *
      * <p><code>Any value = 2;</code>
      */

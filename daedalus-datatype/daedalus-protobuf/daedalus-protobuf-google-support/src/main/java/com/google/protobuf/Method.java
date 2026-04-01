@@ -13,7 +13,7 @@ import java.util.SequencedCollection;
  * information necessary to model the schema and preserve semantics. Instead
  * make use of FileDescriptorSet which preserves the necessary information.
  *
- * <p>Protobuf type {@code google.protobuf.Method}
+ * <p>Protobuf type {@code com.google.protobuf.Method}
  */
 @ProtobufMessage
 public final class Method {

@@ -1,18 +1,18 @@
 package com.google.protobuf;
 
-import com.github.auties00.daedalus.protobuf.annotation.ProtobufDeserializer;
-import com.github.auties00.daedalus.protobuf.annotation.ProtobufMixin;
-import com.github.auties00.daedalus.protobuf.annotation.ProtobufSerializer;
+import com.github.auties00.daedalus.typesystem.annotation.TypeDeserializer;
+import com.github.auties00.daedalus.typesystem.annotation.TypeMixin;
+import com.github.auties00.daedalus.typesystem.annotation.TypeSerializer;
 
 @SuppressWarnings("unused")
-@ProtobufMixin(scope = ProtobufMixin.Scope.GLOBAL)
+@TypeMixin(scope = TypeMixin.Scope.GLOBAL)
 public final class DoubleValueMixin {
-    @ProtobufDeserializer
+    @TypeDeserializer
     public static Double ofNullable(DoubleValue value) {
         return value == null ? null : value.value();
     }
 
-    @ProtobufSerializer
+    @TypeSerializer
     public static DoubleValue toNullable(Double value) {
         return value == null ? null : new DoubleValue(value);
     }

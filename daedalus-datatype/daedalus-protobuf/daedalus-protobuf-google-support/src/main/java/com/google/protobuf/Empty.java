@@ -9,11 +9,11 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  *
  * <pre>
  *   service Foo {
- *     rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);
+ *     rpc Bar(com.google.protobuf.Empty) returns (com.google.protobuf.Empty);
  *   }
  * </pre>
  *
- * <p>Protobuf type {@code google.protobuf.Empty}
+ * <p>Protobuf type {@code com.google.protobuf.Empty}
  */
 @ProtobufMessage
 public final class Empty {

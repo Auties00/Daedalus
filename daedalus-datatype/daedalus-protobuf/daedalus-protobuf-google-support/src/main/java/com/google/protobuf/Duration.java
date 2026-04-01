@@ -70,7 +70,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  * be expressed in JSON format as "3.000000001s", and 3 seconds and 1
  * microsecond should be expressed in JSON format as "3.000001s".
  *
- * <p>Protobuf type {@code google.protobuf.Duration}
+ * <p>Protobuf type {@code com.google.protobuf.Duration}
  */
 @ProtobufMessage
 public final class Duration {

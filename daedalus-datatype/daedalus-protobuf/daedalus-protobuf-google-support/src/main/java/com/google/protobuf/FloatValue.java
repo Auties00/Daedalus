@@ -10,7 +10,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  * <p>Not recommended for use in new APIs, but still useful for legacy APIs and
  * has no plan to be removed.
  *
- * <p>Protobuf type {@code google.protobuf.FloatValue}
+ * <p>Protobuf type {@code com.google.protobuf.FloatValue}
  */
 @ProtobufMessage
 public final class FloatValue {

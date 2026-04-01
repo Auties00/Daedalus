@@ -13,7 +13,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
  * as a JSON {@code null} regardless of the integer value, and so will round trip to
  * a {@code 0} value.
  *
- * <p>Protobuf enum {@code google.protobuf.NullValue}
+ * <p>Protobuf enum {@code com.google.protobuf.NullValue}
  */
 @ProtobufEnum
 public enum NullValue {

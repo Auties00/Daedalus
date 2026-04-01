@@ -13,7 +13,7 @@ import java.util.SequencedCollection;
  * information necessary to model the schema and preserve semantics. Instead
  * make use of FileDescriptorSet which preserves the necessary information.
  *
- * <p>Protobuf type {@code google.protobuf.Enum}
+ * <p>Protobuf type {@code com.google.protobuf.Enum}
  */
 @ProtobufMessage
 public final class Enum {
