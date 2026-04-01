@@ -1682,8 +1682,8 @@ class ProtobufAnalyzerTest {
 
                         message M {
                           oneof choice {
-                            google.protobuf.Timestamp timestamp = 1;
-                            google.protobuf.Duration duration = 2;
+                            com.google.protobuf.Timestamp timestamp = 1;
+                            com.google.protobuf.Duration duration = 2;
                           }
                         }
                         """;
@@ -2555,7 +2555,7 @@ class ProtobufAnalyzerTest {
                         syntax = "proto3";
 
                         message MyMessage {
-                          google.protobuf.Timestamp timestamp = 1;
+                          com.google.protobuf.Timestamp timestamp = 1;
                         }
                         """;
             var document = ProtobufParser.parseOnly(proto);
@@ -2563,7 +2563,7 @@ class ProtobufAnalyzerTest {
             var field = message.getDirectChildByNameAndType("timestamp", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, field.type());
             var typeRef = (ProtobufObjectTypeReference) field.type();
-            assertEquals("google.protobuf.Timestamp", typeRef.name());
+            assertEquals("com.google.protobuf.Timestamp", typeRef.name());
         }
 
         @Test
@@ -2572,9 +2572,9 @@ class ProtobufAnalyzerTest {
                         syntax = "proto3";
 
                         message MyMessage {
-                          google.protobuf.BoolValue bool_field = 1;
-                          google.protobuf.Int32Value int_field = 2;
-                          google.protobuf.StringValue string_field = 3;
+                          com.google.protobuf.BoolValue bool_field = 1;
+                          com.google.protobuf.Int32Value int_field = 2;
+                          com.google.protobuf.StringValue string_field = 3;
                         }
                         """;
             var document = ProtobufParser.parseOnly(proto);
@@ -2582,15 +2582,15 @@ class ProtobufAnalyzerTest {
 
             var boolField = message.getDirectChildByNameAndType("bool_field", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, boolField.type());
-            assertEquals("google.protobuf.BoolValue", boolField.type().name());
+            assertEquals("com.google.protobuf.BoolValue", boolField.type().name());
 
             var intField = message.getDirectChildByNameAndType("int_field", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, intField.type());
-            assertEquals("google.protobuf.Int32Value", intField.type().name());
+            assertEquals("com.google.protobuf.Int32Value", intField.type().name());
 
             var stringField = message.getDirectChildByNameAndType("string_field", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, stringField.type());
-            assertEquals("google.protobuf.StringValue", stringField.type().name());
+            assertEquals("com.google.protobuf.StringValue", stringField.type().name());
         }
 
         @Test
@@ -2599,14 +2599,14 @@ class ProtobufAnalyzerTest {
                         syntax = "proto3";
 
                         message MyMessage {
-                          google.protobuf.Any data = 1;
+                          com.google.protobuf.Any data = 1;
                         }
                         """;
             var document = ProtobufParser.parseOnly(proto);
             var message = document.getDirectChildByType(ProtobufMessageStatement.class).orElseThrow();
             var field = message.getDirectChildByNameAndType("data", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, field.type());
-            assertEquals("google.protobuf.Any", field.type().name());
+            assertEquals("com.google.protobuf.Any", field.type().name());
         }
 
         @Test
@@ -2620,9 +2620,9 @@ class ProtobufAnalyzerTest {
                         import "google/protobuf/struct.proto";
 
                         message MyMessage {
-                          google.protobuf.Timestamp timestamp = 1;
-                          google.protobuf.Duration duration = 2;
-                          google.protobuf.Any any = 3;
+                          com.google.protobuf.Timestamp timestamp = 1;
+                          com.google.protobuf.Duration duration = 2;
+                          com.google.protobuf.Any any = 3;
                           google.protobuf.Struct struct = 4;
                           google.protobuf.Value value = 5;
                         }
@@ -2634,11 +2634,11 @@ class ProtobufAnalyzerTest {
 
             var timestamp = message.getDirectChildByNameAndType("timestamp", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, timestamp.type());
-            assertEquals("google.protobuf.Timestamp", timestamp.type().name());
+            assertEquals("com.google.protobuf.Timestamp", timestamp.type().name());
 
             var duration = message.getDirectChildByNameAndType("duration", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, duration.type());
-            assertEquals("google.protobuf.Duration", duration.type().name());
+            assertEquals("com.google.protobuf.Duration", duration.type().name());
         }
     }
 

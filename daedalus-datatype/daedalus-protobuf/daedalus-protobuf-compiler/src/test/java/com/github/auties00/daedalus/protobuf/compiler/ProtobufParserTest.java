@@ -549,6 +549,8 @@ class ProtobufParserTest {
         @Test
         public void testServiceMethodWithMultipleOptions() {
             var proto = """
+                    syntax = "proto3";
+                    
                     message Req { int32 x = 1; }
                     message Res { int32 y = 1; }
 
@@ -651,7 +653,7 @@ class ProtobufParserTest {
                         message L3 {
                           message L4 {
                             message L5 {
-                              int32 value = 1;
+                              optional int32 value = 1;
                             }
                           }
                         }
@@ -667,7 +669,7 @@ class ProtobufParserTest {
             var proto = """
                     message Message {
                       message Message {
-                        int32 value = 1;
+                        optional int32 value = 1;
                       }
                     }
                     """;
@@ -679,10 +681,10 @@ class ProtobufParserTest {
         public void testNestedMessageReferencingParentType() {
             var proto = """
                     message Outer {
-                      int32 id = 1;
+                      optional int32 id = 1;
 
                       message Inner {
-                        Outer parent = 1;
+                        optional Outer parent = 1;
                       }
                     }
                     """;
@@ -694,8 +696,8 @@ class ProtobufParserTest {
         public void testNestedMessageCircularReference() {
             var proto = """
                     message Node {
-                      int32 value = 1;
-                      Node next = 2;
+                      optional int32 value = 1;
+                      optional Node next = 2;
                     }
                     """;
             var document = ProtobufParser.parseOnly(proto);
@@ -1249,9 +1251,9 @@ class ProtobufParserTest {
             var method = service.getDirectChildByType(ProtobufMethodStatement.class).orElseThrow();
             assertEquals("Fetch", method.name());
             assertEquals("Request", method.inputType().value().name());
-            assertFalse(method.inputType().stream());
+            assertFalse(method.inputType().isStream());
             assertEquals("Response", method.outputType().value().name());
-            assertFalse(method.outputType().stream());
+            assertFalse(method.outputType().isStream());
         }
 
         @Test
@@ -1267,9 +1269,9 @@ class ProtobufParserTest {
             var method = service.getDirectChildByType(ProtobufMethodStatement.class).orElseThrow();
             assertEquals("Fetch", method.name());
             assertEquals("Request", method.inputType().value().name());
-            assertFalse(method.inputType().stream());
+            assertFalse(method.inputType().isStream());
             assertEquals("Response", method.outputType().value().name());
-            assertTrue(method.outputType().stream());
+            assertTrue(method.outputType().isStream());
         }
 
         @Test
@@ -1285,9 +1287,9 @@ class ProtobufParserTest {
             var method = service.getDirectChildByType(ProtobufMethodStatement.class).orElseThrow();
             assertEquals("Fetch", method.name());
             assertEquals("Request", method.inputType().value().name());
-            assertTrue(method.inputType().stream());
+            assertTrue(method.inputType().isStream());
             assertEquals("Response", method.outputType().value().name());
-            assertFalse(method.outputType().stream());
+            assertFalse(method.outputType().isStream());
         }
 
         @Test
@@ -1305,6 +1307,8 @@ class ProtobufParserTest {
         @Test
         public void testServiceWithMultipleMethods() {
             var proto = """
+                    syntax = "proto3";
+                    
                     message Req { int32 x = 1; }
                     message Res { int32 y = 1; }
 
@@ -1322,6 +1326,8 @@ class ProtobufParserTest {
         @Test
         public void testServiceWithBidirectionalStream() {
             var proto = """
+                    syntax = "proto3";
+                    
                     message Req { int32 x = 1; }
                     message Res { int32 y = 1; }
 
@@ -1332,13 +1338,15 @@ class ProtobufParserTest {
             var document = ProtobufParser.parseOnly(proto);
             var service = document.getDirectChildByType(ProtobufServiceStatement.class).orElseThrow();
             var method = service.getDirectChildByType(ProtobufMethodStatement.class).orElseThrow();
-            assertTrue(method.inputType().stream());
-            assertTrue(method.outputType().stream());
+            assertTrue(method.inputType().isStream());
+            assertTrue(method.outputType().isStream());
         }
 
         @Test
         public void testServiceMethodWithOptions() {
             var proto = """
+                    syntax = "proto3";
+                    
                     message Req { int32 x = 1; }
                     message Res { int32 y = 1; }
 
