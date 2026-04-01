@@ -1876,6 +1876,17 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
+        public void testProto2RejectsFieldWithoutLabel() {
+            var proto = """
+                        syntax = "proto2";
+                        message MyMessage {
+                            int32 field = 1;
+                        }
+                        """;
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto));
+        }
+
+        @Test
         public void testProto3OptionalVsImplicitPresence() {
             var proto = """
                         syntax = "proto3";

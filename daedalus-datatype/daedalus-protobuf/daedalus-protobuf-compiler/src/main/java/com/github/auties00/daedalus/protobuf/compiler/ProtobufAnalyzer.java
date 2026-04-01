@@ -1225,7 +1225,14 @@ public final class ProtobufAnalyzer {
 
     private static void validateFieldModifiers(ProtobufDocumentTree document, ProtobufFieldStatement field) {
         switch (document.version()) {
-            case PROTOBUF_2 -> {}
+            case PROTOBUF_2 -> {
+                // Proto2 fields inside messages (not oneofs) must have an explicit label
+                if(!(field.parent() instanceof ProtobufOneofStatement)) {
+                    ProtobufSemanticException.check(field.modifier() != ProtobufModifier.NONE,
+                            "Field '%s' must have a label (required, optional, or repeated) in proto2",
+                            field.line(), field.name());
+                }
+            }
             case PROTOBUF_3 -> ProtobufSemanticException.check(field.modifier() != ProtobufModifier.REQUIRED,
                     "Field '%s' cannot use 'required' modifier in proto3",
                     field.line(), field.name());
