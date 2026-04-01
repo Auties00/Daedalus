@@ -29,8 +29,8 @@ public sealed interface ProtobufNumber
     /**
      * Attempts to convert this number to a valid Protocol Buffer field index.
      * <p>
-     * Field indexes must be in the range [{@link ProtobufMessage#MIN_PROPERTY_INDEX},
-     * {@link ProtobufMessage#MAX_PROPERTY_INDEX}]. If this number is outside
+     * Field indexes must be in the range [{@link ProtobufMessage#MIN_FIELD_INDEX},
+     * {@link ProtobufMessage#MAX_FIELD_INDEX}]. If this number is outside
      * this range or cannot be represented as a long integer, an empty optional is returned.
      * </p>
      *

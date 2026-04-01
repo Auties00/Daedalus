@@ -73,9 +73,13 @@ public final class ProtobufLexer {
     private static final String EMPTY_TOKEN = "";
     private static final ProtobufToken EMPTY = new ProtobufRawToken(EMPTY_TOKEN);
 
-    private static final BigInteger OCTAL_RADIX = BigInteger.valueOf(8);
-    private static final BigInteger DECIMAL_RADIX = BigInteger.valueOf(10);
-    private static final BigInteger HEXADECIMAL_RADIX = BigInteger.valueOf(16);
+    private static final int INVALID_RADIX = -1;
+    private static final int OCTAL_RADIX = 8;
+    private static final int DECIMAL_RADIX = 10;
+    private static final int HEXADECIMAL_RADIX = 16;
+
+    private static final long DECIMAL_RADIX_LIMIT = Long.divideUnsigned(-1L, 10); // 1844674407370955161L
+    private static final long DECIMAL_RADIX_MAX_DIGIT = Long.remainderUnsigned(-1L, 10); // 5
 
     private final StreamTokenizer tokenizer;
 
@@ -210,7 +214,6 @@ public final class ProtobufLexer {
         };
     }
 
-    @SuppressWarnings("NumberEquality")
     private static ProtobufToken parseNumber(String token) {
         var length = token.length();
         if(length == 0) {
@@ -238,19 +241,12 @@ public final class ProtobufLexer {
             default -> isNegative = false;
         }
 
-        boolean isDecimal;
+        int radix;
+        boolean isFloat = false;
         if (token.charAt(start) == '.') {
-            if(++start >= length) {
-                // Not a valid number if there are no chars available after the dot
-                return new ProtobufRawToken(token);
-            }
-            isDecimal = true;
-        } else {
-            isDecimal = false;
-        }
-
-        BigInteger radix;
-        if (token.charAt(start) == '0' && start + 1 < length) {
+            radix = INVALID_RADIX;
+            isFloat = true;
+        } else if (token.charAt(start) == '0' && start + 1 < length) {
             var nextChar = token.charAt(start + 1);
             if (nextChar == 'x' || nextChar == 'X') {
                 radix = HEXADECIMAL_RADIX;
@@ -264,6 +260,7 @@ public final class ProtobufLexer {
                 var pointer = start + 1;
                 while (pointer < length) {
                     if(token.charAt(pointer++) == '.') {
+                        isFloat = true;
                         break;
                     }
                 }
@@ -275,7 +272,8 @@ public final class ProtobufLexer {
                 }
             }else if(nextChar == '.' || nextChar == 'e' || nextChar == 'E'){
                 // If there is a valid operator, it's not an invalid octal, it's a decimal
-                radix = DECIMAL_RADIX;
+                radix = INVALID_RADIX;
+                isFloat = true;
             }else {
                 // An invalid octal if the char after 0 is not a digit between 0 and 7 and not a valid operator
                 return new ProtobufRawToken(token);
@@ -284,34 +282,48 @@ public final class ProtobufLexer {
             radix = DECIMAL_RADIX;
         }
 
-        var whole = BigInteger.ZERO;
-        var isScientificNotation = false;
-        if(!isDecimal) {
-            wholeLoop: {
-                char character;
-                int digit;
-                while (start < length) {
-                    character = token.charAt(start++);
-                    if (radix == OCTAL_RADIX) {
+        if (isFloat) {
+          return parseFloat(token);
+        } else {
+            long whole = 0L;
+            char character;
+            int digit;
+            while (start < length) {
+                character = token.charAt(start++);
+                switch (radix) {
+                    case OCTAL_RADIX -> {
+                        // Overflow check
+                        if ((whole & 0xE000000000000000L) != 0) {
+                            return new ProtobufRawToken(token);
+                        }
+
                         if (character >= '0' && character <= '7') {
                             digit = character - '0';
                         } else {
                             return new ProtobufRawToken(token);
                         }
-                    } else if (radix == DECIMAL_RADIX) {
+                    }
+                    case DECIMAL_RADIX -> {
                         if (character >= '0' && character <= '9') {
                             digit = character - '0';
-                        } else if (character == '.') {
-                            isDecimal = true;
-                            break wholeLoop;
-                        } else if (character == 'e' || character == 'E') {
-                            isDecimal = true;
-                            isScientificNotation = true;
-                            break wholeLoop;
+                        } else if (character == '.' || character == 'e' || character == 'E') {
+                            return parseFloat(token);
                         } else {
                             return new ProtobufRawToken(token);
                         }
-                    } else {
+
+                        // Overflow check
+                        var atLimit = Long.compareUnsigned(whole, DECIMAL_RADIX_LIMIT);
+                        if (atLimit > 0 || (atLimit == 0 && digit > DECIMAL_RADIX_MAX_DIGIT)) {
+                            return new ProtobufRawToken(token);
+                        }
+                    }
+                    case HEXADECIMAL_RADIX -> {
+                        // Overflow check
+                        if ((whole & 0xF000000000000000L) != 0) {
+                            return new ProtobufRawToken(token);
+                        }
+
                         if (character >= '0' && character <= '9') {
                             digit = character - '0';
                         } else if (character >= 'a' && character <= 'f') {
@@ -322,85 +334,25 @@ public final class ProtobufLexer {
                             return new ProtobufRawToken(token);
                         }
                     }
-
-                    whole = whole.multiply(radix)
-                            .add(BigInteger.valueOf(digit));
+                    default -> throw new InternalError("Invalid radix: " + radix);
                 }
+                whole = whole * radix + digit;
+
             }
+            return new ProtobufNumberToken(new ProtobufInteger(isNegative ? -whole : whole));
         }
+    }
 
-        var decimal = BigInteger.ZERO;
-        var decimalPlaces = 0;
-        if(isDecimal && !isScientificNotation) {
-            char character;
-            while (start < length) {
-                character = token.charAt(start++);
-                if (character == 'e' || character == 'E') {
-                    isScientificNotation = true;
-                    break;
-                }
-
-                if (character < '0' || character > '9') {
-                    return new ProtobufRawToken(token);
-                }
-
-                decimal = decimal.multiply(DECIMAL_RADIX)
-                        .add(BigInteger.valueOf(character - '0'));
-                decimalPlaces++;
-            }
-        }
-
-        var exponent = 0;
-        boolean negativeExponent;
-        if(isScientificNotation) {
-            if (start >= length) {
+    private static ProtobufToken parseFloat(String token) {
+        try {
+            var value = Double.parseDouble(token);
+            if(!Double.isFinite(value)) {
                 return new ProtobufRawToken(token);
+            } else {
+                return new ProtobufNumberToken(new ProtobufFloatingPoint.Finite(value));
             }
-
-            switch (token.charAt(start)) {
-                case '+' -> {
-                    negativeExponent = false;
-                    if(++start >= length) {
-                        return new ProtobufRawToken(token);
-                    }
-                }
-                case '-' -> {
-                    negativeExponent = true;
-                    if(++start >= length) {
-                        return new ProtobufRawToken(token);
-                    }
-                }
-                default -> negativeExponent = false;
-            }
-
-            char character;
-            while (start < length) {
-                character = token.charAt(start++);
-                if (character < '0' || character > '9') {
-                    return new ProtobufRawToken(token);
-                }
-
-                exponent = exponent * 10 + (character - '0');
-            }
-        }else {
-            negativeExponent = false;
-        }
-
-        if (isDecimal) {
-            var unscaled = radix.pow(decimalPlaces)
-                    .multiply(whole)
-                    .add(decimal);
-            var unscaledSigned = isNegative ? unscaled.negate() : unscaled;
-            if(isScientificNotation) {
-                var effectiveScale = negativeExponent ? decimalPlaces + exponent : decimalPlaces - exponent;
-                var scaled = new BigDecimal(unscaledSigned, effectiveScale);
-                return new ProtobufNumberToken(new ProtobufFloatingPoint.Finite(scaled));
-            }else {
-                var scaled = new BigDecimal(unscaledSigned, decimalPlaces);
-                return new ProtobufNumberToken(new ProtobufFloatingPoint.Finite(scaled));
-            }
-        } else {
-            return new ProtobufNumberToken(new ProtobufInteger(isNegative ? whole.negate() : whole));
+        } catch (NumberFormatException _) {
+            return new ProtobufRawToken(token);
         }
     }
 

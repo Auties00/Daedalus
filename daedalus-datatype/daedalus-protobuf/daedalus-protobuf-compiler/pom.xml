@@ -24,10 +24,5 @@
             <artifactId>daedalus-protobuf-typesystem</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>com.github.auties00</groupId>
-            <artifactId>daedalus-protobuf-google-support</artifactId>
-            <version>${project.version}</version>
-        </dependency>
     </dependencies>
 </project>

@@ -24,8 +24,6 @@ public enum ClassModifier {
 
     /**
      * The modifier {@code private}.
-     *
-     * @jls 6.6 Access Control
      */
     PRIVATE,
 
@@ -36,9 +34,6 @@ public enum ClassModifier {
 
     /**
      * The modifier {@code static}.
-     *
-     * @jls 8.1.1.4 {@code static} Classes
-     * @jls 9.1.1.3 {@code static} Interfaces
      */
     STATIC,
 

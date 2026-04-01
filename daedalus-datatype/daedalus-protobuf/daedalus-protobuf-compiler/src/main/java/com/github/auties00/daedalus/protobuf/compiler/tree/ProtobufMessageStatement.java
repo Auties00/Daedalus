@@ -1,5 +1,7 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufJsonCompatibility;
+
 import java.util.Objects;
 
 /**
@@ -65,6 +67,7 @@ public final class ProtobufMessageStatement
         implements ProtobufStatement, ProtobufTree.WithName, ProtobufTree.WithBody<ProtobufMessageChild>,
                    ProtobufDocumentChild, ProtobufGroupChild, ProtobufMessageChild {
     private String name;
+    private ProtobufTreeVisibility visibility;
 
     /**
      * Constructs a new message statement at the specified line number.
@@ -73,11 +76,44 @@ public final class ProtobufMessageStatement
      */
     public ProtobufMessageStatement(int line) {
         super(line);
+        this.visibility = ProtobufTreeVisibility.NONE;
+    }
+
+    /**
+     * Returns the visibility modifier for this message.
+     *
+     * @return the visibility modifier
+     */
+    public ProtobufTreeVisibility visibility() {
+        return visibility;
+    }
+
+    /**
+     * Sets the visibility modifier for this message.
+     *
+     * @param visibility the visibility modifier to set
+     */
+    public void setVisibility(ProtobufTreeVisibility visibility) {
+        this.visibility = visibility;
+    }
+
+    /**
+     * Returns the resolved JSON compatibility for this message by walking up the AST.
+     *
+     * @return the resolved JSON compatibility
+     */
+    public ProtobufJsonCompatibility jsonCompatibility() {
+        return ProtobufTreeFeatures.jsonCompatibility(this);
     }
 
     @Override
     public String toString() {
         var builder = new StringBuilder();
+
+        if(visibility != ProtobufTreeVisibility.NONE) {
+            builder.append(visibility.token());
+            builder.append(" ");
+        }
 
         builder.append("message");
         builder.append(" ");

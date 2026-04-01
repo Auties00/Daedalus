@@ -22,6 +22,6 @@ package com.github.auties00.daedalus.protobuf.compiler.tree;
  */
 public sealed interface ProtobufDocumentChild
         extends ProtobufStatement
-        permits ProtobufEmptyStatement, ProtobufEnumStatement, ProtobufExtendStatement, ProtobufImportStatement, ProtobufMessageStatement, ProtobufOptionStatement, ProtobufPackageStatement, ProtobufServiceStatement, ProtobufSyntaxStatement {
+        permits ProtobufEditionStatement, ProtobufEmptyStatement, ProtobufEnumStatement, ProtobufExtendStatement, ProtobufImportStatement, ProtobufMessageStatement, ProtobufOptionStatement, ProtobufPackageStatement, ProtobufServiceStatement, ProtobufSyntaxStatement {
 
 }

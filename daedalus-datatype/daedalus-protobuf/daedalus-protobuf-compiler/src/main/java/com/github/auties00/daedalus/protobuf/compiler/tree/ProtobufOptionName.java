@@ -4,50 +4,46 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Represents the name component of a Protocol Buffer option.
+ * Represents the name component of a Protocol Buffer option as a list of segments.
  * <p>
- * Option names can take several forms:
+ * Option names follow the grammar:
  * </p>
- * <ul>
- *   <li>Simple names: {@code java_package}</li>
- *   <li>Extension names (in parentheses): {@code (my.custom.option)}</li>
- *   <li>Names with member selection: {@code (my.option).field.subfield}</li>
- * </ul>
+ * <pre>{@code
+ * optionName = segment { "." segment }
+ * segment    = simpleName | extensionName
+ * simpleName = ident
+ * extensionName = "(" [ "." ] fullIdent ")"
+ * }</pre>
  * <h2>Examples:</h2>
  * <pre>{@code
- * option java_package = "com.example";           // Simple name
- * option (my.extension) = "value";               // Extension name
- * option (file_option).nested.field = 42;        // Extension with member selection
+ * option java_package = "com.example";                          // [java_package]
+ * option (my.extension) = "value";                              // [(my.extension)]
+ * option (file_option).nested.field = 42;                       // [(file_option), nested, field]
+ * option features.field_presence = EXPLICIT;                    // [features, field_presence]
+ * option features.(pb.java).legacy_closed_enum = false;         // [features, (pb.java), legacy_closed_enum]
  * }</pre>
  *
- * @param name the base name of the option
- * @param extension whether this is an extension option (surrounded by parentheses)
- * @param membersSelected list of member names accessed via dot notation after the base name
+ * @param segments the ordered list of segments that make up the option name
  */
-public record ProtobufOptionName(String name, boolean extension, List<String> membersSelected) {
+public record ProtobufOptionName(List<ProtobufOptionNameSegment> segments) {
     /**
-     * Returns an unmodifiable view of the member selection path.
+     * Returns an unmodifiable view of the segments.
      *
-     * @return unmodifiable list of selected member names
+     * @return unmodifiable list of segments
      */
     @Override
-    public List<String> membersSelected() {
-        return Collections.unmodifiableList(membersSelected);
+    public List<ProtobufOptionNameSegment> segments() {
+        return Collections.unmodifiableList(segments);
     }
 
     @Override
     public String toString() {
         var result = new StringBuilder();
-        if (extension) {
-            result.append('(');
-        }
-        result.append(name);
-        if (extension) {
-            result.append(')');
-        }
-        for (var member : membersSelected) {
-            result.append('.');
-            result.append(member);
+        for (var i = 0; i < segments.size(); i++) {
+            if (i > 0) {
+                result.append('.');
+            }
+            result.append(segments.get(i));
         }
         return result.toString();
     }

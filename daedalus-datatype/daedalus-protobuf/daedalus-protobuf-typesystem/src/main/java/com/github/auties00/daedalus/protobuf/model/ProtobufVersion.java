@@ -58,7 +58,7 @@ public enum ProtobufVersion {
      * Maps lowercase version codes to their corresponding enum constants.
      */
     private static final Map<String, ProtobufVersion> BY_VERSION_CODE = Arrays.stream(values())
-            .collect(Collectors.toUnmodifiableMap(entry -> entry.versionCode.toLowerCase(), Function.identity()));
+            .collect(Collectors.toUnmodifiableMap(entry -> entry.versionCode, Function.identity()));
 
     /**
      * The string representation of this protobuf version as used in .proto files.

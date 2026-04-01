@@ -442,9 +442,9 @@ public @interface ProtobufMessage {
      *     <li><strong>edition 2023+:</strong> defaults to {@link ProtobufJsonCompatibility#ENABLED}</li>
      * </ul>
      *
-     * @return the JSON compatibility strategy, defaulting to {@link ProtobufJsonCompatibility#EDITION_DEFAULT}
+     * @return the JSON compatibility strategy, defaulting to {@link ProtobufJsonCompatibility#VERSION_DEFAULT}
      */
-    ProtobufJsonCompatibility generateJson() default ProtobufJsonCompatibility.EDITION_DEFAULT;
+    ProtobufJsonCompatibility generateJson() default ProtobufJsonCompatibility.VERSION_DEFAULT;
 
     /**
      * Describes a {@link ProtobufType#FLOAT} field in a {@link ProtobufMessage}.
@@ -496,9 +496,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -510,9 +510,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -565,9 +565,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -579,9 +579,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -634,9 +634,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -648,9 +648,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -703,9 +703,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -717,9 +717,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -772,9 +772,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -786,9 +786,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -841,9 +841,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -855,9 +855,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -910,9 +910,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -924,9 +924,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -979,9 +979,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -993,9 +993,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -1048,9 +1048,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -1062,9 +1062,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -1117,9 +1117,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -1131,9 +1131,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -1186,9 +1186,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -1200,9 +1200,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -1255,9 +1255,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -1269,9 +1269,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -1324,9 +1324,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -1338,9 +1338,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -1393,9 +1393,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the encoding strategy for repeated fields.
@@ -1407,9 +1407,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufRepeatedFieldEncoding#PACKED}</li>
          * </ul>
          *
-         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#EDITION_DEFAULT}
+         * @return the repeated field encoding strategy, defaulting to {@link ProtobufRepeatedFieldEncoding#VERSION_DEFAULT}
          */
-        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.EDITION_DEFAULT;
+        ProtobufRepeatedFieldEncoding repeatedFieldEncoding() default ProtobufRepeatedFieldEncoding.VERSION_DEFAULT;
     }
 
     /**
@@ -1466,9 +1466,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the UTF-8 validation strategy for this string field.
@@ -1480,9 +1480,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufUtf8Validation#VERIFY}</li>
          * </ul>
          *
-         * @return the UTF-8 validation strategy, defaulting to {@link ProtobufUtf8Validation#EDITION_DEFAULT}
+         * @return the UTF-8 validation strategy, defaulting to {@link ProtobufUtf8Validation#VERSION_DEFAULT}
          */
-        ProtobufUtf8Validation utf8Validation() default ProtobufUtf8Validation.EDITION_DEFAULT;
+        ProtobufUtf8Validation utf8Validation() default ProtobufUtf8Validation.VERSION_DEFAULT;
     }
 
     /**
@@ -1535,9 +1535,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
     }
 
     /**
@@ -1590,9 +1590,9 @@ public @interface ProtobufMessage {
          *     <li><strong>edition 2023/2024:</strong> {@link ProtobufFieldPresence#EXPLICIT}</li>
          * </ul>
          *
-         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#EDITION_DEFAULT}
+         * @return the field presence strategy, defaulting to {@link ProtobufFieldPresence#VERSION_DEFAULT}
          */
-        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.EDITION_DEFAULT;
+        ProtobufFieldPresence fieldPresence() default ProtobufFieldPresence.VERSION_DEFAULT;
 
         /**
          * Specifies the wire encoding for this nested message field.
@@ -1603,9 +1603,9 @@ public @interface ProtobufMessage {
          * <p>
          * The default is {@link ProtobufMessageEncoding#LENGTH_PREFIXED} for all versions and editions.
          *
-         * @return the message encoding strategy, defaulting to {@link ProtobufMessageEncoding#EDITION_DEFAULT}
+         * @return the message encoding strategy, defaulting to {@link ProtobufMessageEncoding#VERSION_DEFAULT}
          */
-        ProtobufMessageEncoding messageEncoding() default ProtobufMessageEncoding.EDITION_DEFAULT;
+        ProtobufMessageEncoding messageEncoding() default ProtobufMessageEncoding.VERSION_DEFAULT;
     }
 
     /**

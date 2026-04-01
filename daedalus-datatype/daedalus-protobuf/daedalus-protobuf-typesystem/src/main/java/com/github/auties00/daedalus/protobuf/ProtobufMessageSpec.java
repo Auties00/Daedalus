@@ -28,9 +28,9 @@ import java.util.Objects;
  * <li>Generic protobuf message processing
  * </ul>
  *
- * <p><font color="red"><b>Warning:</b> This class is slow compared to the
+ * <p><span style="color: red;"><strong>Warning:</strong> This class is slow compared to the
  * generated Spec classes. Use it only when the generated Spec classes are not
- * available.</font>
+ * available.</span></p>
  */
 public final class ProtobufMessageSpec {
     private ProtobufMessageSpec() {
@@ -41,9 +41,9 @@ public final class ProtobufMessageSpec {
      * Encodes a map of field numbers to {@link ProtobufUnknownValue} instances
      * into the given {@link ProtobufBinaryWriter}.
      *
-     * <p><font color="red"><b>Warning:</b> This method is slow compared to the
+     * <p><span style="color: red;"><strong>Warning:</strong> This method is slow compared to the
      * generated Spec classes. Use it only when the generated Spec classes are
-     * not available.</font>
+     * not available.</span></p>
      *
      * @param fields the map of field numbers to values to encode
      * @param writer the writer to encode the fields into
@@ -112,9 +112,9 @@ public final class ProtobufMessageSpec {
      * <p>The returned size accounts for field tags, wire-type overhead, and
      * length prefixes for length-delimited values.
      *
-     * <p><font color="red"><b>Warning:</b> This method is slow compared to the
+     * <p><span style="color: red;"><strong>Warning:</strong> This method is slow compared to the
      * generated Spec classes. Use it only when the generated Spec classes are
-     * not available.</font>
+     * not available.</span></p>
      *
      * @param fields the map of field numbers to values to measure
      * @return the total serialized size in bytes
@@ -170,9 +170,9 @@ public final class ProtobufMessageSpec {
      * protobuf fields into a map structure. Each field is read according to its
      * wire type and stored with its field number as the key.
      *
-     * <p><font color="red"><b>Warning:</b> This method is slow compared to the
+     * <p><span style="color: red;"><strong>Warning:</strong> This method is slow compared to the
      * generated Spec classes. Use it only when the generated Spec classes are
-     * not available.</font>
+     * not available.</span></p>
      *
      * @param reader the reader containing the encoded Protocol Buffer data
      * @return a map where keys are field numbers and values are the decoded

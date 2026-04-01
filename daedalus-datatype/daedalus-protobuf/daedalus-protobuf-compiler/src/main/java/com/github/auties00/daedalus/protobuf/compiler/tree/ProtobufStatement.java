@@ -51,7 +51,7 @@ import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufExpress
  */
 public sealed interface ProtobufStatement
         extends ProtobufTree
-        permits ProtobufDocumentChild, ProtobufEmptyStatement, ProtobufEnumChild, ProtobufEnumStatement, ProtobufExtendChild, ProtobufExtendStatement, ProtobufExtensionsStatement, ProtobufFieldStatement, ProtobufGroupChild, ProtobufGroupStatement, ProtobufImportStatement, ProtobufMessageChild, ProtobufMessageStatement, ProtobufMethodChild, ProtobufMethodStatement, ProtobufOneofChild, ProtobufOneofStatement, ProtobufOptionStatement, ProtobufPackageStatement, ProtobufReservedStatement, ProtobufServiceChild, ProtobufServiceStatement, ProtobufStatementImpl, ProtobufSyntaxStatement {
+        permits ProtobufDocumentChild, ProtobufEditionStatement, ProtobufEmptyStatement, ProtobufEnumChild, ProtobufEnumStatement, ProtobufExtendChild, ProtobufExtendStatement, ProtobufExtensionsStatement, ProtobufFieldStatement, ProtobufGroupChild, ProtobufGroupStatement, ProtobufImportStatement, ProtobufMessageChild, ProtobufMessageStatement, ProtobufMethodChild, ProtobufMethodStatement, ProtobufOneofChild, ProtobufOneofStatement, ProtobufOptionStatement, ProtobufPackageStatement, ProtobufReservedStatement, ProtobufServiceChild, ProtobufServiceStatement, ProtobufStatementImpl, ProtobufSyntaxStatement {
     /**
      * Returns the parent container of this statement.
      * <p>

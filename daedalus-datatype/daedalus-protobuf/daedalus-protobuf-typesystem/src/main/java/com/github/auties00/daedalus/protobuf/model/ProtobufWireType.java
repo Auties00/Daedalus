@@ -1,4 +1,3 @@
-
 package com.github.auties00.daedalus.protobuf.model;
 
 /**

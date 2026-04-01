@@ -25,7 +25,7 @@ import java.util.OptionalLong;
  * The interface has three implementations:
  * </p>
  * <ul>
- *   <li>{@link Finite} - Represents finite floating-point values with arbitrary precision</li>
+ *   <li>{@link Finite} - Represents finite floating-point values</li>
  *   <li>{@link Infinity} - Represents positive or negative infinity</li>
  *   <li>{@link NaN} - Represents the special "Not a Number" value</li>
  * </ul>
@@ -50,7 +50,7 @@ public sealed interface ProtobufFloatingPoint extends ProtobufNumber {
         return switch (other) {
             case ProtobufFloatingPoint otherFloating -> switch (this) {
                 case Finite(var value) -> switch (otherFloating) {
-                    case Finite(var otherValue) -> value.compareTo(otherValue);
+                    case Finite(var otherValue) -> Double.compare(value, otherValue);
                     case Infinity(var signum) -> switch (signum) {
                         case POSITIVE -> -1;
                         case NEGATIVE -> 1;
@@ -69,7 +69,7 @@ public sealed interface ProtobufFloatingPoint extends ProtobufNumber {
             };
             case ProtobufInteger(var otherValue) -> switch (this) {
                 // TODO: Optimize me
-                case Finite(var value) -> value.compareTo(new BigDecimal(otherValue));
+                case Finite(var value) -> Double.compare(value, otherValue);
                 case Infinity(var signum) -> switch (signum) {
                     case POSITIVE -> 1;
                     case NEGATIVE -> -1;
@@ -80,23 +80,14 @@ public sealed interface ProtobufFloatingPoint extends ProtobufNumber {
     }
 
     /**
-     * Represents a finite floating-point value with arbitrary precision.
-     * <p>
-     * Finite floating-point values include decimal numbers and scientific notation.
-     * The value is stored as a {@link BigDecimal} to preserve the exact precision
-     * of the literal as written in the Protocol Buffer definition.
-     * </p>
+     * Represents a finite floating-point value.
      *
      * @param value the arbitrary-precision decimal value
      */
-    record Finite(BigDecimal value) implements ProtobufFloatingPoint {
-        public Finite {
-            Objects.requireNonNull(value, "value cannot be null");
-        }
-
+    record Finite(double value) implements ProtobufFloatingPoint {
         @Override
         public String toString() {
-            return value.toString();
+            return String.valueOf(value);
         }
     }
 

@@ -1,5 +1,8 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufEnumType;
+import com.github.auties00.daedalus.protobuf.model.ProtobufJsonCompatibility;
+
 import java.util.Objects;
 
 /**
@@ -72,6 +75,7 @@ public final class ProtobufEnumStatement
         implements ProtobufStatement, ProtobufTree.WithName, ProtobufTree.WithBody<ProtobufEnumChild>,
                    ProtobufDocumentChild, ProtobufMessageChild, ProtobufGroupChild {
     private String name;
+    private ProtobufTreeVisibility visibility;
 
     /**
      * Constructs a new enum statement at the specified line number.
@@ -80,6 +84,25 @@ public final class ProtobufEnumStatement
      */
     public ProtobufEnumStatement(int line) {
         super(line);
+        this.visibility = ProtobufTreeVisibility.NONE;
+    }
+
+    /**
+     * Returns the visibility modifier for this enum.
+     *
+     * @return the visibility modifier
+     */
+    public ProtobufTreeVisibility visibility() {
+        return visibility;
+    }
+
+    /**
+     * Sets the visibility modifier for this enum.
+     *
+     * @param visibility the visibility modifier to set
+     */
+    public void setVisibility(ProtobufTreeVisibility visibility) {
+        this.visibility = visibility;
     }
 
     /**
@@ -115,9 +138,32 @@ public final class ProtobufEnumStatement
         this.name = name;
     }
 
+    /**
+     * Returns the resolved enum type for this enum by walking up the AST.
+     *
+     * @return the resolved enum type
+     */
+    public ProtobufEnumType enumType() {
+        return ProtobufTreeFeatures.enumType(this);
+    }
+
+    /**
+     * Returns the resolved JSON compatibility for this enum by walking up the AST.
+     *
+     * @return the resolved JSON compatibility
+     */
+    public ProtobufJsonCompatibility jsonCompatibility() {
+        return ProtobufTreeFeatures.jsonCompatibility(this);
+    }
+
     @Override
     public String toString() {
         var builder = new StringBuilder();
+
+        if(visibility != ProtobufTreeVisibility.NONE) {
+            builder.append(visibility.token());
+            builder.append(" ");
+        }
 
         builder.append("enum");
         builder.append(" ");

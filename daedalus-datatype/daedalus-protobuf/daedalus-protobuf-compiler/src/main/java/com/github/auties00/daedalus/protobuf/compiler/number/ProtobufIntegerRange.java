@@ -44,7 +44,7 @@ public sealed interface ProtobufIntegerRange {
      * @param number the non-null number in the range
      * @return true if the {@code number} is in the range, false otherwise
      */
-    boolean contains(BigInteger number);
+    boolean contains(long number);
 
     /**
      * Represents a bounded numeric range with both minimum and maximum values.
@@ -68,9 +68,8 @@ public sealed interface ProtobufIntegerRange {
         }
 
         @Override
-        public boolean contains(BigInteger number) {
-            Objects.requireNonNull(number, "number cannot be null");
-            return number.compareTo(min.value()) >= 0 && number.compareTo(max.value()) <= 0;
+        public boolean contains(long number) {
+            return number >= min.value() && number <= max.value();
         }
 
         @Override
@@ -105,9 +104,8 @@ public sealed interface ProtobufIntegerRange {
         }
 
         @Override
-        public boolean contains(BigInteger number) {
-            Objects.requireNonNull(number, "number cannot be null");
-            return number.compareTo(min.value()) >= 0;
+        public boolean contains(long number) {
+            return number >= min.value();
         }
 
         @Override

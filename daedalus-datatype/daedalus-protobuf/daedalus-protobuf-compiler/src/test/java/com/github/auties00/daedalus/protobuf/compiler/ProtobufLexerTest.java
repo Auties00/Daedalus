@@ -1,8 +1,11 @@
 package com.github.auties00.daedalus.protobuf.compiler;
 
-import com.github.auties00.daedalus.protobuf.compiler.token.*;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufFloatingPoint;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufInteger;
+import com.github.auties00.daedalus.protobuf.compiler.token.ProtobufBoolToken;
+import com.github.auties00.daedalus.protobuf.compiler.token.ProtobufLiteralToken;
+import com.github.auties00.daedalus.protobuf.compiler.token.ProtobufNumberToken;
+import com.github.auties00.daedalus.protobuf.compiler.token.ProtobufRawToken;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -10,9 +13,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.math.RoundingMode;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -229,7 +229,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("12345"), ((ProtobufInteger) number).value());
+            assertEquals(12345, ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -239,7 +239,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("-12345"), ((ProtobufInteger) number).value());
+            assertEquals(-12345, ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -249,7 +249,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("12345"), ((ProtobufInteger) number).value());
+            assertEquals(12345, ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -259,7 +259,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(BigInteger.ZERO, ((ProtobufInteger) number).value());
+            assertEquals(0, ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -269,7 +269,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("7"), ((ProtobufInteger) number).value());
+            assertEquals(7, ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -277,10 +277,7 @@ public class ProtobufLexerTest {
             var largeNumber = "123456789012345678901234567890123456789012345678901234567890";
             var tokenizer = new ProtobufLexer(new StringReader(largeNumber));
             var token = tokenizer.nextToken();
-            assertInstanceOf(ProtobufNumberToken.class, token);
-            var number = ((ProtobufNumberToken) token).value();
-            assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger(largeNumber), ((ProtobufInteger) number).value());
+            assertInstanceOf(ProtobufRawToken.class, token);
         }
 
         @Test
@@ -288,10 +285,7 @@ public class ProtobufLexerTest {
             var largeNumber = "-123456789012345678901234567890123456789012345678901234567890";
             var tokenizer = new ProtobufLexer(new StringReader(largeNumber));
             var token = tokenizer.nextToken();
-            assertInstanceOf(ProtobufNumberToken.class, token);
-            var number = ((ProtobufNumberToken) token).value();
-            assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger(largeNumber), ((ProtobufInteger) number).value());
+            assertInstanceOf(ProtobufRawToken.class, token);
         }
 
         @Test
@@ -301,7 +295,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(BigInteger.valueOf(Long.MAX_VALUE), ((ProtobufInteger) number).value());
+            assertEquals(Long.MAX_VALUE, ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -311,17 +305,16 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(BigInteger.valueOf(Long.MIN_VALUE), ((ProtobufInteger) number).value());
+            assertEquals(Long.MIN_VALUE, ((ProtobufInteger) number).value());
         }
 
         @Test
         void testNextToken_BeyondLongValue() throws IOException {
             var tokenizer = new ProtobufLexer(new StringReader("9223372036854775808"));
             var token = tokenizer.nextToken();
-            assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("9223372036854775808"), ((ProtobufInteger) number).value());
+            assertEquals(-9223372036854775808L, ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -348,7 +341,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(BigInteger.ZERO, ((ProtobufInteger) number).value());
+            assertEquals(0, ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -358,7 +351,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(BigInteger.ZERO, ((ProtobufInteger) number).value());
+            assertEquals(0, ((ProtobufInteger) number).value());
         }
     }
 
@@ -371,7 +364,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("755", 8), ((ProtobufInteger) number).value());
+            assertEquals(Long.parseLong("755", 8), ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -381,7 +374,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("755", 8).negate(), ((ProtobufInteger) number).value());
+            assertEquals(Long.parseLong("-755", 8), ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -391,7 +384,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("755", 8), ((ProtobufInteger) number).value());
+            assertEquals(Long.parseLong("755", 8), ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -401,7 +394,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(BigInteger.ZERO, ((ProtobufInteger) number).value());
+            assertEquals(0, ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -411,7 +404,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("1234567", 8), ((ProtobufInteger) number).value());
+            assertEquals(Long.parseLong("1234567", 8), ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -445,17 +438,15 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("77777777777777", 8), ((ProtobufInteger) number).value());
+            assertEquals(Long.parseLong("77777777777777", 8), ((ProtobufInteger) number).value());
         }
 
         @Test
-        void testNextToken_VeryLongOctalNumber() throws IOException {
+        void testNextToken_TooLongOctalNumber() throws IOException {
             var octal = "0" + "7".repeat(200);
             var tokenizer = new ProtobufLexer(new StringReader(octal));
             var token = tokenizer.nextToken();
-            assertInstanceOf(ProtobufNumberToken.class, token);
-            var number = ((ProtobufNumberToken) token).value();
-            assertInstanceOf(ProtobufInteger.class, number);
+            assertInstanceOf(ProtobufRawToken.class, token);
         }
 
         @Test
@@ -478,7 +469,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("1a2b", 16), ((ProtobufInteger) number).value());
+            assertEquals(Long.parseLong("1a2b", 16), ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -488,7 +479,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("1A2B", 16), ((ProtobufInteger) number).value());
+            assertEquals(Long.parseLong("1A2B", 16), ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -498,7 +489,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("abc", 16).negate(), ((ProtobufInteger) number).value());
+            assertEquals(Long.parseLong("-abc", 16), ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -508,7 +499,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("abc", 16), ((ProtobufInteger) number).value());
+            assertEquals(Long.parseLong("abc", 16), ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -518,17 +509,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(BigInteger.ZERO, ((ProtobufInteger) number).value());
-        }
-
-        @Test
-        void testNextToken_HexadecimalAllDigits() throws IOException {
-            var tokenizer = new ProtobufLexer(new StringReader("0x0123456789abcdefABCDEF"));
-            var token = tokenizer.nextToken();
-            assertInstanceOf(ProtobufNumberToken.class, token);
-            var number = ((ProtobufNumberToken) token).value();
-            assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("0123456789abcdefABCDEF", 16), ((ProtobufInteger) number).value());
+            assertEquals(0, ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -540,13 +521,10 @@ public class ProtobufLexerTest {
         }
 
         @Test
-        void testNextToken_LargeHexadecimalNumber() throws IOException {
+        void testNextToken_TooLargeHexadecimalNumber() throws IOException {
             var tokenizer = new ProtobufLexer(new StringReader("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"));
             var token = tokenizer.nextToken();
-            assertInstanceOf(ProtobufNumberToken.class, token);
-            var number = ((ProtobufNumberToken) token).value();
-            assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", 16), ((ProtobufInteger) number).value());
+            assertInstanceOf(ProtobufRawToken.class, token);
         }
     }
 
@@ -559,7 +537,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("123.456"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(123.456, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -569,7 +547,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("-123.456"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(-123.456, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -579,7 +557,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("123.456"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(123.456, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -589,7 +567,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("0.456"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(0.456, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -599,7 +577,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("-0.456"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(-0.456, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -609,7 +587,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("0.0"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(0.0, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -619,7 +597,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("123.4560000"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(123.4560000, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -629,7 +607,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("123.456"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(123.456, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -639,7 +617,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("123.123456789012345678901234567890"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(123.123456789012345678901234567890, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -695,7 +673,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("1.23e10"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(1.23e10, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -705,7 +683,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("1.23e-10"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(1.23e-10, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -715,7 +693,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("1.23e+10"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(1.23e+10, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -725,7 +703,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("1.23E10"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(1.23E10, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -735,7 +713,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("123e10"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(123e10, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -745,7 +723,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("-1.23e10"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(-1.23e10, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -755,27 +733,14 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("1.23"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(1.23, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
-        void testNextToken_ScientificNotation_LargeExponent() throws IOException {
+        void testNextToken_ScientificNotation_TooLargeExponent() throws IOException {
             var tokenizer = new ProtobufLexer(new StringReader("1.23e1000"));
             var token = tokenizer.nextToken();
-            assertInstanceOf(ProtobufNumberToken.class, token);
-            var number = ((ProtobufNumberToken) token).value();
-            assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("1.23e1000"), ((ProtobufFloatingPoint.Finite) number).value());
-        }
-
-        @Test
-        void testNextToken_ScientificNotation_VeryLargeNegativeExponent() throws IOException {
-            var tokenizer = new ProtobufLexer(new StringReader("1.23e-1000"));
-            var token = tokenizer.nextToken();
-            assertInstanceOf(ProtobufNumberToken.class, token);
-            var number = ((ProtobufNumberToken) token).value();
-            assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("1.23e-1000"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertInstanceOf(ProtobufRawToken.class, token);
         }
 
         @Test
@@ -785,7 +750,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("0.23e10"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(0.23e10, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -1045,7 +1010,7 @@ public class ProtobufLexerTest {
 
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("123", 8), ((ProtobufInteger) number).value());
+            assertEquals(Long.parseLong("123", 8), ((ProtobufInteger) number).value());
         }
 
         @ParameterizedTest
@@ -1101,22 +1066,18 @@ public class ProtobufLexerTest {
         }
 
         @Test
-        void testNextToken_VeryLongHexNumber() throws IOException {
+        void testNextToken_TooLongHexNumber() throws IOException {
             var hex = "0x" + "F".repeat(200);
             var tokenizer = new ProtobufLexer(new StringReader(hex));
             var token = tokenizer.nextToken();
-            assertInstanceOf(ProtobufNumberToken.class, token);
-            var number = ((ProtobufNumberToken) token).value();
-            assertInstanceOf(ProtobufInteger.class, number);
+            assertInstanceOf(ProtobufRawToken.class, token);
         }
 
         @Test
-        void testNextToken_ExtremelyLargeExponent() throws IOException {
+        void testNextToken_TooLargeExponent() throws IOException {
             var tokenizer = new ProtobufLexer(new StringReader("1.23e999999999"));
             var token = tokenizer.nextToken();
-            assertInstanceOf(ProtobufNumberToken.class, token);
-            var number = ((ProtobufNumberToken) token).value();
-            assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
+            assertInstanceOf(ProtobufRawToken.class, token);
         }
 
         @Test
@@ -1141,7 +1102,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(BigDecimal.ZERO.setScale(1, RoundingMode.UNNECESSARY), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(0.0, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -1158,7 +1119,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("5e2"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(5e2, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -1168,7 +1129,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("0.123"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(0.123, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -1178,7 +1139,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(BigInteger.ZERO, ((ProtobufInteger) number).value());
+            assertEquals(0, ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -1188,7 +1149,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("0.999"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(0.999, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -1198,7 +1159,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, number);
-            assertEquals(new BigDecimal("-0.999"), ((ProtobufFloatingPoint.Finite) number).value());
+            assertEquals(-0.999, ((ProtobufFloatingPoint.Finite) number).value());
         }
 
         @Test
@@ -1312,7 +1273,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("FF", 16), ((ProtobufInteger) number).value());
+            assertEquals(Long.parseLong("FF", 16), ((ProtobufInteger) number).value());
         }
 
         @Test
@@ -1322,7 +1283,7 @@ public class ProtobufLexerTest {
             assertInstanceOf(ProtobufNumberToken.class, token);
             var number = ((ProtobufNumberToken) token).value();
             assertInstanceOf(ProtobufInteger.class, number);
-            assertEquals(new BigInteger("777", 8), ((ProtobufInteger) number).value());
+            assertEquals(Long.parseLong("777", 8), ((ProtobufInteger) number).value());
         }
 
         @Test

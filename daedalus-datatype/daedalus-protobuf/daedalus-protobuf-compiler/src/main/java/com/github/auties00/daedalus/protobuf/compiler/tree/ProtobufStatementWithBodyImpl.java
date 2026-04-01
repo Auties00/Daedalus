@@ -182,9 +182,8 @@ sealed abstract class ProtobufStatementWithBodyImpl<CHILD extends ProtobufStatem
      * @return optional containing the matching child, or empty if not found
      */
     static Optional<WithIndex> getDirectChildByIndex(Collection<? extends ProtobufTree> children, long index) {
-        var indexAsBigInteger = BigInteger.valueOf(index);
         return children.stream()
-                .filter(entry -> hasIndex(entry, indexAsBigInteger))
+                .filter(entry -> hasIndex(entry, index))
                 .findFirst()
                 .map(entry -> (WithIndex) entry);
     }
@@ -196,10 +195,10 @@ sealed abstract class ProtobufStatementWithBodyImpl<CHILD extends ProtobufStatem
      * @param index the index value to compare
      * @return true if the node has the specified index, false otherwise
      */
-    private static boolean hasIndex(ProtobufTree entry, BigInteger index) {
+    private static boolean hasIndex(ProtobufTree entry, long index) {
         return entry instanceof WithIndex withIndex
                && withIndex.hasIndex()
-               && withIndex.index().value().compareTo(index) == 0;
+               && withIndex.index().value() == index;
     }
 
     @Override
@@ -262,9 +261,8 @@ sealed abstract class ProtobufStatementWithBodyImpl<CHILD extends ProtobufStatem
      * @return optional containing the matching child, or empty if not found
      */
     static <V extends ProtobufTree> Optional<V> getDirectChildByIndexAndType(Collection<? extends ProtobufTree> children, long index, Class<V> clazz) {
-        var indexAsBigInteger = BigInteger.valueOf(index);
         return children.stream()
-                .filter(entry -> clazz.isAssignableFrom(entry.getClass()) && hasIndex(entry, indexAsBigInteger))
+                .filter(entry -> clazz.isAssignableFrom(entry.getClass()) && hasIndex(entry, index))
                 .findFirst()
                 .map(clazz::cast);
     }

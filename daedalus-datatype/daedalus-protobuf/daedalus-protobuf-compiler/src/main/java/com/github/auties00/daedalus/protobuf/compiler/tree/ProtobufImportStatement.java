@@ -182,9 +182,15 @@ public final class ProtobufImportStatement
         PUBLIC("public"),
 
         /**
-         * Weak import - marks dependency as optional at runtime.
+         * Weak import, marks dependency as optional at runtime.
          */
-        WEAK("weak");
+        WEAK("weak"),
+
+        /**
+         * Option import (Edition 2024+), only allows use of custom option definitions
+         * from the imported file. Messages and enums cannot be used as field types.
+         */
+        OPTION("option");
 
         private final String token;
 

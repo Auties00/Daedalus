@@ -5,6 +5,7 @@ import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufExpress
 import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufOptionExpression;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufInteger;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufTypeReference;
+import com.github.auties00.daedalus.protobuf.model.*;
 
 import java.util.Optional;
 import java.util.SequencedCollection;
@@ -205,6 +206,69 @@ public sealed interface ProtobufTree
          * @return true if an option was removed, false otherwise
          */
         boolean removeOption(String name);
+
+        /**
+         * Returns the resolved field presence for this node by walking up the AST.
+         *
+         * @return the resolved field presence
+         */
+        default ProtobufFieldPresence fieldPresence() {
+            return ProtobufTreeFeatures.fieldPresence(this);
+        }
+
+        /**
+         * Returns the resolved enum type for this node by walking up the AST.
+         *
+         * @return the resolved enum type
+         */
+        default ProtobufEnumType enumType() {
+            return ProtobufTreeFeatures.enumType(this);
+        }
+
+        /**
+         * Returns the resolved repeated field encoding for this node by walking up the AST.
+         *
+         * @return the resolved repeated field encoding
+         */
+        default ProtobufRepeatedFieldEncoding repeatedFieldEncoding() {
+            return ProtobufTreeFeatures.repeatedFieldEncoding(this);
+        }
+
+        /**
+         * Returns the resolved UTF8 validation for this node by walking up the AST.
+         *
+         * @return the resolved UTF8 validation
+         */
+        default ProtobufUtf8Validation utf8Validation() {
+            return ProtobufTreeFeatures.utf8Validation(this);
+        }
+
+        /**
+         * Returns the resolved message encoding for this node by walking up the AST.
+         *
+         * @return the resolved message encoding
+         */
+        default ProtobufMessageEncoding messageEncoding() {
+            return ProtobufTreeFeatures.messageEncoding(this);
+        }
+
+        /**
+         * Returns the resolved JSON compatibility for this node by walking up the AST.
+         *
+         * @return the resolved JSON compatibility
+         */
+        default ProtobufJsonCompatibility jsonCompatibility() {
+            return ProtobufTreeFeatures.jsonCompatibility(this);
+        }
+
+        /**
+         * Returns the resolved naming style for this node by walking up the AST.
+         *
+         * @return the resolved naming style
+         */
+        default ProtobufNamingStyle namingStyle() {
+            return ProtobufTreeFeatures.namingStyle(this);
+        }
     }
 
     /**

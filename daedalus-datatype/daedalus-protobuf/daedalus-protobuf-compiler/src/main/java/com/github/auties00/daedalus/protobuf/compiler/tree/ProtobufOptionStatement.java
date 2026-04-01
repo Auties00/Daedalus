@@ -89,15 +89,12 @@ public final class ProtobufOptionStatement
     }
 
     /**
-     * Returns the field definition for this option from descriptor.proto.
-     * <p>
-     * This is populated during semantic analysis when the option name is resolved.
-     * </p>
+     * Returns the field definition for this option.
      *
-     * @return optional containing the field definition, or empty if not yet attributed
+     * @return the field for this option.
      */
-    public Optional<ProtobufOptionDefinition> definition() {
-        return Optional.ofNullable(definition);
+    public ProtobufOptionDefinition definition() {
+        return definition;
     }
 
     /**

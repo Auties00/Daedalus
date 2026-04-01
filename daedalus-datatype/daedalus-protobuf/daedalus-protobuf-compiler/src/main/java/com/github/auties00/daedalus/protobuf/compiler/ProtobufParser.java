@@ -239,16 +239,39 @@ public final class ProtobufParser {
                         var statement = parseSyntax(document, tokenizer);
                         document.addChild(statement);
                     }
+                    case "edition" -> {
+                        var statement = parseEdition(document, tokenizer);
+                        document.addChild(statement);
+                    }
                     case "option" -> {
                         var statement = parseOption(tokenizer, OptionParser.STATEMENT);
                         document.addChild(statement);
+                    }
+                    case "export", "local" -> {
+                        var visibility = ProtobufTreeVisibility.of(token).orElseThrow();
+                        var keyword = tokenizer.nextRawToken();
+                        switch (keyword) {
+                            case "message" -> {
+                                var statement = parseMessage(document, tokenizer);
+                                statement.setVisibility(visibility);
+                                document.addChild(statement);
+                            }
+                            case "enum" -> {
+                                var statement = parseEnum(document, tokenizer);
+                                statement.setVisibility(visibility);
+                                document.addChild(statement);
+                            }
+                            default -> throw new ProtobufSyntaxException(
+                                    "Expected 'message' or 'enum' after '%s' but found '%s'".formatted(token, keyword),
+                                    tokenizer.line());
+                        }
                     }
                     case "message" -> {
                         var statement = parseMessage(document, tokenizer);
                         document.addChild(statement);
                     }
                     case "enum" -> {
-                        var statement = parseEnum(tokenizer);
+                        var statement = parseEnum(document, tokenizer);
                         document.addChild(statement);
                     }
                     case "service" -> {
@@ -256,14 +279,14 @@ public final class ProtobufParser {
                         document.addChild(statement);
                     }
                     case "import" -> {
-                        var statement = parseImport(tokenizer);
+                        var statement = parseImport(document, tokenizer);
                         document.addChild(statement);
                     }
                     case "extend" -> {
                         var statement = parseExtend(document, tokenizer);
                         document.addChild(statement);
                     }
-                    default -> throw new ProtobufSyntaxException("Unexpected token '%s' at top level\n\nExpected one of: 'syntax', 'package', 'import', 'option', 'message', 'enum', 'service', or 'extend'\n\nHelp: Only the keywords listed above are valid at the top level of a .proto file.\n      If you meant to use '%s' as a field name, it must be inside a message definition.".formatted(token, token), tokenizer.line());
+                    default -> throw new ProtobufSyntaxException("Unexpected token '%s' at top level\n\nExpected one of: 'syntax', 'edition', 'package', 'import', 'option', 'message', 'enum', 'service', 'extend', 'export', or 'local'\n\nHelp: Only the keywords listed above are valid at the top level of a .proto file.\n      If you meant to use '%s' as a field name, it must be inside a message definition.".formatted(token, token), tokenizer.line());
                 }
             }
             return document;
@@ -309,7 +332,8 @@ public final class ProtobufParser {
             throw new ProtobufSyntaxException("Expected string literal for protobuf version but found '%s'\n\nHelp: The syntax version must be a quoted string, either \"proto2\" or \"proto3\".\n      Example: syntax = \"proto3\";".formatted(versionCodeToken), tokenizer.line());
         }
         var version = ProtobufVersion.of(versionCode)
-                .orElseThrow(() -> new ProtobufParserException("Unknown protobuf version: \"%s\"\n\nSupported versions are:\n  - \"proto2\" (Protocol Buffers version 2)\n  - \"proto3\" (Protocol Buffers version 3, recommended)\n\nHelp: Use syntax = \"proto3\"; for new projects (recommended)\n      or syntax = \"proto2\"; for legacy compatibility.".formatted(versionCode)));
+                .filter(v -> !v.isEdition())
+                .orElseThrow(() -> new ProtobufParserException("Unknown protobuf syntax version: \"%s\"\n\nSupported syntax versions are:\n  \"proto2\" (Protocol Buffers version 2)\n  \"proto3\" (Protocol Buffers version 3)\n\nHelp: For editions, use: edition = \"%s\";".formatted(versionCode, versionCode)));
         statement.setVersion(version);
         var end = tokenizer.nextRawToken();
         ProtobufSyntaxException.check(isStatementEnd(end),
@@ -318,41 +342,70 @@ public final class ProtobufParser {
         return statement;
     }
 
+    private static ProtobufEditionStatement parseEdition(ProtobufDocumentTree document, ProtobufLexer tokenizer) throws IOException {
+        ProtobufSyntaxException.check(document.children().isEmpty(),
+                "Edition declaration must be the first statement\n\nFound 'edition' keyword after other declarations, but it must appear before any\npackage, import, message, enum, or service definitions.\n\nHelp: Move the 'edition' declaration to the very first line of your .proto file.\n      Example:\n        edition = \"2023\";\n        package com.example;",
+                tokenizer.line());
+        var statement = new ProtobufEditionStatement(tokenizer.line());
+        var assignment = tokenizer.nextRawToken();
+        ProtobufSyntaxException.check(isAssignmentOperator(assignment),
+                "Expected '=' after 'edition' keyword but found '%s'\n\nHelp: Edition declarations must use '=' to assign the edition.\n      Example: edition = \"2023\";".formatted(assignment),
+                tokenizer.line());
+        var editionCodeToken = tokenizer.nextToken();
+        if(!(editionCodeToken instanceof ProtobufLiteralToken(var editionCode, _))) {
+            throw new ProtobufSyntaxException("Expected string literal for protobuf edition but found '%s'\n\nHelp: The edition must be a quoted string, such as \"2023\" or \"2024\".\n      Example: edition = \"2023\";".formatted(editionCodeToken), tokenizer.line());
+        }
+        var version = ProtobufVersion.of(editionCode)
+                .filter(ProtobufVersion::isEdition)
+                .orElseThrow(() -> new ProtobufParserException("Unknown protobuf edition: \"%s\"\n\nSupported editions are:\n  \"2023\" (Edition 2023)\n  \"2024\" (Edition 2024)\n\nHelp: For classic syntax, use: syntax = \"%s\";".formatted(editionCode, editionCode)));
+        statement.setVersion(version);
+        var end = tokenizer.nextRawToken();
+        ProtobufSyntaxException.check(isStatementEnd(end),
+                "Expected ';' after edition declaration but found '%s'\n\nHelp: Edition declarations must end with a semicolon.\n      Example: edition = \"2023\";".formatted(end),
+                tokenizer.line());
+        return statement;
+    }
+
     private static <T> T parseOption(ProtobufLexer tokenizer, OptionParser<T> parser) throws IOException {
-        var nameOrParensStart = tokenizer.nextRawToken();
-
-        String name;
-        boolean extension;
-        if(isParensStart(nameOrParensStart)) {
-            name = tokenizer.nextRawToken();
-            var parensEnd = tokenizer.nextRawToken();
-            ProtobufSyntaxException.check(isParensEnd(parensEnd),
-                    "Expected ')' to close custom option name but found '%s'\n\nCustom options must be enclosed in parentheses.\n\nHelp: Format for custom options:\n      option (my_custom_option) = value;\n      option (com.example.my_option) = value;".formatted(parensEnd),
-                    tokenizer.line());
-            extension = true;
-        }else {
-           name = nameOrParensStart;
-           extension = false;
+        var segments = new ArrayList<ProtobufOptionNameSegment>();
+        while(true) {
+            var token = tokenizer.nextRawToken();
+            if(isAssignmentOperator(token)) {
+                tokenizer.moveToPreviousToken();
+                break;
+            }else if(isParensStart(token)) {
+                var extName = tokenizer.nextRawToken();
+                var parensEnd = tokenizer.nextRawToken();
+                ProtobufSyntaxException.check(isParensEnd(parensEnd),
+                        "Expected ')' to close extension name but found '%s'".formatted(parensEnd),
+                        tokenizer.line());
+                segments.add(new ProtobufOptionNameSegment(extName, true));
+            }else {
+                var start = token.charAt(0) == '.' ? 1 : 0;
+                var end = token.charAt(token.length() - 1) == '.' ? token.length() - 1 : token.length();
+                var pos = start;
+                while(pos < end) {
+                    var dot = token.indexOf('.', pos);
+                    if(dot < 0 || dot >= end) {
+                        segments.add(new ProtobufOptionNameSegment(token.substring(pos, end), false));
+                        break;
+                    } else {
+                        segments.add(new ProtobufOptionNameSegment(token.substring(pos, dot), false));
+                        pos = dot + 1;
+                    }
+                }
+                if(end == token.length()) {
+                    break;
+                }
+            }
         }
 
-        List<String> membersAccessed;
-        var membersAccessedOrAssignment = tokenizer.nextRawToken();
-        if(isAssignmentOperator(membersAccessedOrAssignment)) {
-            membersAccessed = List.of();
-        }else if(membersAccessedOrAssignment.charAt(0) == '.') {
-            var accessed = membersAccessedOrAssignment.substring(1);
-            ProtobufSyntaxException.check(isValidType(accessed),
-                    "Invalid sub-field access '%s' in option\n\nWhen accessing nested option fields, each part must be a valid identifier.\n\nHelp: Format for accessing nested option fields:\n      option java_package.subfield = value;\n      Example: option (my_option).field = value;".formatted(accessed),
-                    tokenizer.line());
-            membersAccessed = Arrays.asList(accessed.split("\\."));
-            var assignment = tokenizer.nextRawToken();
-            ProtobufSyntaxException.check(isAssignmentOperator(assignment),
-                    "Expected '=' after option name but found '%s'\n\nHelp: Options use '=' to assign values.\n      Example: option java_package = \"com.example\";".formatted(assignment),
-                    tokenizer.line());
-        }else{
-            throw new ProtobufSyntaxException("Expected '=' or '.' after option name but found '%s'\n\nHelp: Options must be assigned a value with '='.\n      For nested fields, use dot notation: option.field = value;\n      Example: option java_package = \"com.example\";".formatted(membersAccessedOrAssignment), tokenizer.line());
-        }
-        var optionName = new ProtobufOptionName(name, extension, membersAccessed);
+        var assignment = tokenizer.nextRawToken();
+        ProtobufSyntaxException.check(isAssignmentOperator(assignment),
+                "Expected '=' after option name but found '%s'\n\nHelp: Options use '=' to assign values.\n      Example: option java_package = \"com.example\";".formatted(assignment),
+                tokenizer.line());
+
+        var optionName = new ProtobufOptionName(segments);
         var optionValue = readExpression(tokenizer);
         return parser.parse(tokenizer, optionName, optionValue);
     }
@@ -384,7 +437,7 @@ public final class ProtobufParser {
                     statement.addChild(child);
                 }
                 case "enum" -> {
-                    var child = parseEnum(tokenizer);
+                    var child = parseEnum(document, tokenizer);
                     statement.addChild(child);
                 }
                 case "extend" -> {
@@ -396,7 +449,7 @@ public final class ProtobufParser {
                     statement.addChild(child);
                 }
                 case "reserved"  -> {
-                    var child = parseReserved(tokenizer);
+                    var child = parseReserved(document, tokenizer);
                     statement.addChild(child);
                 }
                 case "oneof" -> {
@@ -500,7 +553,7 @@ public final class ProtobufParser {
                 }
 
                 case "enum" -> {
-                    var groupChild = parseEnum(tokenizer);
+                    var groupChild = parseEnum(document, tokenizer);
                     statement.addChild(groupChild);
                 }
 
@@ -515,7 +568,7 @@ public final class ProtobufParser {
                 }
 
                 case "reserved" -> {
-                    var groupChild = parseReserved(tokenizer);
+                    var groupChild = parseReserved(document, tokenizer);
                     statement.addChild(groupChild);
                 }
 
@@ -678,7 +731,7 @@ public final class ProtobufParser {
         }
     }
 
-    private static ProtobufEnumStatement parseEnum(ProtobufLexer tokenizer) throws IOException {
+    private static ProtobufEnumStatement parseEnum(ProtobufDocumentTree document, ProtobufLexer tokenizer) throws IOException {
         var statement = new ProtobufEnumStatement(tokenizer.line());
         var name = tokenizer.nextRawToken();
         ProtobufSyntaxException.check(isValidIdent(name),
@@ -699,7 +752,7 @@ public final class ProtobufParser {
                     statement.addChild(child);
                 }
                 case "reserved"  -> {
-                    var child = parseReserved(tokenizer);
+                    var child = parseReserved(document, tokenizer);
                     statement.addChild(child);
                 }
                 default -> {
@@ -775,25 +828,24 @@ public final class ProtobufParser {
         return statement;
     }
 
-    private static ProtobufReservedStatement parseReserved(ProtobufLexer tokenizer) throws IOException {
+    private static ProtobufReservedStatement parseReserved(ProtobufDocumentTree document, ProtobufLexer tokenizer) throws IOException {
         var statement = new ProtobufReservedStatement(tokenizer.line());
+        var isEdition = document.version().isEdition();
 
         bodyLoop: {
             while (true) {
                 var valueOrMinToken = tokenizer.nextToken();
                 switch (valueOrMinToken) {
                     case ProtobufLiteralToken(var value, _) -> {
-                        var expression = new ProtobufLiteralExpression(value);
-                        statement.addExpression(expression);
+                        ProtobufSyntaxException.check(!isEdition,
+                                "Reserved names must be identifiers in editions, not string literals\n\nHelp: Use reserved %s; instead of reserved \"%s\";".formatted(value, value),
+                                tokenizer.line());
+                        statement.addExpression(new ProtobufLiteralExpression(value));
                         var operator = tokenizer.nextRawToken();
                         if(isStatementEnd(operator)) {
-                            if(statement.expressions().isEmpty()) {
-                                throw new ProtobufSyntaxException("Unexpected token " + operator, tokenizer.line());
-                            }
-
                             break bodyLoop;
                         }else if(!isArraySeparator(operator)) {
-                            throw new ProtobufSyntaxException("Unexpected token " + tokenizer.line(), tokenizer.line());
+                            throw new ProtobufSyntaxException("Unexpected token " + operator, tokenizer.line());
                         }
                     }
 
@@ -807,23 +859,30 @@ public final class ProtobufParser {
                                 default -> throw new ProtobufSyntaxException("Unexpected token " + maxToken, tokenizer.line());
                             };
 
-                            var expression = new ProtobufIntegerRangeExpression(range);
-                            statement.addExpression(expression);
+                            statement.addExpression(new ProtobufIntegerRangeExpression(range));
 
                             operator = tokenizer.nextRawToken();
                         }else {
-                            var expression = new ProtobufIntegerExpression(valueOrMinInt);
-                            statement.addExpression(expression);
+                            statement.addExpression(new ProtobufIntegerExpression(valueOrMinInt));
                         }
 
                         if(isStatementEnd(operator)) {
-                            if(statement.expressions().isEmpty()) {
-                                throw new ProtobufSyntaxException("Unexpected token " + operator, tokenizer.line());
-                            }
-
                             break bodyLoop;
                         }else if(!isArraySeparator(operator)) {
-                            throw new ProtobufSyntaxException("Unexpected token " + tokenizer.line(), tokenizer.line());
+                            throw new ProtobufSyntaxException("Unexpected token " + operator, tokenizer.line());
+                        }
+                    }
+
+                    case ProtobufRawToken(var rawValue) when isValidIdent(rawValue) -> {
+                        ProtobufSyntaxException.check(isEdition,
+                                "Reserved names must be string literals in proto2/proto3\n\nHelp: Use reserved \"%s\"; instead of reserved %s;".formatted(rawValue, rawValue),
+                                tokenizer.line());
+                        statement.addExpression(new ProtobufLiteralExpression(rawValue));
+                        var operator = tokenizer.nextRawToken();
+                        if(isStatementEnd(operator)) {
+                            break bodyLoop;
+                        }else if(!isArraySeparator(operator)) {
+                            throw new ProtobufSyntaxException("Unexpected token " + operator, tokenizer.line());
                         }
                     }
 
@@ -953,7 +1012,7 @@ public final class ProtobufParser {
         return statement;
     }
 
-    private static ProtobufImportStatement parseImport(ProtobufLexer tokenizer) throws IOException {
+    private static ProtobufImportStatement parseImport(ProtobufDocumentTree document, ProtobufLexer tokenizer) throws IOException {
         var importStatement = new ProtobufImportStatement(tokenizer.line());
         var token = tokenizer.nextToken();
         switch (token) {
@@ -967,6 +1026,16 @@ public final class ProtobufParser {
             case ProtobufRawToken raw -> {
                 var modifier = ProtobufImportStatement.Modifier.of(raw.value())
                         .orElseThrow(() -> new ProtobufParserException("Unexpected token " + raw.value(), tokenizer.line()));
+                var version = document.version();
+                switch (modifier) {
+                    case WEAK -> ProtobufSyntaxException.check(version != ProtobufVersion.EDITION_2024,
+                            "import weak is not allowed in Edition 2024\n\nUse import option instead.",
+                            tokenizer.line());
+                    case OPTION -> ProtobufSyntaxException.check(version == ProtobufVersion.EDITION_2024,
+                            "import option is only allowed in Edition 2024 or later",
+                            tokenizer.line());
+                    case PUBLIC, NONE -> {}
+                }
                 importStatement.setModifier(modifier);
                 var locationToken = tokenizer.nextToken();
                 if(!(locationToken instanceof ProtobufLiteralToken(var location, _))) {

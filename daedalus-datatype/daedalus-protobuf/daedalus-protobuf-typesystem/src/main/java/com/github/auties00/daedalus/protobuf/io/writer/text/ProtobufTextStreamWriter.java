@@ -46,7 +46,6 @@ public final class ProtobufTextStreamWriter extends ProtobufTextWriter<OutputStr
     @Override public void writeSFixed64Property(String fieldName, long value) { throw new UnsupportedOperationException(); }
     @Override public void writeStringProperty(String fieldName, String value) { throw new UnsupportedOperationException(); }
     @Override public void writeBytesProperty(String fieldName, byte[] value) { throw new UnsupportedOperationException(); }
-    @Override public void writeEnumProperty(String fieldName, int number, String enumName) { throw new UnsupportedOperationException(); }
     @Override public void writeFloatElement(float value) { throw new UnsupportedOperationException(); }
     @Override public void writeDoubleElement(double value) { throw new UnsupportedOperationException(); }
     @Override public void writeBoolElement(boolean value) { throw new UnsupportedOperationException(); }
@@ -62,7 +61,6 @@ public final class ProtobufTextStreamWriter extends ProtobufTextWriter<OutputStr
     @Override public void writeSFixed64Element(long value) { throw new UnsupportedOperationException(); }
     @Override public void writeStringElement(String value) { throw new UnsupportedOperationException(); }
     @Override public void writeBytesElement(byte[] value) { throw new UnsupportedOperationException(); }
-    @Override public void writeEnumElement(int number, String enumName) { throw new UnsupportedOperationException(); }
     @Override public void writeNullElement() { throw new UnsupportedOperationException(); }
     @Override public OutputStream toOutput() { throw new UnsupportedOperationException(); }
     @Override public void close() {}

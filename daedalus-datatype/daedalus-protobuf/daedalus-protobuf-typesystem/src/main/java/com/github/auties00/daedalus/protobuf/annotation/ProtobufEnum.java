@@ -342,10 +342,10 @@ public @interface ProtobufEnum {
      *     <li><strong>edition 2023/2024:</strong> {@link ProtobufEnumType#OPEN}</li>
      * </ul>
      *
-     * @return the enum type strategy, defaulting to {@link ProtobufEnumType#EDITION_DEFAULT}
+     * @return the enum type strategy, defaulting to {@link ProtobufEnumType#VERSION_DEFAULT}
      * @see ProtobufEnumType
      */
-    ProtobufEnumType type() default ProtobufEnumType.EDITION_DEFAULT;
+    ProtobufEnumType type() default ProtobufEnumType.VERSION_DEFAULT;
 
     /**
      * This annotation can be applied to enum constants or {@code static final} fields

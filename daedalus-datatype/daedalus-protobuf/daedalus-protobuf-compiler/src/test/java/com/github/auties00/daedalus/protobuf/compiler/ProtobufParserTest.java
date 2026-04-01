@@ -1,24 +1,17 @@
 package com.github.auties00.daedalus.protobuf.compiler;
 
-import com.github.auties00.daedalus.protobuf.model.ProtobufType;
-import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
-import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufBoolExpression;
-import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufEnumConstantExpression;
-import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufFloatingPointExpression;
-import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerExpression;
-import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufLiteralExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.*;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufFloatingPoint;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufInteger;
 import com.github.auties00.daedalus.protobuf.compiler.tree.*;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufMapTypeReference;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufPrimitiveTypeReference;
+import com.github.auties00.daedalus.protobuf.model.*;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -35,7 +28,7 @@ class ProtobufParserTest {
                     syntax = "proto2";
                     """;
             var document = ProtobufParser.parseOnly(proto);
-            assertSame(ProtobufVersion.PROTOBUF_2, document.syntax().orElse(null));
+            assertSame(ProtobufVersion.PROTOBUF_2, document.version());
         }
 
         @Test
@@ -44,7 +37,7 @@ class ProtobufParserTest {
                     syntax = "proto3";
                     """;
             var document = ProtobufParser.parseOnly(proto);
-            assertSame(ProtobufVersion.PROTOBUF_3, document.syntax().orElse(null));
+            assertSame(ProtobufVersion.PROTOBUF_3, document.version());
         }
 
         @Test
@@ -53,7 +46,7 @@ class ProtobufParserTest {
                     message M {}
                     """;
             var document = ProtobufParser.parseOnly(proto);
-            assertTrue(document.syntax().isEmpty());
+            assertFalse(document.hasVersion());
         }
 
         @Test
@@ -386,7 +379,7 @@ class ProtobufParserTest {
 
                     option (simple_option) = true;
                     option (structured_option).a = true;
-                    """;
+                   """;
             ProtobufParser.parseOnly(proto);
         }
 
@@ -404,7 +397,7 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufBoolExpression.class, opt.value());
             assertSame(true, ((ProtobufBoolExpression) opt.value()).value());
             var constant = enumStmt.getDirectChildByNameAndType("A", ProtobufEnumConstantStatement.class).orElseThrow();
-            assertEquals(0L, constant.index().value().longValue());
+            assertEquals(0L, constant.index().value());
         }
 
         @Test
@@ -807,13 +800,13 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufPrimitiveTypeReference.class, firstField.type());
             assertSame(ProtobufType.INT32, firstField.type().protobufType());
             assertEquals("id", firstField.name());
-            assertEquals(1L, firstField.index().value().longValue());
+            assertEquals(1L, firstField.index().value());
             var secondField = message.getDirectChildByIndexAndType(2, ProtobufFieldStatement.class).orElseThrow();
             assertSame(ProtobufModifier.OPTIONAL, secondField.modifier());
             assertInstanceOf(ProtobufPrimitiveTypeReference.class, secondField.type());
             assertSame(ProtobufType.STRING, secondField.type().protobufType());
             assertEquals("name", secondField.name());
-            assertEquals(2L, secondField.index().value().longValue());
+            assertEquals(2L, secondField.index().value());
         }
 
         @Test
@@ -835,13 +828,13 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufPrimitiveTypeReference.class, firstField.type());
             assertSame(ProtobufType.INT32, firstField.type().protobufType());
             assertEquals("id", firstField.name());
-            assertEquals(1L, firstField.index().value().longValue());
+            assertEquals(1L, firstField.index().value());
             var secondField = message.getDirectChildByIndexAndType(2, ProtobufFieldStatement.class).orElseThrow();
             assertEquals(ProtobufModifier.NONE, secondField.modifier());
             assertInstanceOf(ProtobufPrimitiveTypeReference.class, secondField.type());
             assertSame(ProtobufType.STRING, secondField.type().protobufType());
             assertEquals("name", secondField.name());
-            assertEquals(2L, secondField.index().value().longValue());
+            assertEquals(2L, secondField.index().value());
         }
 
         @Test
@@ -1148,9 +1141,9 @@ class ProtobufParserTest {
             assertEquals("E", enumStmt.name());
             assertEquals(2, enumStmt.children().size());
             var unknown = enumStmt.getDirectChildByNameAndType("UNKNOWN", ProtobufEnumConstantStatement.class).orElseThrow();
-            assertEquals(0L, unknown.index().value().longValue());
+            assertEquals(0L, unknown.index().value());
             var started = enumStmt.getDirectChildByNameAndType("STARTED", ProtobufEnumConstantStatement.class).orElseThrow();
-            assertEquals(1L, started.index().value().longValue());
+            assertEquals(1L, started.index().value());
         }
 
         @Test
@@ -1407,11 +1400,11 @@ class ProtobufParserTest {
             var nameField = oneof.getDirectChildByNameAndType("name", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufPrimitiveTypeReference.class, nameField.type());
             assertSame(ProtobufType.STRING, nameField.type().protobufType());
-            assertEquals(1L, nameField.index().value().longValue());
+            assertEquals(1L, nameField.index().value());
             var idField = oneof.getDirectChildByNameAndType("id", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufPrimitiveTypeReference.class, idField.type());
             assertSame(ProtobufType.INT32, idField.type().protobufType());
-            assertEquals(2L, idField.index().value().longValue());
+            assertEquals(2L, idField.index().value());
         }
     }
 
@@ -1430,11 +1423,11 @@ class ProtobufParserTest {
             var message = document.getDirectChildByType(ProtobufMessageStatement.class).orElseThrow();
             var group = message.getDirectChildByType(ProtobufGroupStatement.class).orElseThrow();
             assertEquals("Result", group.name());
-            assertEquals(2L, group.index().value().longValue());
+            assertEquals(2L, group.index().value());
             assertEquals(1, group.children().size());
             var innerField = group.getDirectChildByNameAndType("name", ProtobufFieldStatement.class).orElseThrow();
             assertSame(ProtobufType.STRING, innerField.type().protobufType());
-            assertEquals(3L, innerField.index().value().longValue());
+            assertEquals(3L, innerField.index().value());
         }
 
         @Test
@@ -1505,7 +1498,7 @@ class ProtobufParserTest {
             var mapType = (ProtobufMapTypeReference) field.type();
             assertSame(ProtobufType.STRING, mapType.keyType().protobufType());
             assertSame(ProtobufType.INT32, mapType.valueType().protobufType());
-            assertEquals(1L, field.index().value().longValue());
+            assertEquals(1L, field.index().value());
         }
 
         @Test
@@ -1542,7 +1535,7 @@ class ProtobufParserTest {
             assertEquals("MessageType", extend.declaration().name());
             var field = extend.getDirectChildByNameAndType("ext_field", ProtobufFieldStatement.class).orElseThrow();
             assertSame(ProtobufType.STRING, field.type().protobufType());
-            assertEquals(100L, field.index().value().longValue());
+            assertEquals(100L, field.index().value());
         }
 
         @Test
@@ -1666,6 +1659,7 @@ class ProtobufParserTest {
             ProtobufParser.parseOnly(proto);
         }
 
+        @SuppressWarnings("UnnecessaryUnicodeEscape")
         @Test
         public void testStringFieldsUTF8EncodingNote() {
             var proto = """
@@ -2164,7 +2158,7 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufIntegerExpression.class, aDefault.get().value());
             var aDefaultValue = (ProtobufIntegerExpression) aDefault.get().value();
             assertInstanceOf(ProtobufInteger.class, aDefaultValue.value());
-            assertEquals(BigInteger.valueOf(123), aDefaultValue.value().value());
+            assertEquals(123, aDefaultValue.value().value());
 
             var b = document.getAnyChildByNameAndType("b", ProtobufFieldStatement.class);
             assertTrue(b.isPresent());
@@ -2173,7 +2167,7 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufIntegerExpression.class, bDefault.get().value());
             var bDefaultValue = (ProtobufIntegerExpression) bDefault.get().value();
             assertInstanceOf(ProtobufInteger.class, bDefaultValue.value());
-            assertEquals(BigInteger.valueOf(-45), bDefaultValue.value().value());
+            assertEquals(-45, bDefaultValue.value().value());
         }
 
         @Test
@@ -2194,7 +2188,7 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufIntegerExpression.class, aDefault.get().value());
             var aDefaultValue = (ProtobufIntegerExpression) aDefault.get().value();
             assertInstanceOf(ProtobufInteger.class, aDefaultValue.value());
-            assertEquals(BigInteger.valueOf(63L), aDefaultValue.value().value());
+            assertEquals(63L, aDefaultValue.value().value());
         }
 
         @Test
@@ -2216,7 +2210,7 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufIntegerExpression.class, aDefault.get().value());
             var aDefaultValue = (ProtobufIntegerExpression) aDefault.get().value();
             assertInstanceOf(ProtobufInteger.class, aDefaultValue.value());
-            assertEquals(BigInteger.valueOf(255), aDefaultValue.value().value());
+            assertEquals(255, aDefaultValue.value().value());
 
             var b = document.getAnyChildByNameAndType("b", ProtobufFieldStatement.class);
             assertTrue(b.isPresent());
@@ -2225,7 +2219,7 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufIntegerExpression.class, bDefault.get().value());
             var bDefaultValue = (ProtobufIntegerExpression) bDefault.get().value();
             assertInstanceOf(ProtobufInteger.class, bDefaultValue.value());
-            assertEquals(BigInteger.valueOf(16), bDefaultValue.value().value());
+            assertEquals(16, bDefaultValue.value().value());
         }
 
         @Test
@@ -2331,7 +2325,7 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufFloatingPointExpression.class, aDefault.get().value());
             var aDefaultValue = (ProtobufFloatingPointExpression) aDefault.get().value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, aDefaultValue.value());
-            assertEquals(BigDecimal.valueOf(1.0), ((ProtobufFloatingPoint.Finite) aDefaultValue.value()).value());
+            assertEquals(1.0, ((ProtobufFloatingPoint.Finite) aDefaultValue.value()).value());
 
             var b = document.getAnyChildByNameAndType("b", ProtobufFieldStatement.class);
             assertTrue(b.isPresent());
@@ -2340,7 +2334,7 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufFloatingPointExpression.class, bDefault.get().value());
             var bDefaultValue = (ProtobufFloatingPointExpression) bDefault.get().value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, bDefaultValue.value());
-            assertEquals(BigDecimal.valueOf(3.14), ((ProtobufFloatingPoint.Finite) bDefaultValue.value()).value());
+            assertEquals(3.14, ((ProtobufFloatingPoint.Finite) bDefaultValue.value()).value());
         }
 
         @Test
@@ -2362,7 +2356,7 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufFloatingPointExpression.class, aDefault.get().value());
             var aDefaultValue = (ProtobufFloatingPointExpression) aDefault.get().value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, aDefaultValue.value());
-            assertEquals(BigDecimal.valueOf(-3.14e-5d), ((ProtobufFloatingPoint.Finite) aDefaultValue.value()).value());
+            assertEquals(-3.14e-5d, ((ProtobufFloatingPoint.Finite) aDefaultValue.value()).value());
 
             var b = document.getAnyChildByNameAndType("b", ProtobufFieldStatement.class);
             assertTrue(b.isPresent());
@@ -2371,7 +2365,7 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufFloatingPointExpression.class, bDefault.get().value());
             var bDefaultValue = (ProtobufFloatingPointExpression) bDefault.get().value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, bDefaultValue.value());
-            assertEquals(BigDecimal.valueOf(1.23e10d), ((ProtobufFloatingPoint.Finite) bDefaultValue.value()).value());
+            assertEquals(1.23e10d, ((ProtobufFloatingPoint.Finite) bDefaultValue.value()).value());
         }
 
         @Test
@@ -2393,7 +2387,7 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufFloatingPointExpression.class, aDefault.get().value());
             var aDefaultValue = (ProtobufFloatingPointExpression) aDefault.get().value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, aDefaultValue.value());
-            assertEquals(BigDecimal.valueOf(.5), ((ProtobufFloatingPoint.Finite) aDefaultValue.value()).value());
+            assertEquals(.5, ((ProtobufFloatingPoint.Finite) aDefaultValue.value()).value());
 
             var b = document.getAnyChildByNameAndType("b", ProtobufFieldStatement.class);
             assertTrue(b.isPresent());
@@ -2402,7 +2396,7 @@ class ProtobufParserTest {
             assertInstanceOf(ProtobufFloatingPointExpression.class, bDefault.get().value());
             var bDefaultValue = (ProtobufFloatingPointExpression) bDefault.get().value();
             assertInstanceOf(ProtobufFloatingPoint.Finite.class, bDefaultValue.value());
-            assertEquals(BigDecimal.valueOf(.25), ((ProtobufFloatingPoint.Finite) bDefaultValue.value()).value());
+            assertEquals(.25, ((ProtobufFloatingPoint.Finite) bDefaultValue.value()).value());
         }
 
         @Test
@@ -2532,14 +2526,14 @@ class ProtobufParserTest {
             var aDefault = a.get().getOption("default");
             assertTrue(aDefault.isPresent());
             assertInstanceOf(ProtobufBoolExpression.class, aDefault.get().value());
-            assertEquals(true, ((ProtobufBoolExpression) aDefault.get().value()).value());
+            assertTrue(((ProtobufBoolExpression) aDefault.get().value()).value());
 
             var b = document.getAnyChildByNameAndType("b", ProtobufFieldStatement.class);
             assertTrue(b.isPresent());
             var bDefault = b.get().getOption("default");
             assertTrue(bDefault.isPresent());
             assertInstanceOf(ProtobufBoolExpression.class, bDefault.get().value());
-            assertEquals(false, ((ProtobufBoolExpression) bDefault.get().value()).value());
+            assertFalse(((ProtobufBoolExpression) bDefault.get().value()).value());
         }
 
         @Test
@@ -2775,6 +2769,7 @@ class ProtobufParserTest {
             assertNotNull(document);
         }
 
+        @SuppressWarnings("UnnecessaryUnicodeEscape")
         @Test
         public void testStringUTF8Characters() {
             var proto = """
@@ -2921,6 +2916,7 @@ class ProtobufParserTest {
             assertNotNull(document);
         }
 
+        @SuppressWarnings("UnnecessaryUnicodeEscape")
         @Test
         public void testCommentWithUnicode() {
             var proto = """
@@ -2928,6 +2924,414 @@ class ProtobufParserTest {
                     // Comment with Unicode: \u4f60\u597d\u4e16\u754c \ud83c\udf0d
                     message M {
                         string field = 1;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertNotNull(document);
+        }
+    }
+
+    @Nested
+    class EditionTests {
+        @Test
+        public void testEdition2023Declaration() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        int32 bar = 1;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertSame(ProtobufVersion.EDITION_2023, document.version());
+        }
+
+        @Test
+        public void testEdition2024Declaration() {
+            var proto = """
+                    edition = "2024";
+                    message Foo {
+                        int32 bar = 1;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertSame(ProtobufVersion.EDITION_2024, document.version());
+        }
+
+        @Test
+        public void testSyntaxRejectsEditionStrings() {
+            var proto = """
+                    syntax = "2023";
+                    """;
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto));
+        }
+
+        @Test
+        public void testEditionRejectsSyntaxStrings() {
+            var proto = """
+                    edition = "proto3";
+                    """;
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto));
+        }
+
+        @Test
+        public void testRequiredRejectedInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        required int32 bar = 1;
+                    }
+                    """;
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto));
+        }
+
+        @Test
+        public void testOptionalRejectedInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        optional int32 bar = 1;
+                    }
+                    """;
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto));
+        }
+
+        @Test
+        public void testGroupRejectedInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        group Bar = 1 {
+                            int32 x = 1;
+                        }
+                    }
+                    """;
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto));
+        }
+
+        @Test
+        public void testReservedBareIdentifiersInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        reserved foo, bar;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertNotNull(document);
+        }
+
+        @Test
+        public void testReservedQuotedStringsRejectedInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        reserved "foo", "bar";
+                    }
+                    """;
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto));
+        }
+
+        @Test
+        public void testReservedBareIdentifiersRejectedInProto3() {
+            var proto = """
+                    syntax = "proto3";
+                    message Foo {
+                        reserved foo, bar;
+                    }
+                    """;
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto));
+        }
+
+        @Test
+        public void testPackedOptionRejectedInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        repeated int32 values = 1 [packed = true];
+                    }
+                    """;
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto));
+        }
+
+        @Test
+        public void testExtensionsAllowedInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        extensions 100 to 199;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertNotNull(document);
+        }
+
+        @Test
+        public void testDefaultValuesAllowedInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        int32 bar = 1 [default = 42];
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertNotNull(document);
+        }
+
+        @Test
+        public void testDefaultValuesRejectedWithImplicitPresence() {
+            var proto = """
+                    edition = "2023";
+                    option features.field_presence = IMPLICIT;
+                    message Foo {
+                        int32 bar = 1 [default = 42];
+                    }
+                    """;
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto));
+        }
+
+        @Test
+        public void testOpenEnumRequiresZeroFirstValue() {
+            var proto = """
+                    edition = "2023";
+                    enum Foo {
+                        A = 1;
+                        B = 2;
+                    }
+                    """;
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto));
+        }
+
+        @Test
+        public void testClosedEnumAllowsNonZeroFirstValue() {
+            var proto = """
+                    edition = "2023";
+                    enum Foo {
+                        option features.enum_type = CLOSED;
+                        A = 5;
+                        B = 6;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertNotNull(document);
+        }
+
+        @Test
+        public void testFeaturesOptionParsing() {
+            var proto = """
+                    edition = "2023";
+                    option features.field_presence = IMPLICIT;
+                    message Foo {
+                        int32 bar = 1;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertSame(ProtobufFieldPresence.IMPLICIT, document.fieldPresence());
+        }
+
+        @Test
+        public void testExportLocalKeywordsInEdition2024() {
+            var proto = """
+                    edition = "2024";
+                    export message Foo {}
+                    local message Bar {}
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            var foo = document.getDirectChildByNameAndType("Foo", ProtobufMessageStatement.class).orElseThrow();
+            assertSame(ProtobufTreeVisibility.EXPORT, foo.visibility());
+            var bar = document.getDirectChildByNameAndType("Bar", ProtobufMessageStatement.class).orElseThrow();
+            assertSame(ProtobufTreeVisibility.LOCAL, bar.visibility());
+        }
+
+        @Test
+        public void testImportWeakRejectedInEdition2024() {
+            var dependency = ProtobufParser.parseOnly("""
+                    edition = "2024";
+                    message Dummy {}
+                    """);
+            var proto = """
+                    edition = "2024";
+                    import weak "dummy.proto";
+                    message Foo {}
+                    """;
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto, dependency));
+        }
+
+        @Test
+        public void testRepeatedFieldAllowedInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        repeated int32 values = 1;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            var message = document.getDirectChildByType(ProtobufMessageStatement.class).orElseThrow();
+            var field = message.getDirectChildByNameAndType("values", ProtobufFieldStatement.class).orElseThrow();
+            assertSame(ProtobufModifier.REPEATED, field.modifier());
+        }
+
+        @Test
+        public void testSingularFieldNoModifierInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        int32 bar = 1;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            var message = document.getDirectChildByType(ProtobufMessageStatement.class).orElseThrow();
+            var field = message.getDirectChildByNameAndType("bar", ProtobufFieldStatement.class).orElseThrow();
+            assertSame(ProtobufModifier.NONE, field.modifier());
+        }
+
+        @Test
+        public void testFieldLevelFeatureOverride() {
+            var proto = """
+                    edition = "2023";
+                    option features.field_presence = IMPLICIT;
+                    message Foo {
+                        int32 implicit_field = 1;
+                        int32 explicit_field = 2 [features.field_presence = EXPLICIT];
+                        int32 explicit_with_default = 3 [features.field_presence = EXPLICIT, default = 42];
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertSame(ProtobufFieldPresence.IMPLICIT, document.fieldPresence());
+            var message = document.getDirectChildByType(ProtobufMessageStatement.class).orElseThrow();
+            var implicitField = message.getDirectChildByNameAndType("implicit_field", ProtobufFieldStatement.class).orElseThrow();
+            assertSame(ProtobufFieldPresence.IMPLICIT, implicitField.fieldPresence());
+            var explicitField = message.getDirectChildByNameAndType("explicit_field", ProtobufFieldStatement.class).orElseThrow();
+            assertSame(ProtobufFieldPresence.EXPLICIT, explicitField.fieldPresence());
+        }
+
+        @Test
+        public void testOneofInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        oneof bar {
+                            int32 x = 1;
+                            string y = 2;
+                        }
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertNotNull(document);
+        }
+
+        @Test
+        public void testMapInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        map<string, int32> bar = 1;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertNotNull(document);
+        }
+
+        @Test
+        public void testServiceInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Req {}
+                    message Res {}
+                    service Foo {
+                        rpc Bar(Req) returns (Res);
+                        rpc StreamBar(stream Req) returns (stream Res);
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertNotNull(document);
+        }
+
+        @Test
+        public void testMessageEncodingDelimited() {
+            var proto = """
+                    edition = "2023";
+                    message Inner { int32 x = 1; }
+                    message Foo {
+                        Inner bar = 1 [features.message_encoding = DELIMITED];
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertNotNull(document);
+        }
+
+        @Test
+        public void testEdition2024NamingStyleEnforced() {
+            var proto = """
+                    edition = "2024";
+                    message bad_message {
+                        int32 good_field = 1;
+                    }
+                    """;
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto));
+        }
+
+        @Test
+        public void testEdition2024NamingStyleGood() {
+            var proto = """
+                    edition = "2024";
+                    message GoodMessage {
+                        int32 good_field = 1;
+                    }
+                    enum GoodEnum {
+                        GOOD_VALUE = 0;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertNotNull(document);
+        }
+
+        @Test
+        public void testEdition2024NamingStyleOptOut() {
+            var proto = """
+                    edition = "2024";
+                    option features.enforce_naming_style = STYLE_LEGACY;
+                    message bad_message {
+                        int32 good_field = 1;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertNotNull(document);
+        }
+
+        @Test
+        public void testEdition2023NamingStyleNotEnforced() {
+            var proto = """
+                    edition = "2023";
+                    message bad_message {
+                        int32 good_field = 1;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertNotNull(document);
+        }
+
+        @Test
+        public void testExtendInEditions() {
+            var proto = """
+                    edition = "2023";
+                    message Foo {
+                        extensions 100 to 199;
+                    }
+                    extend Foo {
+                        int32 bar = 100;
+                    }
+                    """;
+            var document = ProtobufParser.parseOnly(proto);
+            assertNotNull(document);
+        }
+
+        @Test
+        public void testEditionEnumReservedBareIdentifiers() {
+            var proto = """
+                    edition = "2023";
+                    enum Foo {
+                        UNKNOWN = 0;
+                        reserved OLD_VALUE, DEPRECATED_VALUE;
                     }
                     """;
             var document = ProtobufParser.parseOnly(proto);

@@ -1,6 +1,6 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
-import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
+import com.github.auties00.daedalus.protobuf.model.*;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -180,17 +180,35 @@ public final class ProtobufDocumentTree
     }
 
     /**
-     * Returns the Protocol Buffer syntax version declared in this document.
-     * <p>
-     * Extracts the version from the syntax statement if present. If no syntax statement
-     * exists, proto2 is assumed by default according to Protocol Buffer specifications.
-     * </p>
+     * Returns the Protocol Buffer version declared in this document.
      *
-     * @return optional containing the syntax version, or empty if no syntax statement exists
+     * @return the declared version, or {@link ProtobufVersion#defaultVersion()} if none is declared
      */
-    public Optional<ProtobufVersion> syntax() {
+    public ProtobufVersion version() {
+        return syntaxVersion()
+                .or(this::editionVersion)
+                .orElse(ProtobufVersion.defaultVersion());
+    }
+
+    /**
+     * Checks whether this document has an explicit version declaration (syntax or edition statement).
+     *
+     * @return true if a version is explicitly declared, false otherwise
+     */
+    public boolean hasVersion() {
+        return syntaxVersion()
+                .or(this::editionVersion)
+                .isPresent();
+    }
+
+    private Optional<ProtobufVersion> syntaxVersion() {
         return getDirectChildByType(ProtobufSyntaxStatement.class)
                 .map(ProtobufSyntaxStatement::version);
+    }
+
+    private Optional<ProtobufVersion> editionVersion() {
+        return getDirectChildByType(ProtobufEditionStatement.class)
+                .map(ProtobufEditionStatement::version);
     }
 
     /**
@@ -204,6 +222,69 @@ public final class ProtobufDocumentTree
     public Optional<String> packageName() {
         return getDirectChildByType(ProtobufPackageStatement.class)
                 .map(ProtobufPackageStatement::name);
+    }
+
+    /**
+     * Returns the resolved field presence semantics for this document.
+     *
+     * @return the resolved field presence
+     */
+    public ProtobufFieldPresence fieldPresence() {
+        return ProtobufTreeFeatures.fieldPresence(this);
+    }
+
+    /**
+     * Returns the resolved enum type semantics for this document.
+     *
+     * @return the resolved enum type
+     */
+    public ProtobufEnumType enumType() {
+        return ProtobufTreeFeatures.enumType(this);
+    }
+
+    /**
+     * Returns the resolved repeated field encoding for this document.
+     *
+     * @return the resolved repeated field encoding
+     */
+    public ProtobufRepeatedFieldEncoding repeatedFieldEncoding() {
+        return ProtobufTreeFeatures.repeatedFieldEncoding(this);
+    }
+
+    /**
+     * Returns the resolved UTF8 validation mode for this document.
+     *
+     * @return the resolved UTF8 validation mode
+     */
+    public ProtobufUtf8Validation utf8Validation() {
+        return ProtobufTreeFeatures.utf8Validation(this);
+    }
+
+    /**
+     * Returns the resolved message encoding format for this document.
+     *
+     * @return the resolved message encoding
+     */
+    public ProtobufMessageEncoding messageEncoding() {
+        return ProtobufTreeFeatures.messageEncoding(this);
+    }
+
+    /**
+     * Returns the resolved JSON compatibility level for this document.
+     *
+     * @return the resolved JSON compatibility
+     */
+    public ProtobufJsonCompatibility jsonCompatibility() {
+        return ProtobufTreeFeatures.jsonCompatibility(this);
+    }
+
+    /**
+     * Returns the resolved naming style for this document.
+     *
+     * @return the resolved naming style
+     */
+    public ProtobufNamingStyle namingStyle() {
+        return ProtobufTreeFeatures.namingStyle(this);
     }
 
     @Override

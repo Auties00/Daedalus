@@ -1,15 +1,14 @@
 package com.github.auties00.daedalus.protobuf.compiler;
 
-import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
 import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufSemanticException;
 import com.github.auties00.daedalus.protobuf.compiler.tree.*;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufObjectTypeReference;
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 
@@ -933,7 +932,7 @@ class ProtobufAnalyzerTest {
             var doc1 = ProtobufParser.parseOnly(protoUnknown);
             var enum1 = doc1.getDirectChildByType(ProtobufEnumStatement.class).orElseThrow();
             var constant1 = enum1.getDirectChildByNameAndType("UNKNOWN", ProtobufEnumConstantStatement.class).orElseThrow();
-            assertEquals(BigInteger.ZERO, constant1.index().value());
+            assertEquals(0L, constant1.index().value());
 
             var protoUnspecified = """
                         syntax = "proto3";
@@ -946,7 +945,7 @@ class ProtobufAnalyzerTest {
             var doc2 = ProtobufParser.parseOnly(protoUnspecified);
             var enum2 = doc2.getDirectChildByType(ProtobufEnumStatement.class).orElseThrow();
             var constant2 = enum2.getDirectChildByNameAndType("STATUS_UNSPECIFIED", ProtobufEnumConstantStatement.class).orElseThrow();
-            assertEquals(BigInteger.ZERO, constant2.index().value());
+            assertEquals(0L, constant2.index().value());
         }
 
         @Test
@@ -1052,7 +1051,7 @@ class ProtobufAnalyzerTest {
             var document = ProtobufParser.parseOnly(proto);
             var enumStmt = document.getDirectChildByType(ProtobufEnumStatement.class).orElseThrow();
             var negative = enumStmt.getDirectChildByNameAndType("LARGE_NEGATIVE", ProtobufEnumConstantStatement.class).orElseThrow();
-            assertEquals(BigInteger.valueOf(-2147483648L), negative.index().value());
+            assertEquals(-2147483648L, negative.index().value());
         }
 
         @Test
@@ -1068,7 +1067,7 @@ class ProtobufAnalyzerTest {
             var document = ProtobufParser.parseOnly(proto);
             var enumStmt = document.getDirectChildByType(ProtobufEnumStatement.class).orElseThrow();
             var max = enumStmt.getDirectChildByNameAndType("MAX", ProtobufEnumConstantStatement.class).orElseThrow();
-            assertEquals(BigInteger.valueOf(2147483647L), max.index().value());
+            assertEquals(2147483647L, max.index().value());
         }
 
         @Test
@@ -1868,7 +1867,7 @@ class ProtobufAnalyzerTest {
                         }
                         """;
             var document = ProtobufParser.parseOnly(proto);
-            assertSame(ProtobufVersion.PROTOBUF_2, document.syntax().orElse(null));
+            assertSame(ProtobufVersion.PROTOBUF_2, document.version());
             var message = document.getDirectChildByType(ProtobufMessageStatement.class).orElseThrow();
             var nameField = message.getDirectChildByNameAndType("name", ProtobufFieldStatement.class).orElseThrow();
             assertSame(ProtobufModifier.REQUIRED, nameField.modifier());
@@ -2097,7 +2096,7 @@ class ProtobufAnalyzerTest {
             assertEquals("Extendable", extend.declaration().name());
             var field = extend.getDirectChildByType(ProtobufFieldStatement.class).orElseThrow();
             assertEquals("custom_field", field.name());
-            assertEquals(100L, field.index().value().longValue());
+            assertEquals(100L, field.index().value());
         }
 
         @Test
