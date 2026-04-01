@@ -1,5 +1,7 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.DescriptorProtoBuilder;
 import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufOptionExpression;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufGroupTypeReference;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufInteger;
@@ -74,7 +76,7 @@ import java.util.stream.Stream;
 public final class ProtobufGroupStatement
         extends ProtobufStatementImpl
         implements ProtobufStatement, ProtobufTree.WithName, ProtobufTree.WithIndex, ProtobufTree.WithOptions, ProtobufTree.WithBody<ProtobufGroupChild>, ProtobufTree.WithType, ProtobufTree.WithModifier, ProtobufOptionDefinition,
-                   ProtobufMessageChild, ProtobufOneofChild, ProtobufGroupChild, ProtobufExtendChild {
+                   ProtobufMessageChild, ProtobufOneofChild, ProtobufGroupChild, ProtobufExtendChild, ProtobufTree.WithDescriptor {
     private ProtobufModifier modifier;
     private ProtobufTypeReference type;
     private String name;
@@ -93,6 +95,17 @@ public final class ProtobufGroupStatement
         this.children = new ArrayList<>();
         this.reference = new ProtobufGroupTypeReference(this);
         this.options = new LinkedHashMap<>();
+    }
+
+    @Override
+    public DescriptorProtos.DescriptorProto toDescriptor() {
+        var fields = getDirectChildrenByType(ProtobufFieldStatement.class)
+                .map(ProtobufFieldStatement::toDescriptor)
+                .toList();
+        return new DescriptorProtoBuilder()
+                .name(name())
+                .field(fields)
+                .build();
     }
 
     @Override

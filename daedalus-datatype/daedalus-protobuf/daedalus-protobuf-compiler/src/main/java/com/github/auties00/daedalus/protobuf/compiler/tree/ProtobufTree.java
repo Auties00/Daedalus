@@ -1,6 +1,7 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
 import com.github.auties00.daedalus.protobuf.compiler.ProtobufParser;
+import com.google.protobuf.DescriptorProtos;
 import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufExpression;
 import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufOptionExpression;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufInteger;
@@ -42,7 +43,7 @@ import java.util.stream.Stream;
  * @see ProtobufExpression
  */
 public sealed interface ProtobufTree
-        permits ProtobufDocumentTree, ProtobufOptionDefinition, ProtobufStatement, ProtobufTree.WithBody, ProtobufTree.WithIndex, ProtobufTree.WithModifier, ProtobufTree.WithName, ProtobufTree.WithOptions, ProtobufTree.WithType {
+        permits ProtobufDocumentTree, ProtobufOptionDefinition, ProtobufStatement, ProtobufTree.WithBody, ProtobufTree.WithDescriptor, ProtobufTree.WithIndex, ProtobufTree.WithModifier, ProtobufTree.WithName, ProtobufTree.WithOptions, ProtobufTree.WithType {
     /**
      * Returns the line number in the source file where this tree node was parsed.
      *
@@ -413,5 +414,22 @@ public sealed interface ProtobufTree
         ProtobufModifier modifier();
         boolean hasModifier();
         void setModifier(ProtobufModifier modifier);
+    }
+
+    /**
+     * Capability interface for tree nodes that can be converted to a descriptor proto.
+     */
+    sealed interface WithDescriptor
+            extends ProtobufTree
+            permits ProtobufDocumentTree, ProtobufMessageStatement, ProtobufFieldStatement,
+                    ProtobufEnumStatement, ProtobufEnumConstantStatement,
+                    ProtobufServiceStatement, ProtobufMethodStatement,
+                    ProtobufOneofStatement, ProtobufGroupStatement {
+        /**
+         * Converts this AST node to its corresponding descriptor proto representation.
+         *
+         * @return the descriptor proto for this node
+         */
+        DescriptorProtos.Descriptor toDescriptor();
     }
 }

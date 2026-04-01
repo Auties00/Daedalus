@@ -8,8 +8,8 @@ import java.util.Objects;
  * Each segment is either a simple field name or an extension name in parentheses.
  * </p>
  *
- * @param name      the segment name
- * @param extension whether this segment is an extension (surrounded by parentheses)
+ * @param name         the segment name
+ * @param isExtension  whether this segment is an extension (surrounded by parentheses)
  */
 public record ProtobufOptionNameSegment(String name, boolean isExtension) {
     public ProtobufOptionNameSegment {

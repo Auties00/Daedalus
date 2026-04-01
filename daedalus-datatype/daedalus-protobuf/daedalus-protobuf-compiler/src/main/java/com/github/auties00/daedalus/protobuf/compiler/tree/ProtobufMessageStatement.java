@@ -1,5 +1,7 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.DescriptorProtoBuilder;
 import com.github.auties00.daedalus.protobuf.model.ProtobufJsonCompatibility;
 
 import java.util.Objects;
@@ -65,7 +67,7 @@ import java.util.Objects;
 public final class ProtobufMessageStatement
         extends ProtobufStatementWithBodyImpl<ProtobufMessageChild>
         implements ProtobufStatement, ProtobufTree.WithName, ProtobufTree.WithBody<ProtobufMessageChild>,
-                   ProtobufDocumentChild, ProtobufGroupChild, ProtobufMessageChild {
+                   ProtobufDocumentChild, ProtobufGroupChild, ProtobufMessageChild, ProtobufTree.WithDescriptor {
     private String name;
     private ProtobufTreeVisibility visibility;
 
@@ -104,6 +106,29 @@ public final class ProtobufMessageStatement
      */
     public ProtobufJsonCompatibility jsonCompatibility() {
         return ProtobufTreeFeatures.jsonCompatibility(this);
+    }
+
+    @Override
+    public DescriptorProtos.DescriptorProto toDescriptor() {
+        var fields = getDirectChildrenByType(ProtobufFieldStatement.class)
+                .map(ProtobufFieldStatement::toDescriptor)
+                .toList();
+        var nestedMessages = getDirectChildrenByType(ProtobufMessageStatement.class)
+                .map(ProtobufMessageStatement::toDescriptor)
+                .toList();
+        var nestedEnums = getDirectChildrenByType(ProtobufEnumStatement.class)
+                .map(ProtobufEnumStatement::toDescriptor)
+                .toList();
+        var oneofs = getDirectChildrenByType(ProtobufOneofStatement.class)
+                .map(ProtobufOneofStatement::toDescriptor)
+                .toList();
+        return new DescriptorProtoBuilder()
+                .name(name())
+                .field(fields)
+                .nestedType(nestedMessages)
+                .enumType(nestedEnums)
+                .oneofDecl(oneofs)
+                .build();
     }
 
     @Override

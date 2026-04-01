@@ -1,5 +1,6 @@
 open module com.github.auties00.daedalus.protobuf.compiler {
     requires com.github.auties00.daedalus.protobuf.typesystem;
+    requires com.github.auties00.daedalus.protobuf.google;
     
     exports com.github.auties00.daedalus.protobuf.compiler.typeReference;
     exports com.github.auties00.daedalus.protobuf.compiler.tree;

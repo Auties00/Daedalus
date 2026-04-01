@@ -1,7 +1,12 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.FieldDescriptorProtoBuilder;
 import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufOptionExpression;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufInteger;
+import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufEnumTypeReference;
+import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufGroupTypeReference;
+import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufMessageTypeReference;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufTypeReference;
 
 import java.util.*;
@@ -73,7 +78,7 @@ import java.util.stream.Collectors;
 public final class ProtobufFieldStatement
         extends ProtobufStatementImpl
         implements ProtobufStatement, ProtobufTree.WithName, ProtobufTree.WithIndex, ProtobufTree.WithOptions, ProtobufTree.WithType, ProtobufTree.WithModifier, ProtobufOptionDefinition,
-                   ProtobufOneofChild, ProtobufMessageChild, ProtobufGroupChild, ProtobufExtendChild {
+                   ProtobufOneofChild, ProtobufMessageChild, ProtobufGroupChild, ProtobufExtendChild, ProtobufTree.WithDescriptor {
     private ProtobufModifier modifier;
     private ProtobufTypeReference type;
     private String name;
@@ -241,6 +246,30 @@ public final class ProtobufFieldStatement
     @Override
     public boolean isAttributed() {
         return hasType() && hasName() && hasIndex();
+    }
+
+    @Override
+    public DescriptorProtos.FieldDescriptorProto toDescriptor() {
+        var builder = new FieldDescriptorProtoBuilder()
+                .name(name())
+                .number(hasIndex() ? (int) index().value() : 0);
+        if (type() != null) {
+            var protoType = type().protobufType();
+            builder.type(DescriptorProtos.FieldDescriptorProto.Type.values()[protoType.ordinal()]);
+            if (type() instanceof ProtobufMessageTypeReference
+                    || type() instanceof ProtobufEnumTypeReference
+                    || type() instanceof ProtobufGroupTypeReference) {
+                builder.typeName(type().name());
+            }
+        }
+        if (modifier() != null) {
+            builder.label(switch (modifier()) {
+                case REQUIRED -> DescriptorProtos.FieldDescriptorProto.Label.LABEL_REQUIRED;
+                case REPEATED -> DescriptorProtos.FieldDescriptorProto.Label.LABEL_REPEATED;
+                case OPTIONAL, NONE -> DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL;
+            });
+        }
+        return builder.build();
     }
 
     @Override

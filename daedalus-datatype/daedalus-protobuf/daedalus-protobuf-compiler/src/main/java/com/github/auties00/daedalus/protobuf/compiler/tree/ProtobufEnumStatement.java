@@ -1,5 +1,7 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.EnumDescriptorProtoBuilder;
 import com.github.auties00.daedalus.protobuf.model.ProtobufEnumType;
 import com.github.auties00.daedalus.protobuf.model.ProtobufJsonCompatibility;
 
@@ -73,7 +75,7 @@ import java.util.Objects;
 public final class ProtobufEnumStatement
         extends ProtobufStatementWithBodyImpl<ProtobufEnumChild>
         implements ProtobufStatement, ProtobufTree.WithName, ProtobufTree.WithBody<ProtobufEnumChild>,
-                   ProtobufDocumentChild, ProtobufMessageChild, ProtobufGroupChild {
+                   ProtobufDocumentChild, ProtobufMessageChild, ProtobufGroupChild, ProtobufTree.WithDescriptor {
     private String name;
     private ProtobufTreeVisibility visibility;
 
@@ -154,6 +156,17 @@ public final class ProtobufEnumStatement
      */
     public ProtobufJsonCompatibility jsonCompatibility() {
         return ProtobufTreeFeatures.jsonCompatibility(this);
+    }
+
+    @Override
+    public DescriptorProtos.EnumDescriptorProto toDescriptor() {
+        var values = getDirectChildrenByType(ProtobufEnumConstantStatement.class)
+                .map(ProtobufEnumConstantStatement::toDescriptor)
+                .toList();
+        return new EnumDescriptorProtoBuilder()
+                .name(name())
+                .value(values)
+                .build();
     }
 
     @Override

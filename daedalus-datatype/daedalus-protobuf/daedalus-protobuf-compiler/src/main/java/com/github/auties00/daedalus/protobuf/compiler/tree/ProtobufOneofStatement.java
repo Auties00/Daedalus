@@ -1,5 +1,8 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.OneofDescriptorProtoBuilder;
+
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -64,7 +67,7 @@ import java.util.stream.Stream;
 public final class ProtobufOneofStatement
         extends ProtobufStatementImpl
         implements ProtobufStatement, ProtobufTree.WithName, ProtobufTree.WithBody<ProtobufOneofChild>,
-                   ProtobufMessageChild, ProtobufGroupChild {
+                   ProtobufMessageChild, ProtobufGroupChild, ProtobufTree.WithDescriptor {
     private String name;
     private final List<ProtobufOneofChild> children;
 
@@ -127,6 +130,13 @@ public final class ProtobufOneofStatement
     @Override
     public void setName(String name) {
         this.name = name;
+    }
+
+    @Override
+    public DescriptorProtos.OneofDescriptorProto toDescriptor() {
+        return new OneofDescriptorProtoBuilder()
+                .name(name())
+                .build();
     }
 
     @Override

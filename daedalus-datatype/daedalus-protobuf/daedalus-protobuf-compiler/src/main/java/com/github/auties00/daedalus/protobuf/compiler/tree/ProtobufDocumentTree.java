@@ -1,5 +1,7 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.FileDescriptorProtoBuilder;
 import com.github.auties00.daedalus.protobuf.model.*;
 
 import java.nio.file.Path;
@@ -70,7 +72,7 @@ import java.util.stream.Stream;
  * @see ProtobufImportStatement
  */
 public final class ProtobufDocumentTree
-        implements ProtobufTree, ProtobufTree.WithBody<ProtobufDocumentChild> {
+        implements ProtobufTree, ProtobufTree.WithBody<ProtobufDocumentChild>, ProtobufTree.WithDescriptor {
     private final Path location;
     private final List<ProtobufDocumentChild> children;
 
@@ -285,6 +287,46 @@ public final class ProtobufDocumentTree
      */
     public ProtobufNamingStyle namingStyle() {
         return ProtobufTreeFeatures.namingStyle(this);
+    }
+
+    @Override
+    public DescriptorProtos.FileDescriptorProto toDescriptor() {
+        var messages = getDirectChildrenByType(ProtobufMessageStatement.class)
+                .map(ProtobufMessageStatement::toDescriptor)
+                .toList();
+        var enums = getDirectChildrenByType(ProtobufEnumStatement.class)
+                .map(ProtobufEnumStatement::toDescriptor)
+                .toList();
+        var services = getDirectChildrenByType(ProtobufServiceStatement.class)
+                .map(ProtobufServiceStatement::toDescriptor)
+                .toList();
+        var extensions = getDirectChildrenByType(ProtobufExtendStatement.class)
+                .flatMap(ext -> ext.getDirectChildrenByType(ProtobufFieldStatement.class))
+                .map(ProtobufFieldStatement::toDescriptor)
+                .toList();
+        var deps = getDirectChildrenByType(ProtobufImportStatement.class)
+                .map(ProtobufImportStatement::location)
+                .toList();
+        var builder = new FileDescriptorProtoBuilder()
+                .messageType(messages)
+                .enumType(enums)
+                .service(services)
+                .extension(extensions)
+                .dependency(deps);
+        location().ifPresent(path -> builder.name(path.getFileName().toString()));
+        packageName().ifPresent(builder::package_);
+        var version = version();
+        if (version.isEdition()) {
+            builder.syntax("editions");
+            builder.edition(switch (version) {
+                case EDITION_2023 -> DescriptorProtos.Edition.EDITION_2023;
+                case EDITION_2024 -> DescriptorProtos.Edition.EDITION_2024;
+                default -> null;
+            });
+        } else {
+            builder.syntax(version.versionCode());
+        }
+        return builder.build();
     }
 
     @Override

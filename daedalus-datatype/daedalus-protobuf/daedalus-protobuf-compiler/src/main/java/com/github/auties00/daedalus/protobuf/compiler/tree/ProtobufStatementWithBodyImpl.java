@@ -1,6 +1,5 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
-import java.math.BigInteger;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -16,16 +15,6 @@ import java.util.stream.Stream;
  * management and query methods. It maintains a list of child statements and provides both
  * direct child queries (immediate children only) and recursive queries (descendants at any depth).
  * </p>
- * <p>
- * Key responsibilities:
- * </p>
- * <ul>
- *   <li>Managing a collection of child statements</li>
- *   <li>Maintaining parent-child relationships bidirectionally</li>
- *   <li>Providing type-safe child queries by class type</li>
- *   <li>Supporting queries by name and index for applicable child types</li>
- *   <li>Implementing recursive tree traversal for descendant queries</li>
- * </ul>
  * <p>
  * Permitted container statement types:
  * </p>

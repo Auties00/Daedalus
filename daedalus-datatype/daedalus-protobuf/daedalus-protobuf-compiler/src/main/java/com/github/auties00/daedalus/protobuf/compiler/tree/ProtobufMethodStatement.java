@@ -1,5 +1,7 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.MethodDescriptorProtoBuilder;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufTypeReference;
 
 import java.util.Objects;
@@ -65,7 +67,7 @@ import java.util.Objects;
 public final class ProtobufMethodStatement
         extends ProtobufStatementWithBodyImpl<ProtobufMethodChild>
         implements ProtobufStatement, ProtobufTree.WithBody<ProtobufMethodChild>,
-                   ProtobufServiceChild, ProtobufTree.WithName {
+                   ProtobufServiceChild, ProtobufTree.WithName, ProtobufTree.WithDescriptor {
     private String name;
     private Type inputType;
     private Type outputType;
@@ -172,6 +174,21 @@ public final class ProtobufMethodStatement
     }
 
     @Override
+    public DescriptorProtos.MethodDescriptorProto toDescriptor() {
+        var builder = new MethodDescriptorProtoBuilder()
+                .name(name());
+        if (inputType() != null) {
+            builder.inputType(inputType().value().name());
+            builder.clientStreaming(inputType().isStream());
+        }
+        if (outputType() != null) {
+            builder.outputType(outputType().value().name());
+            builder.serverStreaming(outputType().isStream());
+        }
+        return builder.build();
+    }
+
+    @Override
     public String toString() {
         var builder = new StringBuilder();
 
@@ -219,9 +236,9 @@ public final class ProtobufMethodStatement
      * </p>
      *
      * @param value  the message type reference
-     * @param stream true if this is a stream type, false for a single message
+     * @param isStream true if this is a stream type, false for a single message
      */
-    public record Type(ProtobufTypeReference value, boolean stream) {
+    public record Type(ProtobufTypeReference value, boolean isStream) {
 
     }
 }

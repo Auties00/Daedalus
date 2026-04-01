@@ -1,5 +1,8 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.ServiceDescriptorProtoBuilder;
+
 import java.util.Objects;
 
 /**
@@ -65,7 +68,7 @@ import java.util.Objects;
 public final class ProtobufServiceStatement
         extends ProtobufStatementWithBodyImpl<ProtobufServiceChild>
         implements ProtobufStatement, ProtobufTree.WithName, ProtobufTree.WithBody<ProtobufServiceChild>,
-                   ProtobufDocumentChild {
+                   ProtobufDocumentChild, ProtobufTree.WithDescriptor {
     private String name;
 
     /**
@@ -75,6 +78,17 @@ public final class ProtobufServiceStatement
      */
     public ProtobufServiceStatement(int line) {
         super(line);
+    }
+
+    @Override
+    public DescriptorProtos.ServiceDescriptorProto toDescriptor() {
+        var methods = getDirectChildrenByType(ProtobufMethodStatement.class)
+                .map(ProtobufMethodStatement::toDescriptor)
+                .toList();
+        return new ServiceDescriptorProtoBuilder()
+                .name(name())
+                .method(methods)
+                .build();
     }
 
     @Override

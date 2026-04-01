@@ -1,5 +1,7 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.EnumValueDescriptorProtoBuilder;
 import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufOptionExpression;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufInteger;
 
@@ -57,7 +59,7 @@ import java.util.stream.Collectors;
 public final class ProtobufEnumConstantStatement
         extends ProtobufStatementImpl
         implements ProtobufTree.WithName, ProtobufTree.WithIndex, ProtobufTree.WithOptions,
-                   ProtobufEnumChild {
+                   ProtobufEnumChild, ProtobufTree.WithDescriptor {
     private String name;
     private ProtobufInteger index;
     private final SequencedMap<String, ProtobufOptionExpression> options;
@@ -70,6 +72,14 @@ public final class ProtobufEnumConstantStatement
     public ProtobufEnumConstantStatement(int line) {
         super(line);
         this.options = new LinkedHashMap<>();
+    }
+
+    @Override
+    public DescriptorProtos.EnumValueDescriptorProto toDescriptor() {
+        return new EnumValueDescriptorProtoBuilder()
+                .name(name())
+                .number(hasIndex() ? (int) index().value() : 0)
+                .build();
     }
 
     @Override

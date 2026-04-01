@@ -1535,7 +1535,7 @@ public final class ProtobufAnalyzer {
             var syntax = document.version();
             if(syntax == ProtobufVersion.PROTOBUF_3) {
                 throw new ProtobufSemanticException(
-                        "Extensions are not allowed in proto3 except for custom options\n\nYou're using 'extensions' in proto3, but extensions are only allowed in messages\nwhose names end with 'Options' (for defining custom options).\n\nHelp: In proto3, use one of these alternatives:\n      1. If you need to extend the protocol, use the 'Any' type:\n         import \"google/protobuf/any.proto\";\n         message MyMessage {{\n           com.google.protobuf.protobuf.Any extra_data = 1;\n         }}\n\n      2. If you're defining custom options, ensure your message name ends with 'Options'\n\n      3. Use regular message composition instead of extensions\n\n      Note: Proto2 extensions are generally discouraged in favor of proto3's simpler model.",
+                        "Extensions are not allowed in proto3 except for custom options\n\nYou're using 'extensions' in proto3, but extensions are only allowed in messages\nwhose names end with 'Options' (for defining custom options).\n\nHelp: In proto3, use one of these alternatives:\n      1. If you need to extend the protocol, use the 'Any' type:\n         import \"google/protobuf/any.proto\";\n         message MyMessage {{\n           com.google.protobuf.Any extra_data = 1;\n         }}\n\n      2. If you're defining custom options, ensure your message name ends with 'Options'\n\n      3. Use regular message composition instead of extensions\n\n      Note: Proto2 extensions are generally discouraged in favor of proto3's simpler model.",
                         extensionsStatement.line());
             }
 
@@ -1636,7 +1636,7 @@ public final class ProtobufAnalyzer {
         if (inputType instanceof ProtobufUnresolvedTypeReference(var inputName)) {
             var resolvedInput = tryResolveType(document, inputName, method);
             if (resolvedInput != null) {
-                method.setInputType(new ProtobufMethodStatement.Type(resolvedInput, inputTypeWrapper.stream()));
+                method.setInputType(new ProtobufMethodStatement.Type(resolvedInput, inputTypeWrapper.isStream()));
                 inputType = resolvedInput;
             }
         }
@@ -1650,7 +1650,7 @@ public final class ProtobufAnalyzer {
         if (outputType instanceof ProtobufUnresolvedTypeReference(var outputName)) {
             var resolvedOutput = tryResolveType(document, outputName, method);
             if (resolvedOutput != null) {
-                method.setOutputType(new ProtobufMethodStatement.Type(resolvedOutput, outputTypeWrapper.stream()));
+                method.setOutputType(new ProtobufMethodStatement.Type(resolvedOutput, outputTypeWrapper.isStream()));
                 outputType = resolvedOutput;
             }
         }
