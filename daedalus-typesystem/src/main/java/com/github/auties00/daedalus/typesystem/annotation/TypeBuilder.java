@@ -13,8 +13,9 @@ import java.lang.annotation.Target;
  * <p>This annotation can be applied to static methods or constructors to
  * auto-generate a builder class that provides a fluent API for constructing
  * instances of the enclosing type. The generated builder exposes one setter
- * method per parameter and a terminal {@code build()} method that delegates
- * to the annotated method or constructor.
+ * method per parameter and a terminal method (named {@code build()} by default,
+ * configurable via {@link #buildMethodName()}) that delegates to the annotated
+ * method or constructor.
  *
  * <p>When used inside a type managed by a specific data format, the parameters
  * of the annotated method or constructor may need to be annotated with format-specific
@@ -25,6 +26,21 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface TypeBuilder {
+    /**
+     * A placeholder that resolves to the name of the builder field.
+     */
+    String FIELD_NAME = "$FIELD_NAME";
+
+    /**
+     * A placeholder that resolves to the simple name of the type being built.
+     */
+    String CLASS_NAME = "$CLASS_NAME";
+
+    /**
+     * A placeholder that resolves to the simple name of the builder field's type.
+     */
+    String FIELD_TYPE_NAME = "$FIELD_TYPE_NAME";
+
     /**
      * Specifies the visibility and mutability modifiers for the generated builder class.
      *
@@ -47,4 +63,129 @@ public @interface TypeBuilder {
      *         to override the default builder
      */
     String name() default "";
+
+    /**
+     * Specifies the name of the terminal method that constructs the object.
+     *
+     * <p>If empty (the default), the terminal method is named {@code build}.
+     *
+     * @return the name of the terminal build method, or an empty string
+     *         for the default {@code build} name
+     */
+    String buildMethodName() default "";
+
+    /**
+     * Specifies the segments that are camelCase-joined to form the name of
+     * each generated setter method.
+     *
+     * <p>Each segment is either a literal string or one of the placeholder
+     * constants defined on this annotation ({@link #FIELD_NAME},
+     * {@link #CLASS_NAME}, {@link #FIELD_TYPE_NAME}).
+     *
+     * <p>If empty (the default), the setter name is {@code set} followed
+     * by the field name (equivalent to {@code {"set", FIELD_NAME}}).
+     *
+     * @return the segments that compose the setter method name, or an
+     *         empty array for the default behavior
+     */
+    String[] settersMethodName() default {};
+
+    /**
+     * Marks a static method as a mixin that gets mixed into generated builders.
+     *
+     * <p>The annotated method must be {@code static}, must have at least one
+     * parameter, and must return the same type as its first parameter. When a
+     * builder field's type is assignable from the first parameter of the
+     * annotated method, the processor generates an additional convenience
+     * method on the builder that delegates to the annotated static method,
+     * passing the builder field as the first argument and forwarding the
+     * remaining parameters. The return value is assigned back to the builder
+     * field, allowing the mixin to handle {@code null} fields by creating a
+     * new instance. The generated method returns the builder instance for
+     * fluent chaining.
+     *
+     * <p>Multiple mixins can match the same builder field, in which case a
+     * separate convenience method is generated for each matching mixin.
+     *
+     * <p>This annotation can also be used on static methods declared directly
+     * within a type that is {@link TypeBuilder} annotated, either explicitly
+     * or implicitly (for example, types managed by a specific data format may
+     * be implicitly {@code @TypeBuilder} annotated). In this case, the first
+     * parameter must match the enclosing type.
+     *
+     * <p>The name of the generated builder method is determined by
+     * {@link #builderMethodName()}, which accepts an array of segments that
+     * are camelCase-joined at generation time. Segments can be literal strings
+     * or placeholder constants defined on {@link TypeBuilder} ({@link #FIELD_NAME},
+     * {@link #CLASS_NAME}, {@link #FIELD_TYPE_NAME}).
+     *
+     * <h2>In an external mixin class:</h2>
+     * <pre>{@code
+     * public final class CollectionMixin {
+     *     @TypeBuilder.Mixin(builderMethodName = {"add", TypeBuilder.FIELD_NAME})
+     *     public static <T> Collection<T> addElement(Collection<T> collection, T value) {
+     *         if (collection == null) {
+     *             var result = new ArrayList<T>();
+     *             result.add(value);
+     *             return result;
+     *         } else {
+     *             try {
+     *                 collection.add(value);
+     *                 return collection;
+     *             } catch (UnsupportedOperationException _) {
+     *                 var result = new ArrayList<>(collection);
+     *                 result.add(value);
+     *                 return result;
+     *             }
+     *         }
+     *     }
+     * }
+     * }</pre>
+     *
+     * <p>A builder with a {@code List<String>} field named {@code tags} would
+     * receive a method named {@code addTags(String value)}. The generated
+     * method assigns the return value back to the field:
+     * {@code this.tags = CollectionMixin.addElement(this.tags, value)}.
+     *
+     * <h2>Inside a {@link TypeBuilder} annotated type:</h2>
+     * <pre>{@code
+     * public class TagsMessage {
+     *     private final List<String> tags;
+     *
+     *     @TypeBuilder
+     *     public TagsMessage(List<String> tags) {
+     *         this.tags = Objects.requireNonNull(tags);
+     *     }
+     *
+     *     @TypeBuilder.Mixin(builderMethodName = {"withReversedTags"})
+     *     public static TagsMessage reverseTags(TagsMessage message) {
+     *         try {
+     *             Collections.reverse(message.tags);
+     *         } catch (UnsupportedOperationException _) {
+     *             var reversed = new ArrayList<>(message.tags);
+     *             Collections.reverse(reversed);
+     *             message = new TagsMessage(reversed);
+     *         }
+     *         return message;
+     *     }
+     * }
+     * }</pre>
+     *
+     * @see TypeBuilder
+     */
+    @Target(ElementType.METHOD)
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Mixin {
+        /**
+         * Specifies the segments that are camelCase-joined to form the name of
+         * the generated builder method.
+         *
+         * <p>Each segment is either a literal string or one of the placeholder
+         * constants defined on {@link TypeBuilder} ({@link #FIELD_NAME},
+         * {@link #CLASS_NAME}, {@link #FIELD_TYPE_NAME}).
+         *
+         * @return the segments that compose the generated method name
+         */
+        String[] builderMethodName();
+    }
 }

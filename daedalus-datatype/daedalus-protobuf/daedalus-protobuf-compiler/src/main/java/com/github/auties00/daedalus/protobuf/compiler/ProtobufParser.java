@@ -248,6 +248,9 @@ public final class ProtobufParser {
                         document.addChild(statement);
                     }
                     case "export", "local" -> {
+                        ProtobufSyntaxException.check(document.version() == ProtobufVersion.EDITION_2024,
+                                "'%s' visibility modifier is only supported in edition 2024 or later".formatted(token),
+                                tokenizer.line());
                         var visibility = ProtobufTreeVisibility.of(token).orElseThrow();
                         var keyword = tokenizer.nextRawToken();
                         switch (keyword) {

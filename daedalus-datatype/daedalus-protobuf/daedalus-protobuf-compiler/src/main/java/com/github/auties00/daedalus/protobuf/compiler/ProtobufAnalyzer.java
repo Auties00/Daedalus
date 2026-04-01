@@ -86,28 +86,29 @@ public final class ProtobufAnalyzer {
             ProtobufExtendStatement.class, "google.protobuf.ExtensionRangeOptions"
     );
 
-    private static final Collection<ProtobufDocumentTree> BUILT_IN_TYPES;
+    private static final Map<String, ProtobufDocumentTree> BUILT_IN_TYPES;
     private static final Map<String, Map<String, ProtobufFieldStatement>> BUILT_IN_OPTIONS;
 
     static {
         try {
-            var builtInTypesDirectory = ClassLoader.getSystemClassLoader().getResource("google/protobuf/");
-            if(builtInTypesDirectory == null) {
-                throw new ProtobufParserException("Parser initialization failed: missing built-in .proto documents");
+            var resource = ClassLoader.getSystemClassLoader().getResource("google/protobuf/");
+            if (resource == null) {
+                throw new ProtobufParserException("Missing built-in .proto directory");
             }
 
-            var builtInTypesPath = Path.of(builtInTypesDirectory.toURI());
-            var resolved = ProtobufParser.parse(builtInTypesPath);
-            BUILT_IN_TYPES = resolved.values();
+            var parsed = ProtobufParser.parse(Path.of(resource.toURI()));
+            var types = HashMap.<String, ProtobufDocumentTree>newHashMap(parsed.size());
+            parsed.forEach((_, document) -> types.put(document.qualifiedPath(), document));
+            BUILT_IN_TYPES = Collections.unmodifiableMap(types);
 
-            var descriptorDocument = resolved.get("descriptor.proto");
-            if(descriptorDocument == null) {
-                throw new ProtobufParserException("Parser initialization failed: missing descriptor.proto");
+            var descriptor = BUILT_IN_TYPES.get("google/protobuf/descriptor.proto");
+            if (descriptor == null) {
+                throw new ProtobufParserException("Missing descriptor.proto");
             }
 
-            BUILT_IN_OPTIONS = getOptionsForDescriptor(descriptorDocument);
-        }catch (IOException | URISyntaxException exception) {
-            throw new ProtobufParserException("Missing built-in .proto");
+            BUILT_IN_OPTIONS = getOptionsForDescriptor(descriptor);
+        } catch (IOException | URISyntaxException exception) {
+            throw new ProtobufParserException("Failed to load built-in .proto files: " + exception.getMessage());
         }
     }
 
@@ -154,19 +155,10 @@ public final class ProtobufAnalyzer {
     public static void attribute(Collection<ProtobufDocumentTree> documents) {
         var canonicalPathToDocumentMap = buildImportsMap(documents);
 
-        // Add built-in types once
-        if(BUILT_IN_TYPES != null) {
-            for (var document : BUILT_IN_TYPES) {
-                canonicalPathToDocumentMap.put(document.qualifiedPath(), document);
-            }
-        }
-
-        // Attribute imports for all documents
         for (var document : documents) {
             attributeImports(document, canonicalPathToDocumentMap);
         }
 
-        // Attribute and validate each document
         for (var document : documents) {
             attributeDocument(document);
         }
@@ -191,6 +183,9 @@ public final class ProtobufAnalyzer {
                 .filter(importStatement -> !importStatement.isAttributed())
                 .forEachOrdered(importStatement -> {
                     var imported = canonicalPathToDocumentMap.get(importStatement.location());
+                    if (imported == null && BUILT_IN_TYPES != null) {
+                        imported = BUILT_IN_TYPES.get(importStatement.location());
+                    }
                     ProtobufSemanticException.check(imported != null,
                             "Cannot resolve import '%s'\n\nThe imported file could not be found or loaded.",
                             importStatement.line(), importStatement.location());
@@ -230,7 +225,7 @@ public final class ProtobufAnalyzer {
 
                 case ProtobufPackageStatement _, ProtobufReservedStatement _ -> {} // Nothing to do
 
-                case ProtobufEnumStatement enumStatement -> validateEnum(document, enumStatement);
+                case ProtobufEnumStatement enumStatement -> validateEnum(enumStatement);
 
                 case ProtobufImportStatement _ -> {} // Nothing to do
 
@@ -662,11 +657,26 @@ public final class ProtobufAnalyzer {
             return;
         }
 
-        var optionName = segments.getFirst().name();
-        switch (optionName) {
+        var firstSegment = segments.getFirst();
+        if(firstSegment.hasName("features") && !firstSegment.isExtension()) {
+            ProtobufSemanticException.check(document.version().isEdition(),
+                    "Features are only valid under editions",
+                    protobufField.line());
+            if(segments.size() >= 2 && segments.get(1).hasName("field_presence")) {
+                ProtobufSemanticException.check(protobufField.modifier() != ProtobufModifier.REPEATED,
+                        "Repeated fields can't specify field presence",
+                        protobufField.line());
+            }
+        }
+
+        switch (firstSegment.name()) {
             case "default" -> validateDefaultOption(document, protobufField, option);
             case "packed" -> validatePackedOption(document, protobufField);
             case "json_name" -> validateJsonNameOption(protobufField, option);
+            case "ctype" -> ProtobufSemanticException.check(
+                    document.version() != ProtobufVersion.EDITION_2024,
+                    "ctype option is not allowed under edition 2024 and beyond\n\nUse the feature string_type instead.",
+                    protobufField.line());
         }
     }
 
@@ -910,9 +920,9 @@ public final class ProtobufAnalyzer {
             }
         }
 
-        // Always include built-in types (google.protobuf.*)
-        if (BUILT_IN_TYPES != null) {
-            result.addAll(BUILT_IN_TYPES);
+        var builtInTypes = BUILT_IN_TYPES;
+        if (builtInTypes != null) {
+            result.addAll(builtInTypes.values());
         }
 
         return result;
@@ -926,6 +936,14 @@ public final class ProtobufAnalyzer {
         var segments = optionStatement.name().segments();
         if(segments.isEmpty()) {
             return;
+        }
+
+        // Features are only valid under editions
+        var firstSegment = segments.getFirst();
+        if(firstSegment.hasName("features") && !firstSegment.isExtension()) {
+            ProtobufSemanticException.check(document.version().isEdition(),
+                    "Features are only valid under editions",
+                    optionStatement.line());
         }
 
         // Determine which options map to use based on parent context
@@ -1227,7 +1245,7 @@ public final class ProtobufAnalyzer {
         switch (document.version()) {
             case PROTOBUF_2 -> {
                 // Proto2 fields inside messages (not oneofs) must have an explicit label
-                if(!(field.parent() instanceof ProtobufOneofStatement)) {
+                if(!(field.type() instanceof ProtobufMapTypeReference) && !(field.parent() instanceof ProtobufOneofStatement)) {
                     ProtobufSemanticException.check(field.modifier() != ProtobufModifier.NONE,
                             "Field '%s' must have a label (required, optional, or repeated) in proto2",
                             field.line(), field.name());
@@ -1342,7 +1360,7 @@ public final class ProtobufAnalyzer {
                 "Oneof \"%s\" must contain at least one field", field.line(), field.name());
     }
 
-    private static void validateEnum(ProtobufDocumentTree documentTree, ProtobufEnumStatement enumStmt) {
+    private static void validateEnum(ProtobufEnumStatement enumStmt) {
         validateReserved(enumStmt, ENUM_CONSTANT_MIN, ENUM_CONSTANT_MAX);
 
         ProtobufEnumConstantStatement firstConstant = null;
@@ -1515,9 +1533,9 @@ public final class ProtobufAnalyzer {
         var extensibleIndexes = new TreeMap<Long, Long>();
         treeWithBody.getDirectChildrenByType(ProtobufExtensionsStatement.class).forEachOrdered(extensionsStatement -> {
             var syntax = document.version();
-            if(syntax == ProtobufVersion.PROTOBUF_3 && BUILT_IN_TYPES != null) {
+            if(syntax == ProtobufVersion.PROTOBUF_3) {
                 throw new ProtobufSemanticException(
-                        "Extensions are not allowed in proto3 except for custom options\n\nYou're using 'extensions' in proto3, but extensions are only allowed in messages\nwhose names end with 'Options' (for defining custom options).\n\nHelp: In proto3, use one of these alternatives:\n      1. If you need to extend the protocol, use the 'Any' type:\n         import \"google/protobuf/any.proto\";\n         message MyMessage {{\n           google.protobuf.Any extra_data = 1;\n         }}\n\n      2. If you're defining custom options, ensure your message name ends with 'Options'\n\n      3. Use regular message composition instead of extensions\n\n      Note: Proto2 extensions are generally discouraged in favor of proto3's simpler model.",
+                        "Extensions are not allowed in proto3 except for custom options\n\nYou're using 'extensions' in proto3, but extensions are only allowed in messages\nwhose names end with 'Options' (for defining custom options).\n\nHelp: In proto3, use one of these alternatives:\n      1. If you need to extend the protocol, use the 'Any' type:\n         import \"google/protobuf/any.proto\";\n         message MyMessage {{\n           com.google.protobuf.protobuf.Any extra_data = 1;\n         }}\n\n      2. If you're defining custom options, ensure your message name ends with 'Options'\n\n      3. Use regular message composition instead of extensions\n\n      Note: Proto2 extensions are generally discouraged in favor of proto3's simpler model.",
                         extensionsStatement.line());
             }
 
@@ -1646,7 +1664,7 @@ public final class ProtobufAnalyzer {
     private static void validateNamingStyle(ProtobufDocumentTree document) {
         document.packageName().ifPresent(packageName -> {
             for(var segment : packageName.split("\\.")) {
-                ProtobufSemanticException.check(isValidLowerSnakeCase(segment),
+                ProtobufSemanticException.check(isValidSnakeCase(segment, false),
                         "Package name segment \"%s\" should be lower_snake_case", document.line(), segment);
             }
         });
@@ -1667,13 +1685,13 @@ public final class ProtobufAnalyzer {
                     ProtobufSemanticException.check(isValidTitleCase(method.name()),
                             "Method name \"%s\" should be TitleCase", method.line(), method.name());
             case ProtobufFieldStatement field ->
-                    ProtobufSemanticException.check(isValidLowerSnakeCase(field.name()),
+                    ProtobufSemanticException.check(isValidSnakeCase(field.name(), false),
                             "Field name \"%s\" should be lower_snake_case", field.line(), field.name());
             case ProtobufOneofStatement oneof ->
-                    ProtobufSemanticException.check(isValidLowerSnakeCase(oneof.name()),
+                    ProtobufSemanticException.check(isValidSnakeCase(oneof.name(), false),
                             "Oneof name \"%s\" should be lower_snake_case", oneof.line(), oneof.name());
             case ProtobufEnumConstantStatement constant ->
-                    ProtobufSemanticException.check(isValidUpperSnakeCase(constant.name()),
+                    ProtobufSemanticException.check(isValidSnakeCase(constant.name(), true),
                             "Enum value \"%s\" should be UPPER_SNAKE_CASE", constant.line(), constant.name());
             default -> {}
         }
@@ -1697,37 +1715,19 @@ public final class ProtobufAnalyzer {
         return true;
     }
 
-    private static boolean isValidLowerSnakeCase(String name) {
+    private static boolean isValidSnakeCase(String name, boolean upperCase) {
         if(name == null || name.isEmpty()) {
             return false;
         }
 
-        if(!Character.isLowerCase(name.charAt(0))) {
+        var firstChar = name.charAt(0);
+        if(upperCase ? !Character.isUpperCase(firstChar) : !Character.isLowerCase(firstChar)) {
             return false;
         }
 
         for(var i = 0; i < name.length(); i++) {
             var c = name.charAt(i);
-            if(c != '_' && !Character.isLowerCase(c) && !Character.isDigit(c)) {
-                return false;
-            }
-        }
-
-        return !containsBadUnderscores(name);
-    }
-
-    private static boolean isValidUpperSnakeCase(String name) {
-        if(name == null || name.isEmpty()) {
-            return false;
-        }
-
-        if(!Character.isUpperCase(name.charAt(0))) {
-            return false;
-        }
-
-        for(var i = 0; i < name.length(); i++) {
-            var c = name.charAt(i);
-            if(c != '_' && !Character.isUpperCase(c) && !Character.isDigit(c)) {
+            if(c != '_' && !Character.isDigit(c) && (upperCase ? !Character.isUpperCase(c) : !Character.isLowerCase(c))) {
                 return false;
             }
         }
