@@ -1,8 +1,9 @@
 package com.github.auties00.daedalus.protobuf.processor.generator;
 
+import com.github.auties00.daedalus.processor.generator.DaedalusClassGenerator;
 import com.palantir.javapoet.*;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufBuilderElement;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufBuilderElement;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement;
 
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.ElementKind;
@@ -11,7 +12,7 @@ import javax.lang.model.type.TypeMirror;
 import java.io.IOException;
 import java.util.ArrayList;
 
-public class ProtobufBuilderMethodGenerator extends ProtobufClassGenerator {
+public class ProtobufBuilderMethodGenerator extends DaedalusClassGenerator {
     public ProtobufBuilderMethodGenerator(Filer filer) {
         super(filer);
     }
@@ -25,8 +26,8 @@ public class ProtobufBuilderMethodGenerator extends ProtobufClassGenerator {
         // Write the fields of the builder and collect them
         var invocationArgs = new ArrayList<String>();
         for (var parameter : builderElement.parameters()) {
-            var fieldType = parameter.asType();
-            var fieldName = parameter.getSimpleName().toString();
+            var fieldType = parameter.element().asType();
+            var fieldName = parameter.element().getSimpleName().toString();
             classBuilder.addField(createField(fieldType, fieldName));
             invocationArgs.add(fieldName);
         }
@@ -38,11 +39,11 @@ public class ProtobufBuilderMethodGenerator extends ProtobufClassGenerator {
 
         // Write the setters for each field in the builder
         for (var parameter : builderElement.parameters()) {
-            var fieldName = parameter.getSimpleName().toString();
+            var fieldName = parameter.element().getSimpleName().toString();
             var setter = createBuilderSetter(
                     fieldName,
                     fieldName,
-                    parameter.asType(),
+                    parameter.element().asType(),
                     className
             );
             classBuilder.addMethod(setter);

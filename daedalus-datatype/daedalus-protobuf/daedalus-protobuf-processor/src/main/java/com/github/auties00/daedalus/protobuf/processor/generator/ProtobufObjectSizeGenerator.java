@@ -1,12 +1,15 @@
 package com.github.auties00.daedalus.protobuf.processor.generator;
 
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufFieldElement;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufCollectionFieldType;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufMapFieldType;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufSimpleFieldType;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement.Type;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufPropertyType;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement.Type;
 
 import javax.lang.model.element.Element;
 import java.util.List;
@@ -81,7 +84,7 @@ public class ProtobufObjectSizeGenerator extends ProtobufSizeGenerator {
         methodBuilder.addStatement("return 0");
         methodBuilder.endControlFlow();
 
-        if(Objects.requireNonNull(objectElement).type() == Type.ENUM) {
+        if(Objects.requireNonNull(ownerElement).type() == Type.ENUM) {
             writeEnumCalculator(methodBuilder);
         }else {
             writeMessageCalculator(classBuilder, methodBuilder);
@@ -89,7 +92,7 @@ public class ProtobufObjectSizeGenerator extends ProtobufSizeGenerator {
     }
 
     private void writeEnumCalculator(MethodSpec.Builder methodBuilder) {
-        var metadata = Objects.requireNonNull(objectElement).enumMetadata()
+        var metadata = Objects.requireNonNull(ownerElement).enumMetadata()
                 .orElseThrow(() -> new NoSuchElementException("Missing metadata from enum"));
         if(metadata.isJavaEnum()) {
             methodBuilder.addStatement("return ProtobufOutputStream.getVarIntSize($L.ordinal())", INPUT_OBJECT_PARAMETER);
@@ -102,14 +105,14 @@ public class ProtobufObjectSizeGenerator extends ProtobufSizeGenerator {
 
     private void writeMessageCalculator(TypeSpec.Builder classBuilder, MethodSpec.Builder methodBuilder) {
         methodBuilder.addStatement("var $L = 0", OUTPUT_SIZE_NAME);
-        if(Objects.requireNonNull(objectElement).type() == Type.GROUP) {
+        if(Objects.requireNonNull(ownerElement).type() == Type.GROUP) {
             methodBuilder.addStatement("$L += ProtobufOutputStream.getFieldSize($L, $L)", OUTPUT_SIZE_NAME, GROUP_INDEX_PARAMETER, "ProtobufWireType.WIRE_TYPE_START_OBJECT");
             methodBuilder.addStatement("$L += ProtobufOutputStream.getFieldSize($L, $L)", OUTPUT_SIZE_NAME, GROUP_INDEX_PARAMETER, "ProtobufWireType.WIRE_TYPE_END_OBJECT");
         }
 
-        for(var property : objectElement.properties()) {
+        for(var property : ownerElement.protobufProperties()) {
             switch (property.type()) {
-                case ProtobufPropertyType.CollectionType collectionType -> writeRepeatedSize(
+                case ProtobufCollectionFieldType collectionType -> writeRepeatedSize(
                         methodBuilder,
                         property.index(),
                         property.name(),
@@ -118,7 +121,7 @@ public class ProtobufObjectSizeGenerator extends ProtobufSizeGenerator {
                         collectionType,
                         false
                 );
-                case ProtobufPropertyType.MapType mapType -> writeMapSize(
+                case ProtobufMapFieldType mapType -> writeMapSize(
                         classBuilder,
                         methodBuilder,
                         property.index(),
@@ -127,10 +130,17 @@ public class ProtobufObjectSizeGenerator extends ProtobufSizeGenerator {
                         mapType,
                         false
                 );
-                case ProtobufPropertyType.NormalType ignored -> writeNormalSize(
-                        methodBuilder,
-                        property
-                );
+                case ProtobufSimpleFieldType simpleType -> {
+                    var accessorCall = getAccessorCall(INPUT_OBJECT_PARAMETER, property.accessor());
+                    writeNormalSize(
+                            methodBuilder,
+                            property.index(),
+                            property.name(),
+                            simpleType,
+                            null,
+                            accessorCall
+                    );
+                }
             }
         }
 
@@ -139,8 +149,8 @@ public class ProtobufObjectSizeGenerator extends ProtobufSizeGenerator {
 
     @Override
     protected List<TypeName> parametersTypes() {
-        var objectType = ClassName.get(objectElement.typeElement());
-        if(objectElement.type() == Type.GROUP) {
+        var objectType = ClassName.get(ownerElement.typeElement());
+        if(ownerElement.type() == Type.GROUP) {
             return List.of(TypeName.INT, objectType);
         }else {
             return List.of(objectType);
@@ -149,7 +159,7 @@ public class ProtobufObjectSizeGenerator extends ProtobufSizeGenerator {
 
     @Override
     protected List<String> parametersNames() {
-        if(objectElement.type() == Type.GROUP) {
+        if(ownerElement.type() == Type.GROUP) {
             return List.of(GROUP_INDEX_PARAMETER, INPUT_OBJECT_PARAMETER);
         }else {
             return List.of(INPUT_OBJECT_PARAMETER);

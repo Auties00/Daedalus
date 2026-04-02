@@ -1,21 +1,25 @@
 package com.github.auties00.daedalus.protobuf.processor.generator;
 
-import com.palantir.javapoet.CodeBlock;
+import com.github.auties00.daedalus.processor.generator.DaedalusMethodGenerator;
 import com.github.auties00.daedalus.protobuf.model.ProtobufType;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufPropertyType;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufFieldType;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufMapFieldType;
+import com.palantir.javapoet.CodeBlock;
 
 import javax.lang.model.element.Modifier;
 import java.util.List;
 
 // Base class for deserialization method generators with shared logic for decoding protobuf values
 // Provides reusable deserialization logic for normal, repeated, and map fields with custom @ProtobufDeserializer support
-public abstract class ProtobufDeserializationGenerator extends ProtobufMethodGenerator {
+public abstract class ProtobufDeserializationGenerator extends DaedalusMethodGenerator {
     public static final String METHOD_NAME = "decode";
     private static final String INPUT_STREAM_NAME = "protoInputStream";
 
-    public ProtobufDeserializationGenerator(ProtobufObjectElement element) {
-        super(element);
+    protected final ProtobufObjectElement ownerElement;
+
+    public ProtobufDeserializationGenerator(ProtobufObjectElement ownerElement) {
+        this.ownerElement = ownerElement;
     }
 
     // Generates a switch case block that deserializes a map field from the protobuf stream
@@ -36,7 +40,7 @@ public abstract class ProtobufDeserializationGenerator extends ProtobufMethodGen
     //   }
     //   scores.put(scoresKey, scoresValue);
     //   break;
-    protected CodeBlock writeMapDeserializer(String name, ProtobufPropertyType.MapType mapType) {
+    protected CodeBlock writeMapDeserializer(String name, ProtobufMapFieldType mapType) {
         var caseBlock = CodeBlock.builder();
 
         // Read the length-delimited map entry into a new stream
@@ -88,7 +92,7 @@ public abstract class ProtobufDeserializationGenerator extends ProtobufMethodGen
     // Generated code:
     //       numbers.add(protoInputStream.readInt32());
     //       break;
-    protected CodeBlock writeDeserializer(String name, ProtobufPropertyType type, boolean repeated, boolean packed) {
+    protected CodeBlock writeDeserializer(String name, ProtobufFieldType type, boolean repeated, boolean packed) {
         // Get the stream read method (e.g., "readString", "readInt32", "readInt32Packed")
         var readMethod = getDeserializerStreamMethod(type, packed);
 
@@ -129,7 +133,7 @@ public abstract class ProtobufDeserializationGenerator extends ProtobufMethodGen
     //   2. For MESSAGE: wrap in readLengthDelimited() -> "protoInputStream.readLengthDelimited()"
     //   3. Add stream method: "protoInputStream.readLengthDelimited().readInt64()"
     //   4. Chain deserializers: "MyConverter.fromProto(protoInputStream.readInt64())"
-    private String getConvertedValue(String value, ProtobufPropertyType implementation, String readMethod) {
+    private String getConvertedValue(String value, ProtobufFieldType implementation, String readMethod) {
         // For MESSAGE types, read the length-delimited nested message first
         if (implementation.protobufType() == ProtobufType.MESSAGE) {
             value = "%s.readLengthDelimited()".formatted(value);
@@ -152,7 +156,7 @@ public abstract class ProtobufDeserializationGenerator extends ProtobufMethodGen
     // Maps protobuf types to their corresponding ProtobufInputStream read method names
     // Returns empty string for MESSAGE/GROUP (handled separately with readLengthDelimited)
     // Packed variants return collections (e.g., readInt32Packed returns List<Integer>)
-    private String getDeserializerStreamMethod(ProtobufPropertyType type, boolean packed) {
+    private String getDeserializerStreamMethod(ProtobufFieldType type, boolean packed) {
         return switch (type.protobufType()) {
             case STRING -> "readString";
             case UNKNOWN -> throw new IllegalArgumentException("Internal bug: unknown types should not reach getDeserializerStreamMethod");

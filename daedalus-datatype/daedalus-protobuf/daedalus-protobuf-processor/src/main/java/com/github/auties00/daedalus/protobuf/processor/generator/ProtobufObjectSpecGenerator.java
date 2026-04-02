@@ -1,14 +1,16 @@
 package com.github.auties00.daedalus.protobuf.processor.generator;
 
+import com.github.auties00.daedalus.processor.generator.DaedalusClassGenerator;
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeSpec;
 import com.github.auties00.daedalus.protobuf.model.ProtobufWireType;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement.Type;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufPropertyElement;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement.Type;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufFieldElement;
 import com.github.auties00.daedalus.protobuf.io.reader.ProtobufBinaryReader;
 import com.github.auties00.daedalus.protobuf.io.writer.ProtobufBinaryWriter;
 
@@ -65,7 +67,7 @@ import java.util.*;
 //      e. ProtobufObjectSizeGenerator - sizeOf(object) -> int
 //   4. Build TypeSpec and write to JavaFile
 //   5. Write JavaFile to Filer (generates .java source file)
-public class ProtobufObjectSpecGenerator extends ProtobufClassGenerator {
+public class ProtobufObjectSpecGenerator extends DaedalusClassGenerator {
     public ProtobufObjectSpecGenerator(Filer filer) {
         super(filer);
     }
@@ -90,7 +92,7 @@ public class ProtobufObjectSpecGenerator extends ProtobufClassGenerator {
                     .build();
             classBuilder.addField(valuesField);
 
-            var staticBlock = com.palantir.javapoet.CodeBlock.builder();
+            var staticBlock = CodeBlock.builder();
             for(var entry : objectElement.constants().entrySet()) {
                 staticBlock.addStatement("$L.put($L, $L.$L)",
                         ProtobufObjectDeserializationGenerator.ENUM_VALUES_FIELD,
@@ -141,7 +143,7 @@ public class ProtobufObjectSpecGenerator extends ProtobufClassGenerator {
         imports.add(ProtobufBinaryReader.class.getName());
         imports.add(ProtobufBinaryWriter.class.getName());
         imports.add(ProtobufWireType.class.getName());
-        if (message.properties().stream().anyMatch(ProtobufPropertyElement::required)) {
+        if (message.protobufProperties().stream().anyMatch(ProtobufFieldElement::required)) {
             imports.add(Objects.class.getName());
         }
 

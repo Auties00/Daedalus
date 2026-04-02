@@ -1,10 +1,11 @@
 package com.github.auties00.daedalus.protobuf.processor.generator;
 
+import com.github.auties00.daedalus.processor.generator.DaedalusClassGenerator;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufSimpleFieldType;
 import com.palantir.javapoet.*;
 import com.github.auties00.daedalus.protobuf.model.ProtobufType;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufPropertyElement;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufPropertyType;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufFieldElement;
 
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Modifier;
@@ -12,7 +13,7 @@ import javax.lang.model.type.TypeMirror;
 import java.io.IOException;
 import java.util.ArrayList;
 
-public class ProtobufBuilderTypeGenerator extends ProtobufClassGenerator {
+public class ProtobufBuilderTypeGenerator extends DaedalusClassGenerator {
     public ProtobufBuilderTypeGenerator(Filer filer) {
         super(filer);
     }
@@ -25,7 +26,7 @@ public class ProtobufBuilderTypeGenerator extends ProtobufClassGenerator {
 
         // Write the fields of the builder and collect them
         var invocationArgs = new ArrayList<String>();
-        for (var property : objectElement.properties()) {
+        for (var property : objectElement.protobufProperties()) {
             if (property.synthetic()) {
                 continue;
             }
@@ -40,7 +41,7 @@ public class ProtobufBuilderTypeGenerator extends ProtobufClassGenerator {
         // Write the builder's constructor
         var constructorBuilder = MethodSpec.constructorBuilder()
                 .addModifiers(Modifier.PUBLIC);
-        for (var property : objectElement.properties()) {
+        for (var property : objectElement.protobufProperties()) {
             if (property.synthetic()) {
                 continue;
             }
@@ -52,13 +53,13 @@ public class ProtobufBuilderTypeGenerator extends ProtobufClassGenerator {
         classBuilder.addMethod(constructorBuilder.build());
 
         // Write the setters for each field in the builder
-        for (var property : objectElement.properties()) {
+        for (var property : objectElement.protobufProperties()) {
             if (property.synthetic()) {
                 continue;
             }
 
             var deserializers = property.type().deserializers();
-            if (property.type() instanceof ProtobufPropertyType.NormalType) {
+            if (property.type() instanceof ProtobufSimpleFieldType) {
                 for (var i = isGroupOrMessage(property) ? 1 : 0; i < deserializers.size(); i++) {
                     var deserializer = deserializers.get(i);
                     var value = property.name();
@@ -99,7 +100,7 @@ public class ProtobufBuilderTypeGenerator extends ProtobufClassGenerator {
         javaFile.writeTo(filer);
     }
 
-    private boolean isGroupOrMessage(ProtobufPropertyElement property) {
+    private boolean isGroupOrMessage(ProtobufFieldElement property) {
         return property.type().protobufType() == ProtobufType.MESSAGE
                 || property.type().protobufType() == ProtobufType.GROUP;
     }

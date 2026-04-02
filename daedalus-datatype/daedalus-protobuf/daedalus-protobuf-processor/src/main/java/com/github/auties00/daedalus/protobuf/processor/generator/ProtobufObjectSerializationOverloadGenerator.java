@@ -1,12 +1,13 @@
 package com.github.auties00.daedalus.protobuf.processor.generator;
 
+import com.github.auties00.daedalus.processor.generator.DaedalusMethodGenerator;
 import com.palantir.javapoet.ArrayTypeName;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement.Type;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement.Type;
 
 import javax.lang.model.element.Modifier;
 import java.util.List;
@@ -33,12 +34,14 @@ import java.util.List;
 //   3. Create an output stream with pre-allocated size
 //   4. Call the main encode(object, stream) method to serialize
 //   5. Convert stream to byte array and return
-public class ProtobufObjectSerializationOverloadGenerator extends ProtobufMethodGenerator {
+public class ProtobufObjectSerializationOverloadGenerator extends DaedalusMethodGenerator {
     private static final String INPUT_OBJECT_PARAMETER = "protoInputObject";
     private static final String GROUP_INDEX_PARAMETER = "protoGroupIndex";
 
-    public ProtobufObjectSerializationOverloadGenerator(ProtobufObjectElement element) {
-        super(element);
+    private final ProtobufObjectElement ownerElement;
+
+    public ProtobufObjectSerializationOverloadGenerator(ProtobufObjectElement ownerElement) {
+        this.ownerElement = ownerElement;
     }
 
     @Override
@@ -49,7 +52,7 @@ public class ProtobufObjectSerializationOverloadGenerator extends ProtobufMethod
         methodBuilder.endControlFlow();
 
         // Return the result
-        if(objectElement.type() == Type.GROUP) {
+        if(ownerElement.type() == Type.GROUP) {
             methodBuilder.addStatement("var stream = ProtobufOutputStream.toBytes($L($L, $L))", ProtobufObjectSizeGenerator.METHOD_NAME, GROUP_INDEX_PARAMETER, INPUT_OBJECT_PARAMETER);
             methodBuilder.addStatement("encode($L, $L, stream)", GROUP_INDEX_PARAMETER, INPUT_OBJECT_PARAMETER);
         }else {
@@ -62,7 +65,7 @@ public class ProtobufObjectSerializationOverloadGenerator extends ProtobufMethod
 
     @Override
     public boolean shouldInstrument() {
-        return objectElement.type() != Type.ENUM;
+        return ownerElement.type() != Type.ENUM;
     }
 
     @Override
@@ -72,7 +75,7 @@ public class ProtobufObjectSerializationOverloadGenerator extends ProtobufMethod
 
     @Override
     protected TypeName returnType() {
-        return objectElement.type() == Type.ENUM ? ClassName.get(Integer.class) : ArrayTypeName.of(TypeName.BYTE);
+        return ownerElement.type() == Type.ENUM ? ClassName.get(Integer.class) : ArrayTypeName.of(TypeName.BYTE);
     }
 
     @Override
@@ -82,8 +85,8 @@ public class ProtobufObjectSerializationOverloadGenerator extends ProtobufMethod
 
     @Override
     protected List<TypeName> parametersTypes() {
-        var objectType = ClassName.get(objectElement.typeElement());
-        if(objectElement.type() == Type.GROUP) {
+        var objectType = ClassName.get(ownerElement.typeElement());
+        if(ownerElement.type() == Type.GROUP) {
             return List.of(TypeName.INT, objectType);
         }else {
             return List.of(objectType);
@@ -92,7 +95,7 @@ public class ProtobufObjectSerializationOverloadGenerator extends ProtobufMethod
 
     @Override
     protected List<String> parametersNames() {
-        if(objectElement.type() == Type.GROUP) {
+        if(ownerElement.type() == Type.GROUP) {
             return List.of(GROUP_INDEX_PARAMETER, INPUT_OBJECT_PARAMETER);
         }else {
             return List.of(INPUT_OBJECT_PARAMETER);

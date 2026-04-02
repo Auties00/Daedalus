@@ -1,10 +1,14 @@
 package com.github.auties00.daedalus.protobuf.processor.generator;
 
+import com.github.auties00.daedalus.processor.generator.DaedalusMethodGenerator;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufCollectionFieldType;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufFieldType;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufMapFieldType;
 import com.palantir.javapoet.MethodSpec;
 import com.github.auties00.daedalus.protobuf.model.ProtobufType;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufConverterElement;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufPropertyType;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement;
+import com.github.auties00.daedalus.processor.model.DaedalusConverterElement;
+import com.github.auties00.daedalus.protobuf.processor.metadata.ProtobufFieldMetadata;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement;
 
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.PrimitiveType;
@@ -15,12 +19,14 @@ import java.util.Optional;
 
 // Base class for serialization method generators with shared logic for encoding protobuf values
 // Handles serialization of normal, repeated, and map fields with support for custom @ProtobufSerializer chains
-public abstract class ProtobufSerializationGenerator extends ProtobufMethodGenerator {
+public abstract class ProtobufSerializationGenerator extends DaedalusMethodGenerator {
     public static final String METHOD_NAME = "encode";
     private static final String OUTPUT_OBJECT_PARAMETER = "protoOutputStream";
 
-    public ProtobufSerializationGenerator(ProtobufObjectElement element) {
-        super(element);
+    protected final ProtobufObjectElement ownerElement;
+
+    public ProtobufSerializationGenerator(ProtobufObjectElement ownerElement) {
+        this.ownerElement = ownerElement;
     }
 
     // Serializes a repeated field to the protobuf stream
@@ -35,7 +41,7 @@ public abstract class ProtobufSerializationGenerator extends ProtobufMethodGener
     //             protoOutputStream.writeString(1, namesEntry);
     //         }
     //     }
-    protected void writeRepeatedSerializer(MethodSpec.Builder methodBuilder, long index, String name, String accessor, ProtobufPropertyType.CollectionType collectionType, boolean packed, boolean nullCheck, boolean cast) {
+    protected void writeRepeatedSerializer(MethodSpec.Builder methodBuilder, long index, String name, String accessor, ProtobufCollectionFieldType collectionType, boolean packed, boolean nullCheck, boolean cast) {
         if(packed) {
             // Packed encoding: write all elements at once using packed method
             var writeMethod = getStreamMethodName(collectionType.valueType().protobufType(), true);
@@ -71,7 +77,7 @@ public abstract class ProtobufSerializationGenerator extends ProtobufMethodGener
     //             }
     //         }
     //     }
-    protected void writeMapSerializer(MethodSpec.Builder methodBuilder, long index, String name, String accessor, ProtobufPropertyType.MapType mapType) {
+    protected void writeMapSerializer(MethodSpec.Builder methodBuilder, long index, String name, String accessor, ProtobufMapFieldType mapType) {
         // Null check the map
         methodBuilder.beginControlFlow("if ($L != null)", accessor);
         var localVariableName = "%sEntry".formatted(name);
@@ -113,7 +119,7 @@ public abstract class ProtobufSerializationGenerator extends ProtobufMethodGener
 
     // Convenience wrapper that delegates to writeCustomSerializer with default handlers
     // Simply adds the serialization statements to the method builder
-    protected void writeNormalSerializer(MethodSpec.Builder methodBuilder, long index, String name, String value, ProtobufPropertyType type, boolean declareVariable, boolean variableNullCheck, boolean cast) {
+    protected void writeNormalSerializer(MethodSpec.Builder methodBuilder, long index, String name, String value, ProtobufFieldType type, boolean declareVariable, boolean variableNullCheck, boolean cast) {
         writeCustomSerializer(
                 methodBuilder,
                 index,
@@ -157,7 +163,7 @@ public abstract class ProtobufSerializationGenerator extends ProtobufMethodGener
     //   4. Apply each serializer in chain, null checking intermediate results
     //   5. Write final value to stream using appropriate writeXxx() method
     //   6. Close all null-check blocks
-    protected void writeCustomSerializer(MethodSpec.Builder methodBuilder, long index, String name, String value, ProtobufPropertyType type, boolean declareVariable, boolean variableNullCheck, boolean cast, CustomSerializerHandler objectWriter, CustomSerializerHandler streamWriter) {
+    protected void writeCustomSerializer(MethodSpec.Builder methodBuilder, long index, String name, String value, ProtobufFieldType type, boolean declareVariable, boolean variableNullCheck, boolean cast, CustomSerializerHandler objectWriter, CustomSerializerHandler streamWriter) {
         // Step 1: Apply cast if necessary (for generics/wildcards)
         if(cast) {
             var castType = getQualifiedName(type.descriptorElementType());
@@ -226,21 +232,21 @@ public abstract class ProtobufSerializationGenerator extends ProtobufMethodGener
                     OUTPUT_OBJECT_PARAMETER,
                     writeMethod.get(),
                     index,
-                    cast ? "(%s) ".formatted(type.protobufType().deserializableType().getName()) : "",
+                    cast ? "(%s) ".formatted(ProtobufFieldMetadata.deserializableType(type.protobufType()).getName()) : "",
                     propertyName
             );
             streamWriter.handle(methodBuilder, propertyName, List.of(result));
         }
 
         // Step 6: Close all null-check control flows
-        for (int i = 0; i < controlFlowDepth; i++) {
+        for (var i = 0; i < controlFlowDepth; i++) {
             methodBuilder.endControlFlow();
         }
     }
 
     // Generates code to write a message header (calls sizeOf to get length)
     // Returns: "protoOutputStream.writeMessage(index, MessageSpec.sizeOf(value))"
-    private String getMessageMethod(long index, ProtobufConverterElement.Attributed.Serializer serializer, String propertyName) {
+    private String getMessageMethod(long index, DaedalusConverterElement.Attributed.Serializer serializer, String propertyName) {
         return "%s.writeMessage(%s, %s.%s(%s))".formatted(
                 OUTPUT_OBJECT_PARAMETER,
                 index,
@@ -251,7 +257,7 @@ public abstract class ProtobufSerializationGenerator extends ProtobufMethodGener
     }
 
     // Checks if a type is a complex object (MESSAGE/ENUM/GROUP) vs a primitive
-    private boolean isObject(ProtobufPropertyType type) {
+    private boolean isObject(ProtobufFieldType type) {
         return type.protobufType() == ProtobufType.MESSAGE
                 || type.protobufType() == ProtobufType.ENUM
                 || type.protobufType() == ProtobufType.GROUP;
@@ -276,7 +282,7 @@ public abstract class ProtobufSerializationGenerator extends ProtobufMethodGener
     //
     // For Spec class encode methods (3 parameters - GROUP):
     //   Returns: "GroupSpec.encode(groupIndex, value, protoOutputStream)"
-    private String createSerializerInvocation(ProtobufConverterElement.Attributed.Serializer serializer, String value, int groupIndex) {
+    private String createSerializerInvocation(DaedalusConverterElement.Attributed.Serializer serializer, String value, long groupIndex) {
         // Instance method: call on the value object
         if (!serializer.delegate().modifiers().contains(Modifier.STATIC)) {
             return "%s.%s()".formatted(value, serializer.delegate().name());

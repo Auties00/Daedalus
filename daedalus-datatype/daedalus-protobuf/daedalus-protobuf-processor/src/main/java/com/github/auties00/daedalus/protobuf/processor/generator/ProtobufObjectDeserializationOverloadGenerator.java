@@ -5,8 +5,8 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement.Type;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement.Type;
 
 import java.util.List;
 
@@ -51,7 +51,7 @@ public class ProtobufObjectDeserializationOverloadGenerator extends ProtobufDese
 
     @Override
     protected void doInstrumentation(TypeSpec.Builder classBuilder, MethodSpec.Builder methodBuilder) {
-        if(objectElement.type() == Type.ENUM) {
+        if(ownerElement.type() == Type.ENUM) {
             methodBuilder.addStatement("return $L($L, null)", name(), ENUM_INDEX_PARAMETER);
             return;
         }
@@ -62,7 +62,7 @@ public class ProtobufObjectDeserializationOverloadGenerator extends ProtobufDese
         methodBuilder.endControlFlow();
 
         // Return the result
-        if(objectElement.type() == Type.GROUP) {
+        if(ownerElement.type() == Type.GROUP) {
             methodBuilder.addStatement("return $L($L, ProtobufInputStream.fromBytes($L, 0, $L.length))", name(), GROUP_INDEX_PARAMETER, INPUT_OBJECT_PARAMETER, INPUT_OBJECT_PARAMETER);
         }else {
             methodBuilder.addStatement("return $L(ProtobufInputStream.fromBytes($L, 0, $L.length))", name(), INPUT_OBJECT_PARAMETER, INPUT_OBJECT_PARAMETER);
@@ -76,14 +76,14 @@ public class ProtobufObjectDeserializationOverloadGenerator extends ProtobufDese
 
     @Override
     protected TypeName returnType() {
-        return ClassName.get(objectElement.typeElement());
+        return ClassName.get(ownerElement.typeElement());
     }
 
     @Override
     protected List<TypeName> parametersTypes() {
-        if(objectElement.type() == Type.GROUP) {
+        if(ownerElement.type() == Type.GROUP) {
             return List.of(TypeName.INT, ArrayTypeName.of(TypeName.BYTE));
-        }else if(objectElement.type() == Type.ENUM) {
+        }else if(ownerElement.type() == Type.ENUM) {
             return List.of(ClassName.get(Integer.class));
         }else {
             return List.of(ArrayTypeName.of(TypeName.BYTE));
@@ -92,7 +92,7 @@ public class ProtobufObjectDeserializationOverloadGenerator extends ProtobufDese
 
     @Override
     protected List<String> parametersNames() {
-        return switch (objectElement.type()) {
+        return switch (ownerElement.type()) {
             case GROUP -> List.of(GROUP_INDEX_PARAMETER, INPUT_OBJECT_PARAMETER);
             case ENUM -> List.of(ENUM_INDEX_PARAMETER);
             case MESSAGE -> List.of(INPUT_OBJECT_PARAMETER);

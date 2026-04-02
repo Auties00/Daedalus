@@ -1,13 +1,14 @@
 package com.github.auties00.daedalus.protobuf.processor.generator;
 
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufCollectionFieldType;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufMapFieldType;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement.Type;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufPropertyElement;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufPropertyType;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement.Type;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufFieldElement;
 import com.github.auties00.daedalus.protobuf.io.writer.ProtobufBinaryWriter;
 
 import javax.lang.model.element.Element;
@@ -68,7 +69,7 @@ public class ProtobufObjectSerializationGenerator extends ProtobufSerializationG
 
     @Override
     protected void doInstrumentation(TypeSpec.Builder classBuilder, MethodSpec.Builder methodBuilder) {
-        if (objectElement.type() == Type.ENUM) {
+        if (ownerElement.type() == Type.ENUM) {
             createEnumSerializer(methodBuilder);
         } else {
             createMessageSerializer(methodBuilder);
@@ -87,15 +88,15 @@ public class ProtobufObjectSerializationGenerator extends ProtobufSerializationG
 
     @Override
     protected TypeName returnType() {
-        return objectElement.type() == Type.ENUM ? ClassName.get(Integer.class) : TypeName.VOID;
+        return ownerElement.type() == Type.ENUM ? ClassName.get(Integer.class) : TypeName.VOID;
     }
 
     @Override
     protected List<TypeName> parametersTypes() {
-        var objectType = ClassName.get(objectElement.typeElement());
-        if (objectElement.type() == Type.ENUM) {
+        var objectType = ClassName.get(ownerElement.typeElement());
+        if (ownerElement.type() == Type.ENUM) {
             return List.of(objectType);
-        }else if(objectElement.type() == Type.GROUP) {
+        }else if(ownerElement.type() == Type.GROUP) {
             return List.of(TypeName.INT, objectType, ClassName.get(ProtobufBinaryWriter.class));
         }else {
             return List.of(objectType, ClassName.get(ProtobufBinaryWriter.class));
@@ -104,9 +105,9 @@ public class ProtobufObjectSerializationGenerator extends ProtobufSerializationG
 
     @Override
     protected List<String> parametersNames() {
-        if (objectElement.type() == Type.ENUM) {
+        if (ownerElement.type() == Type.ENUM) {
             return List.of(INPUT_OBJECT_PARAMETER);
-        }else if(objectElement.type() == Type.GROUP) {
+        }else if(ownerElement.type() == Type.GROUP) {
             return List.of(GROUP_INDEX_PARAMETER, INPUT_OBJECT_PARAMETER, OUTPUT_OBJECT_PARAMETER);
         }else {
             return List.of(INPUT_OBJECT_PARAMETER, OUTPUT_OBJECT_PARAMETER);
@@ -118,7 +119,7 @@ public class ProtobufObjectSerializationGenerator extends ProtobufSerializationG
         methodBuilder.addStatement("return null");
         methodBuilder.endControlFlow();
 
-        var metadata = objectElement.enumMetadata()
+        var metadata = ownerElement.enumMetadata()
                 .orElseThrow(() -> new NoSuchElementException("Missing metadata from enum"));
         if(metadata.isJavaEnum()) {
             methodBuilder.addStatement("return $L.ordinal()", INPUT_OBJECT_PARAMETER);
@@ -133,28 +134,28 @@ public class ProtobufObjectSerializationGenerator extends ProtobufSerializationG
         methodBuilder.addStatement("return");
         methodBuilder.endControlFlow();
 
-        if(objectElement.type() == Type.GROUP) {
+        if(ownerElement.type() == Type.GROUP) {
             methodBuilder.addStatement("$L.writeGroupStart($L)", OUTPUT_OBJECT_PARAMETER, GROUP_INDEX_PARAMETER);
         }
 
         createRequiredPropertiesNullCheck(methodBuilder);
-        for(var property : objectElement.properties()) {
+        for(var property : ownerElement.protobufProperties()) {
             switch (property.type()) {
-                case ProtobufPropertyType.CollectionType collectionType -> writeRepeatedSerializer(methodBuilder, property.index(), property.name(), getAccessorCall(property.accessor()), collectionType, property.packed(), true, false);
-                case ProtobufPropertyType.MapType mapType -> writeMapSerializer(methodBuilder, property.index(), property.name(), getAccessorCall(property.accessor()), mapType);
+                case ProtobufCollectionFieldType collectionType -> writeRepeatedSerializer(methodBuilder, property.index(), property.name(), getAccessorCall(property.accessor()), collectionType, property.packed(), true, false);
+                case ProtobufMapFieldType mapType -> writeMapSerializer(methodBuilder, property.index(), property.name(), getAccessorCall(property.accessor()), mapType);
                 default -> writeNormalSerializer(methodBuilder, property.index(), property.name(), getAccessorCall(property.accessor()), property.type(), true, true, false);
             }
         }
 
-        if(objectElement.type() == Type.GROUP) {
+        if(ownerElement.type() == Type.GROUP) {
             methodBuilder.addStatement("$L.writeGroupEnd($L)", OUTPUT_OBJECT_PARAMETER, GROUP_INDEX_PARAMETER);
         }
     }
 
     private void createRequiredPropertiesNullCheck(MethodSpec.Builder methodBuilder) {
-        objectElement.properties()
+        ownerElement.protobufProperties()
                 .stream()
-                .filter(ProtobufPropertyElement::required)
+                .filter(ProtobufFieldElement::required)
                 .forEach(entry -> methodBuilder.addStatement("Objects.requireNonNull($L, $S)", getAccessorCall(entry.accessor()), "Missing required property: " + entry.name()));
     }
 

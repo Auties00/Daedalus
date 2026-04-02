@@ -1,11 +1,13 @@
 package com.github.auties00.daedalus.protobuf.processor.generator;
 
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufCollectionFieldType;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufMapFieldType;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufSimpleFieldType;
 import com.palantir.javapoet.*;
 import com.github.auties00.daedalus.protobuf.model.ProtobufType;
 import com.github.auties00.daedalus.protobuf.model.ProtobufWireType;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufObjectElement;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufPropertyElement;
-import com.github.auties00.daedalus.protobuf.processor.model.ProtobufPropertyType;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement;
+import com.github.auties00.daedalus.protobuf.processor.element.ProtobufFieldElement;
 
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeMirror;
@@ -41,7 +43,7 @@ public abstract class ProtobufSizeGenerator extends ProtobufSerializationGenerat
     //             protoOutputSize += ProtobufOutputStream.getStringSize(namesEntry);
     //         }
     //     }
-    protected void writeRepeatedSize(MethodSpec.Builder methodBuilder, long index, String name, String accessor, boolean packed, ProtobufPropertyType.CollectionType collectionType, boolean cast) {
+    protected void writeRepeatedSize(MethodSpec.Builder methodBuilder, long index, String name, String accessor, boolean packed, ProtobufCollectionFieldType collectionType, boolean cast) {
         if(packed) {
             // Packed encoding: field_tag + varint(total_length) + all_elements_packed
             // Use optimized method that handles everything in one call
@@ -68,7 +70,7 @@ public abstract class ProtobufSizeGenerator extends ProtobufSerializationGenerat
 
     // Maps packed repeated field types to their size calculation method names
     // Fixed-size types (FIXED32/64) have known element sizes, varints have variable sizes
-    private String getPackedSizeCalculator(ProtobufPropertyType.CollectionType collectionType) {
+    private String getPackedSizeCalculator(ProtobufCollectionFieldType collectionType) {
         return switch (collectionType.valueType().protobufType()) {
             case FLOAT, FIXED32, SFIXED32 -> "getFixed32PackedSize"; // 4 bytes per element
             case DOUBLE, FIXED64, SFIXED64 -> "getFixed64PackedSize"; // 8 bytes per element
@@ -95,7 +97,7 @@ public abstract class ProtobufSizeGenerator extends ProtobufSerializationGenerat
     //
     //   Helper method (generated later via deferred operation):
     //     private static int sizeOfScores(Map.Entry<String, Integer> entry) { ... }
-    protected void writeMapSize(TypeSpec.Builder classBuilder, MethodSpec.Builder methodBuilder, long index, String name, String accessor, ProtobufPropertyType.MapType mapType, boolean cast) {
+    protected void writeMapSize(TypeSpec.Builder classBuilder, MethodSpec.Builder methodBuilder, long index, String name, String accessor, ProtobufMapFieldType mapType, boolean cast) {
         // Store map in local variable
         var mapFieldName = name + "MapField";
         methodBuilder.addStatement("var $L = $L", mapFieldName, accessor);
@@ -141,7 +143,7 @@ public abstract class ProtobufSizeGenerator extends ProtobufSerializationGenerat
     //         protoOutputSize += ProtobufOutputStream.getVarIntSize(scoresMapValue);
     //         return protoOutputSize;
     //     }
-    private void writeMapEntryPropertySizeMethod(TypeSpec.Builder classBuilder, String name, ProtobufPropertyType.MapType mapType, String methodName, boolean cast) {
+    private void writeMapEntryPropertySizeMethod(TypeSpec.Builder classBuilder, String name, ProtobufMapFieldType mapType, String methodName, boolean cast) {
         // Build parameter type: Map.Entry<KeyType, ValueType>
         var keyTypeName = ClassName.bestGuess(getQualifiedName(mapType.keyType().accessorType()));
         var valueTypeName = ClassName.bestGuess(getQualifiedName(mapType.valueType().accessorType()));
@@ -183,19 +185,6 @@ public abstract class ProtobufSizeGenerator extends ProtobufSerializationGenerat
         classBuilder.addMethod(mapEntryMethodBuilder.build());
     }
 
-    // Convenience overload that extracts accessor call from property and delegates to main writeNormalSize
-    protected void writeNormalSize(MethodSpec.Builder methodBuilder, ProtobufPropertyElement property) {
-        var accessorCall = getAccessorCall(INPUT_OBJECT_PARAMETER, property.accessor());
-        writeNormalSize(
-                methodBuilder,
-                property.index(),
-                property.name(),
-                property.type(),
-                null,
-                accessorCall
-        );
-    }
-
     // Calculates size for a normal (non-repeated, non-map) field
     // Delegates to writeCustomSerializer which handles custom serializers, null checks, and type casting
     // Then routes to either writeObjectCalculator (MESSAGE/ENUM/GROUP) or writePrimitiveCalculator (primitives/strings)
@@ -207,7 +196,7 @@ public abstract class ProtobufSizeGenerator extends ProtobufSerializationGenerat
     //     if (name != null) {
     //         protoOutputSize += ProtobufOutputStream.getStringSize(name);
     //     }
-    protected void writeNormalSize(MethodSpec.Builder methodBuilder, long index, String name, ProtobufPropertyType normalType, TypeMirror castType, String accessorCall) {
+    protected void writeNormalSize(MethodSpec.Builder methodBuilder, long index, String name, ProtobufSimpleFieldType normalType, TypeMirror castType, String accessorCall) {
         writeCustomSerializer(
                 methodBuilder,
                 index,
@@ -243,7 +232,7 @@ public abstract class ProtobufSizeGenerator extends ProtobufSerializationGenerat
     // For MESSAGE: size = field_tag + varint(message_length) + message_bytes
     // For ENUM: size = field_tag + enum_value_bytes (no length prefix)
     // For GROUP: size = field_tag_start + group_contents + field_tag_end (computed by group's sizeOf)
-    private void writeObjectCalculator(MethodSpec.Builder methodBuilder, long index, String name, ProtobufPropertyType type, TypeMirror castType, String accessor) {
+    private void writeObjectCalculator(MethodSpec.Builder methodBuilder, long index, String name, ProtobufSimpleFieldType type, TypeMirror castType, String accessor) {
         // Add field tag size
         writeFieldTagSize(methodBuilder, index, type.protobufType());
 
@@ -251,7 +240,7 @@ public abstract class ProtobufSizeGenerator extends ProtobufSerializationGenerat
             case MESSAGE, ENUM -> {
                 // Get the type after applying custom serializers (if any)
                 var parameterType = type.serializers().isEmpty() ? type.descriptorElementType() : type.serializers().getLast().parameterType();
-                var specName = getSpecFromObject(parameterType);
+                var specName = getSpecByType(parameterType);
 
                 // Recursively call the nested type's sizeOf method
                 var serializedObjectFieldName = name + "SerializedSize";
@@ -268,7 +257,7 @@ public abstract class ProtobufSizeGenerator extends ProtobufSerializationGenerat
             case GROUP -> {
                 // Standard group: get size from group's Spec class
                 var groupType = type.serializers().isEmpty() ? type.descriptorElementType() : type.serializers().getLast().parameterType();
-                var groupSpecType = getSpecFromObject(groupType);
+                var groupSpecType = getSpecByType(groupType);
                 var serializedObjectFieldName = name + "SerializedSize";
                 methodBuilder.addStatement("var $L = $L.$L($L, $L$L)", serializedObjectFieldName, groupSpecType, name(), index, castType != null ? "(" + castType + ") " : "", accessor);
                 methodBuilder.addStatement("$L += $L", OUTPUT_SIZE_NAME, serializedObjectFieldName);
