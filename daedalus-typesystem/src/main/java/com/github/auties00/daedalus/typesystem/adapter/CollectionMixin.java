@@ -93,7 +93,7 @@ public final class CollectionMixin {
                 Collections.addAll(collection, values);
                 return collection;
             } catch (UnsupportedOperationException _) {
-                ArrayList<T> result = new ArrayList<>(collection.size() + values.length);
+                var result = new ArrayList<T>(collection.size() + values.length);
                 result.addAll(collection);
                 Collections.addAll(result, values);
                 return result;
@@ -110,7 +110,7 @@ public final class CollectionMixin {
                 collection.addAll(values);
                 return collection;
             } catch (UnsupportedOperationException _) {
-                ArrayList<T> result = new ArrayList<>(collection.size() + values.size());
+                var result = new ArrayList<T>(collection.size() + values.size());
                 result.addAll(collection);
                 result.addAll(values);
                 return result;
@@ -143,8 +143,8 @@ public final class CollectionMixin {
                 collection.removeAll(values);
                 return collection;
             } catch (UnsupportedOperationException _) {
-                ArrayList<T> result = new ArrayList<>(collection.size());
-                for (T element : collection) {
+                var result = new ArrayList<T>(collection.size());
+                for (var element : collection) {
                     if (!values.contains(element)) {
                         result.add(element);
                     }
@@ -163,8 +163,8 @@ public final class CollectionMixin {
                 collection.removeIf(filter);
                 return collection;
             } catch (UnsupportedOperationException _) {
-                ArrayList<T> result = new ArrayList<>(collection.size());
-                for (T element : collection) {
+                var result = new ArrayList<T>(collection.size());
+                for (var element : collection) {
                     if (!filter.test(element)) {
                         result.add(element);
                     }
@@ -183,8 +183,8 @@ public final class CollectionMixin {
                 collection.retainAll(values);
                 return collection;
             } catch (UnsupportedOperationException _) {
-                ArrayList<T> result = new ArrayList<>(collection.size());
-                for (T element : collection) {
+                var result = new ArrayList<T>(collection.size());
+                for (var element : collection) {
                     if (values.contains(element)) {
                         result.add(element);
                     }

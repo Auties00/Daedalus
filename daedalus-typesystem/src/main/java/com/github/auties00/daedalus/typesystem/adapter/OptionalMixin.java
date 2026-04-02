@@ -11,7 +11,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 /**
- * A {@link TypeMixin} that provides default values, serializers, and deserializers for the {@link java.util.Optional} family of types.
+ * A {@link TypeMixin} that provides default values, serializers, and deserializers for the {@link Optional} family of types.
  */
 @SuppressWarnings({"OptionalAssignedToNull", "OptionalUsedAsFieldOrParameterType", "unused"})
 @TypeMixin
