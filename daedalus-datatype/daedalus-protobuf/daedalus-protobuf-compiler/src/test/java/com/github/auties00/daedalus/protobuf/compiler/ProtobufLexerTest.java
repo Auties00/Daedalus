@@ -1083,7 +1083,7 @@ public class ProtobufLexerTest {
         @Test
         void testNextToken_MultiPartStringWith100Parts() throws IOException {
             var parts = new StringBuilder();
-            for (int i = 0; i < 100; i++) {
+            for (var i = 0; i < 100; i++) {
                 parts.append("\"part\"");
                 if (i < 99) {
                     parts.append(" ");

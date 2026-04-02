@@ -27,12 +27,12 @@ public final class ProtobufBinarySizeCalculator {
     static {
         NLZ32_TO_VAR_INT_SIZE = new int[64];
         NLZ32_TO_VAR_INT_SIZE[0] = 10;
-        for (int nlz = 1; nlz <= 32; nlz++) {
+        for (var nlz = 1; nlz <= 32; nlz++) {
             NLZ32_TO_VAR_INT_SIZE[nlz] = (38 - nlz) / 7;
         }
 
         NLZ_TO_VAR_INT_SIZE = new int[128];
-        for (int nlz = 0; nlz <= 64; nlz++) {
+        for (var nlz = 0; nlz <= 64; nlz++) {
             NLZ_TO_VAR_INT_SIZE[nlz] = (70 - nlz) / 7;
         }
     }

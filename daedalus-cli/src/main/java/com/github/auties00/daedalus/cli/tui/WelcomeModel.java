@@ -86,7 +86,7 @@ public final class WelcomeModel implements Model {
         sb.append(Theme.SUBTITLE.render("Select a module:"));
         sb.append("\n\n");
 
-        for (int i = 0; i < extensions.size(); i++) {
+        for (var i = 0; i < extensions.size(); i++) {
             var ext = extensions.get(i);
             sb.append(renderMenuItem(i, capitalize(ext.name()), ext.description()));
         }

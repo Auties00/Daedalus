@@ -159,7 +159,7 @@ final class ProtobufTreeFeatures {
     }
 
     private static String getEnumConstantName(ProtobufExpression value) {
-        return value instanceof ProtobufEnumConstantExpression(String name) ? name : null;
+        return value instanceof ProtobufEnumConstantExpression(var name) ? name : null;
     }
 
     private static boolean isFeatureOption(ProtobufOptionName name, String featureName) {

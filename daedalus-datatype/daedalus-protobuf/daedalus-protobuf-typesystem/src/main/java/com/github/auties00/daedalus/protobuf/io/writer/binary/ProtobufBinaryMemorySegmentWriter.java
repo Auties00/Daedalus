@@ -211,7 +211,7 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
     }
 
     private static int putVarInt32Slow(MemorySegment segment, long offset, int value) {
-        long pos = offset;
+        var pos = offset;
         while (true) {
             if ((value & ~0x7F) == 0) {
                 segment.set(ValueLayout.JAVA_BYTE, pos++, (byte) value);
@@ -239,7 +239,7 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
     }
 
     private static int putVarInt64Slow(MemorySegment segment, long offset, long value) {
-        long pos = offset;
+        var pos = offset;
         while (true) {
             if ((value & ~0x7FL) == 0) {
                 segment.set(ValueLayout.JAVA_BYTE, pos++, (byte) value);

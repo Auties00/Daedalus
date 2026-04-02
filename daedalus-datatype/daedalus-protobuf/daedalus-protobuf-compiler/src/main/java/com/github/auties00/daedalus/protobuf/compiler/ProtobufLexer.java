@@ -242,7 +242,7 @@ public final class ProtobufLexer {
         }
 
         int radix;
-        boolean isFloat = false;
+        var isFloat = false;
         if (token.charAt(start) == '.') {
             radix = INVALID_RADIX;
             isFloat = true;
@@ -285,7 +285,7 @@ public final class ProtobufLexer {
         if (isFloat) {
           return parseFloat(token);
         } else {
-            long whole = 0L;
+            var whole = 0L;
             char character;
             int digit;
             while (start < length) {

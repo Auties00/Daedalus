@@ -68,19 +68,19 @@ public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements Protobu
     protected static final long[] VARINT32_LO_CONT_TABLE = new long[64];
 
     static {
-        for (int nlz = 0; nlz <= 64; nlz++) {
-            int size = (70 - nlz) / 7;
+        for (var nlz = 0; nlz <= 64; nlz++) {
+            var size = (70 - nlz) / 7;
             VARINT64_SIZE_TABLE[nlz] = size;
-            int loContBytes = Math.min(size, 9) - 1;
-            long loMask = loContBytes <= 0 ? 0L
+            var loContBytes = Math.min(size, 9) - 1;
+            var loMask = loContBytes <= 0 ? 0L
                     : ((1L << (loContBytes * 8)) - 1) & VARINT64_LO_CONT_BITS;
             VARINT64_LO_CONT_TABLE[nlz] = loMask;
             VARINT64_HI_CONT_TABLE[nlz] = size == 10 ? 0x80L : 0L;
         }
-        for (int nlz = 1; nlz <= 32; nlz++) {
-            int size = (38 - nlz) / 7;
+        for (var nlz = 1; nlz <= 32; nlz++) {
+            var size = (38 - nlz) / 7;
             VARINT32_SIZE_TABLE[nlz] = size;
-            long loMask = size <= 1 ? 0L
+            var loMask = size <= 1 ? 0L
                     : ((1L << ((size - 1) * 8)) - 1) & VARINT64_LO_CONT_BITS;
             VARINT32_LO_CONT_TABLE[nlz] = loMask;
         }
@@ -111,7 +111,7 @@ public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements Protobu
     }
 
     private static int writeRawVarInt32Slow(byte[] arr, int offset, int value) {
-        int pos = offset;
+        var pos = offset;
         while (true) {
             if ((value & ~0x7F) == 0) {
                 arr[pos++] = (byte) value;
@@ -139,7 +139,7 @@ public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements Protobu
     }
 
     private static int writeRawVarInt64Slow(byte[] arr, int offset, long value) {
-        int pos = offset;
+        var pos = offset;
         while (true) {
             if ((value & ~0x7FL) == 0) {
                 arr[pos++] = (byte) value;

@@ -100,10 +100,10 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
         VARINT32_PEXT_MASKS[10] = 0x0000000f7f7f7f7fL;
 
         // Build shuffle table
-        for (int fl = 1; fl <= 10; fl++) {
-            for (int sl = 1; sl <= 10; sl++) {
+        for (var fl = 1; fl <= 10; fl++) {
+            for (var sl = 1; sl <= 10; sl++) {
                 var base = ((fl - 1) * 10 + (sl - 1)) * 16;
-                for (int i = 0; i < 8; i++) {
+                for (var i = 0; i < 8; i++) {
                     VARINT32_2X_SHUFFLE_TABLE[base + i] = (byte) (i < fl ? i : 0);
                     VARINT32_2X_SHUFFLE_TABLE[base + 8 + i] = (byte) (i < sl ? Math.min(fl + i, 15) : 0);
                 }
@@ -111,7 +111,7 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
         }
 
         // Build bitmask → entry lookup
-        for (int bm = 0; bm < 1024; bm++) {
+        for (var bm = 0; bm < 1024; bm++) {
             var notBm = (~bm) & 0x3FF;
             var fl = notBm == 0 ? 10 : Math.min(Integer.numberOfTrailingZeros(notBm) + 1, 10);
             var notBm2 = notBm >>> fl;
@@ -125,7 +125,7 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
 
         while (end - ptr >= 31 * 32) {
             long acc0 = 0, acc1 = 0, acc2 = 0, acc3 = 0;
-            for (int i = 0; i < 31; i++) {
+            for (var i = 0; i < 31; i++) {
                 acc0 += (~(long) (long) ARRAY_AS_INT64_LE.get(buf, ptr) & MSB8) >>> 7;
                 acc1 += (~(long) (long) ARRAY_AS_INT64_LE.get(buf, ptr + 8) & MSB8) >>> 7;
                 acc2 += (~(long) (long) ARRAY_AS_INT64_LE.get(buf, ptr + 16) & MSB8) >>> 7;
@@ -172,7 +172,7 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
 
             while (end - ptr >= 31 * 32) {
                 long acc0 = 0, acc1 = 0, acc2 = 0, acc3 = 0;
-                for (int i = 0; i < 31; i++) {
+                for (var i = 0; i < 31; i++) {
                     acc0 += (~bb.getLong(ptr) & MSB8) >>> 7;
                     acc1 += (~bb.getLong(ptr + 8) & MSB8) >>> 7;
                     acc2 += (~bb.getLong(ptr + 16) & MSB8) >>> 7;

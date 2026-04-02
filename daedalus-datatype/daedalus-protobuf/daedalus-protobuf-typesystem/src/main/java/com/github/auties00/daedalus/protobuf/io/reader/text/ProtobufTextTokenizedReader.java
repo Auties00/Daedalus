@@ -983,7 +983,7 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
         long whitespace = 0, structural = 0, dquote = 0, squote = 0;
         long hash = 0, newline = 0, backslash = 0;
 
-        for (int v = 0; v < VECTORS_PER_CHUNK; v++) {
+        for (var v = 0; v < VECTORS_PER_CHUNK; v++) {
             var offset = chunkStart + v * VECTOR_LENGTH;
             var vec = ByteVector.fromMemorySegment(SPECIES, input, offset, ByteOrder.nativeOrder());
             var shift = v * VECTOR_LENGTH;

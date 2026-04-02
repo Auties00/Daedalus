@@ -208,7 +208,7 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
     }
 
     private static int putVarInt32Slow(ByteBuffer buffer, int offset, int value) {
-        int pos = offset;
+        var pos = offset;
         while (true) {
             if ((value & ~0x7F) == 0) {
                 buffer.put(pos++, (byte) value);
@@ -236,7 +236,7 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
     }
 
     private static int putVarInt64Slow(ByteBuffer buffer, int offset, long value) {
-        int pos = offset;
+        var pos = offset;
         while (true) {
             if ((value & ~0x7FL) == 0) {
                 buffer.put(pos++, (byte) value);

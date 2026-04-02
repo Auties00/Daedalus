@@ -1388,7 +1388,8 @@ public final class ProtobufAnalyzer {
 
                 case ProtobufOptionStatement option -> {
                     var aliasSegments = option.name().segments();
-                    if(!aliasSegments.isEmpty() && aliasSegments.getFirst().hasName("allow_alias") && option.value() instanceof ProtobufBoolExpression(boolean value) && value) {
+                    if(!aliasSegments.isEmpty() && aliasSegments.getFirst().hasName("allow_alias") && option.value() instanceof ProtobufBoolExpression(
+                            var value) && value) {
                         allowsIndexDuplicates = true;
                     }
                 }
