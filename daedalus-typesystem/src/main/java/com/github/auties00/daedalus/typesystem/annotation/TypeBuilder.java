@@ -54,13 +54,24 @@ public @interface TypeBuilder {
     /**
      * Specifies the name of the generated builder class.
      *
-     * <p>If empty (the default), the generated builder replaces the default
-     * builder that would otherwise be created by the enclosing type's data
-     * format. If non-empty, an additional builder with the given name is
-     * generated alongside the default one.
+     * <p>The behavior depends on whether the enclosing type is managed by a
+     * data format (e.g. {@code @ProtobufMessage}):
+     *
+     * <ul>
+     * <li>If the enclosing type <em>is</em> managed by a data format and the
+     *     name is empty (the default), the generated builder <em>replaces</em>
+     *     the default builder that the format would otherwise generate. If
+     *     non-empty, an additional builder with the given name is generated
+     *     alongside the default one.
+     * <li>If the enclosing type is <em>not</em> managed by a data format and
+     *     the name is empty (the default), the generated builder is named
+     *     {@code {EnclosingTypeName}Builder}, following the same naming
+     *     convention used by format-managed default builders. If non-empty,
+     *     the given name is used directly.
+     * </ul>
      *
      * @return the name of the generated builder class, or an empty string
-     *         to override the default builder
+     *         for the default naming behavior
      */
     String name() default "";
 
