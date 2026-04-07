@@ -17,7 +17,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  * restricting to that range, we ensure that we can convert to and from [RFC
  * 3339](<a href="https://www.ietf.org/rfc/rfc3339.txt">https://www.ietf.org/rfc/rfc3339.txt</a>) date strings.
  *
- * <h3>Examples</h3>
+ * <h2>Examples</h2>
  *
  *
  * <p>Example 1: Compute Timestamp from POSIX {@code time()}.
@@ -79,7 +79,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  *   timestamp.GetCurrentTime()
  * </pre>
  *
- * <h3>JSON Mapping</h3>
+ * <h2>JSON Mapping</h2>
  *
  *
  * <p>In JSON format, the Timestamp type is encoded as a string in the

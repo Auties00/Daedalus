@@ -21,7 +21,7 @@ import java.util.SequencedCollection;
  * returned by a get operation or modified by an update operation.
  * Field masks also have a custom JSON encoding (see below).
  *
- * <h3>Field Masks in Projections</h3>
+ * <h2>Field Masks in Projections</h2>
  *
  *
  * <p>When used in the context of a projection, a response message or
@@ -71,7 +71,7 @@ import java.util.SequencedCollection;
  * any case, the effect on the returned resource/resources is required
  * behavior for APIs.
  *
- * <h3>Field Masks in Update Operations</h3>
+ * <h2>Field Masks in Update Operations</h2>
  *
  *
  * <p>A field mask in update operations specifies which fields of the
@@ -148,14 +148,14 @@ import java.util.SequencedCollection;
  * - MUST treat an omitted field mask to mean "get all", unless otherwise
  * documented.
  *
- * <h3>Considerations for HTTP REST</h3>
+ * <h2>Considerations for HTTP REST</h2>
  *
  *
  * <p>The HTTP kind of an update operation which uses a field mask must
  * be set to PATCH instead of PUT in order to satisfy HTTP semantics
  * (PUT must only be used for full updates).
  *
- * <h3>JSON Encoding of Field Masks</h3>
+ * <h2>JSON Encoding of Field Masks</h2>
  *
  *
  * <p>In JSON, a field mask is encoded as a single string where paths are
@@ -192,7 +192,7 @@ import java.util.SequencedCollection;
  *   }
  * </pre>
  *
- * <h3>Field Masks and Oneof Fields</h3>
+ * <h2>Field Masks and Oneof Fields</h2>
  *
  *
  * <p>Field masks treat fields in oneofs just as regular fields. Consider the
@@ -226,7 +226,7 @@ import java.util.SequencedCollection;
  * <p>Note that oneof type names ("test_oneof" in this case) cannot be used in
  * paths.
  *
- * <h3>Field Mask Verification</h3>
+ * <h2>Field Mask Verification</h2>
  *
  *
  * <p>The implementation of any API method which has a FieldMask type field in the

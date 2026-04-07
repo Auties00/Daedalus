@@ -96,6 +96,14 @@ public final class PluginProtos {
         String parameter;
 
         /**
+         * The version number of protocol compiler.
+         *
+         * <p><code>Version compiler_version = 3;</code>
+         */
+        @ProtobufMessage.MessageField(index = 3)
+        PluginProtos.Version compilerVersion;
+
+        /**
          * FileDescriptorProtos for all files in files_to_generate and everything
          * they import.  The files will appear in topological order, so each file
          * appears before any file that imports it.
@@ -131,26 +139,18 @@ public final class PluginProtos {
         @ProtobufMessage.MessageField(index = 17)
         List<DescriptorProtos.FileDescriptorProto> sourceFileDescriptors;
 
-        /**
-         * The version number of protocol compiler.
-         *
-         * <p><code>Version compiler_version = 3;</code>
-         */
-        @ProtobufMessage.MessageField(index = 3)
-        PluginProtos.Version compilerVersion;
-
         CodeGeneratorRequest(
                 List<String> fileToGenerate,
                 String parameter,
+                PluginProtos.Version compilerVersion,
                 List<DescriptorProtos.FileDescriptorProto> protoFile,
-                List<DescriptorProtos.FileDescriptorProto> sourceFileDescriptors,
-                PluginProtos.Version compilerVersion
+                List<DescriptorProtos.FileDescriptorProto> sourceFileDescriptors
         ) {
             this.fileToGenerate = fileToGenerate;
             this.parameter = parameter;
+            this.compilerVersion = compilerVersion;
             this.protoFile = protoFile;
             this.sourceFileDescriptors = sourceFileDescriptors;
-            this.compilerVersion = compilerVersion;
         }
 
         public SequencedCollection<String> fileToGenerate() {

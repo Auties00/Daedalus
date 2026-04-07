@@ -177,32 +177,6 @@ public final class DescriptorProtos {
         List<String> dependency;
 
         /**
-         * Indexes of the public imported files in the dependency list above.
-         *
-         * <p><code>repeated int32 public_dependency = 10;</code>
-         */
-        @ProtobufMessage.Int32Field(index = 10)
-        List<Integer> publicDependency;
-
-        /**
-         * Indexes of the weak imported files in the dependency list.
-         * For Google-internal migration only. Do not use.
-         *
-         * <p><code>repeated int32 weak_dependency = 11;</code>
-         */
-        @ProtobufMessage.Int32Field(index = 11)
-        List<Integer> weakDependency;
-
-        /**
-         * Names of files imported by this file purely for the purpose of providing
-         * option extensions. These are excluded from the dependency list above.
-         *
-         * <p><code>repeated string option_dependency = 15;</code>
-         */
-        @ProtobufMessage.StringField(index = 15)
-        List<String> optionDependency;
-
-        /**
          * All top-level definitions in this file.
          *
          * <p><code>repeated DescriptorProto message_type = 4;</code>
@@ -246,6 +220,23 @@ public final class DescriptorProtos {
         DescriptorProtos.SourceCodeInfo sourceCodeInfo;
 
         /**
+         * Indexes of the public imported files in the dependency list above.
+         *
+         * <p><code>repeated int32 public_dependency = 10;</code>
+         */
+        @ProtobufMessage.Int32Field(index = 10)
+        List<Integer> publicDependency;
+
+        /**
+         * Indexes of the weak imported files in the dependency list.
+         * For Google-internal migration only. Do not use.
+         *
+         * <p><code>repeated int32 weak_dependency = 11;</code>
+         */
+        @ProtobufMessage.Int32Field(index = 11)
+        List<Integer> weakDependency;
+
+        /**
          * The syntax of the proto file.
          * The supported values are "proto2", "proto3", and "editions".
          *
@@ -270,36 +261,45 @@ public final class DescriptorProtos {
         @ProtobufMessage.EnumField(index = 14)
         DescriptorProtos.Edition edition;
 
+        /**
+         * Names of files imported by this file purely for the purpose of providing
+         * option extensions. These are excluded from the dependency list above.
+         *
+         * <p><code>repeated string option_dependency = 15;</code>
+         */
+        @ProtobufMessage.StringField(index = 15)
+        List<String> optionDependency;
+
         FileDescriptorProto(
                 String name,
                 String package_,
                 List<String> dependency,
-                List<Integer> publicDependency,
-                List<Integer> weakDependency,
-                List<String> optionDependency,
                 List<DescriptorProtos.DescriptorProto> messageType,
                 List<DescriptorProtos.EnumDescriptorProto> enumType,
                 List<DescriptorProtos.ServiceDescriptorProto> service,
                 List<DescriptorProtos.FieldDescriptorProto> extension,
                 DescriptorProtos.FileOptions options,
                 DescriptorProtos.SourceCodeInfo sourceCodeInfo,
+                List<Integer> publicDependency,
+                List<Integer> weakDependency,
                 String syntax,
-                DescriptorProtos.Edition edition
+                DescriptorProtos.Edition edition,
+                List<String> optionDependency
         ) {
             this.name = name;
             this.package_ = package_;
             this.dependency = dependency;
-            this.publicDependency = publicDependency;
-            this.weakDependency = weakDependency;
-            this.optionDependency = optionDependency;
             this.messageType = messageType;
             this.enumType = enumType;
             this.service = service;
             this.extension = extension;
             this.options = options;
             this.sourceCodeInfo = sourceCodeInfo;
+            this.publicDependency = publicDependency;
+            this.weakDependency = weakDependency;
             this.syntax = syntax;
             this.edition = edition;
+            this.optionDependency = optionDependency;
         }
 
         public String name() {
@@ -312,18 +312,6 @@ public final class DescriptorProtos {
 
         public SequencedCollection<String> dependency() {
             return Collections.unmodifiableSequencedCollection(dependency);
-        }
-
-        public SequencedCollection<Integer> publicDependency() {
-            return Collections.unmodifiableSequencedCollection(publicDependency);
-        }
-
-        public SequencedCollection<Integer> weakDependency() {
-            return Collections.unmodifiableSequencedCollection(weakDependency);
-        }
-
-        public SequencedCollection<String> optionDependency() {
-            return Collections.unmodifiableSequencedCollection(optionDependency);
         }
 
         public SequencedCollection<DescriptorProtos.DescriptorProto> messageType() {
@@ -350,12 +338,24 @@ public final class DescriptorProtos {
             return sourceCodeInfo;
         }
 
+        public SequencedCollection<Integer> publicDependency() {
+            return Collections.unmodifiableSequencedCollection(publicDependency);
+        }
+
+        public SequencedCollection<Integer> weakDependency() {
+            return Collections.unmodifiableSequencedCollection(weakDependency);
+        }
+
         public String syntax() {
             return syntax;
         }
 
         public DescriptorProtos.Edition edition() {
             return edition;
+        }
+
+        public SequencedCollection<String> optionDependency() {
+            return Collections.unmodifiableSequencedCollection(optionDependency);
         }
     }
 
@@ -467,12 +467,6 @@ public final class DescriptorProtos {
         List<DescriptorProtos.FieldDescriptorProto> field;
 
         /**
-         * <p><code>repeated FieldDescriptorProto extension = 6;</code>
-         */
-        @ProtobufMessage.MessageField(index = 6)
-        List<DescriptorProtos.FieldDescriptorProto> extension;
-
-        /**
          * <p><code>repeated DescriptorProto nested_type = 3;</code>
          */
         @ProtobufMessage.MessageField(index = 3)
@@ -491,16 +485,22 @@ public final class DescriptorProtos {
         List<DescriptorProtos.DescriptorProto.ExtensionRange> extensionRange;
 
         /**
-         * <p><code>repeated OneofDescriptorProto oneof_decl = 8;</code>
+         * <p><code>repeated FieldDescriptorProto extension = 6;</code>
          */
-        @ProtobufMessage.MessageField(index = 8)
-        List<DescriptorProtos.OneofDescriptorProto> oneofDecl;
+        @ProtobufMessage.MessageField(index = 6)
+        List<DescriptorProtos.FieldDescriptorProto> extension;
 
         /**
          * <p><code>MessageOptions options = 7;</code>
          */
         @ProtobufMessage.MessageField(index = 7)
         DescriptorProtos.MessageOptions options;
+
+        /**
+         * <p><code>repeated OneofDescriptorProto oneof_decl = 8;</code>
+         */
+        @ProtobufMessage.MessageField(index = 8)
+        List<DescriptorProtos.OneofDescriptorProto> oneofDecl;
 
         /**
          * <p><code>repeated ReservedRange reserved_range = 9;</code>
@@ -528,24 +528,24 @@ public final class DescriptorProtos {
         DescriptorProto(
                 String name,
                 List<DescriptorProtos.FieldDescriptorProto> field,
-                List<DescriptorProtos.FieldDescriptorProto> extension,
                 List<DescriptorProtos.DescriptorProto> nestedType,
                 List<DescriptorProtos.EnumDescriptorProto> enumType,
                 List<DescriptorProtos.DescriptorProto.ExtensionRange> extensionRange,
-                List<DescriptorProtos.OneofDescriptorProto> oneofDecl,
+                List<DescriptorProtos.FieldDescriptorProto> extension,
                 DescriptorProtos.MessageOptions options,
+                List<DescriptorProtos.OneofDescriptorProto> oneofDecl,
                 List<DescriptorProtos.DescriptorProto.ReservedRange> reservedRange,
                 List<String> reservedName,
                 DescriptorProtos.SymbolVisibility visibility
         ) {
             this.name = name;
             this.field = field;
-            this.extension = extension;
             this.nestedType = nestedType;
             this.enumType = enumType;
             this.extensionRange = extensionRange;
-            this.oneofDecl = oneofDecl;
+            this.extension = extension;
             this.options = options;
+            this.oneofDecl = oneofDecl;
             this.reservedRange = reservedRange;
             this.reservedName = reservedName;
             this.visibility = visibility;
@@ -557,10 +557,6 @@ public final class DescriptorProtos {
 
         public SequencedCollection<DescriptorProtos.FieldDescriptorProto> field() {
             return Collections.unmodifiableSequencedCollection(field);
-        }
-
-        public SequencedCollection<DescriptorProtos.FieldDescriptorProto> extension() {
-            return Collections.unmodifiableSequencedCollection(extension);
         }
 
         public SequencedCollection<DescriptorProtos.DescriptorProto> nestedType() {
@@ -575,12 +571,16 @@ public final class DescriptorProtos {
             return Collections.unmodifiableSequencedCollection(extensionRange);
         }
 
-        public SequencedCollection<DescriptorProtos.OneofDescriptorProto> oneofDecl() {
-            return Collections.unmodifiableSequencedCollection(oneofDecl);
+        public SequencedCollection<DescriptorProtos.FieldDescriptorProto> extension() {
+            return Collections.unmodifiableSequencedCollection(extension);
         }
 
         public DescriptorProtos.MessageOptions options() {
             return options;
+        }
+
+        public SequencedCollection<DescriptorProtos.OneofDescriptorProto> oneofDecl() {
+            return Collections.unmodifiableSequencedCollection(oneofDecl);
         }
 
         public SequencedCollection<DescriptorProtos.DescriptorProto.ReservedRange> reservedRange() {
@@ -702,14 +702,6 @@ public final class DescriptorProtos {
         }
 
         /**
-         * The parser stores options it doesn't recognize here. See above.
-         *
-         * <p><code>repeated UninterpretedOption uninterpreted_option = 999;</code>
-         */
-        @ProtobufMessage.MessageField(index = 999)
-        List<DescriptorProtos.UninterpretedOption> uninterpretedOption;
-
-        /**
          * For external users: DO NOT USE. We are in the process of open sourcing
          * extension declaration and executing internal cleanups before it can be
          * used externally.
@@ -718,14 +710,6 @@ public final class DescriptorProtos {
          */
         @ProtobufMessage.MessageField(index = 2)
         List<DescriptorProtos.ExtensionRangeOptions.Declaration> declaration;
-
-        /**
-         * Any features defined in the specific edition.
-         *
-         * <p><code>FeatureSet features = 50;</code>
-         */
-        @ProtobufMessage.MessageField(index = 50)
-        DescriptorProtos.FeatureSet features;
 
         /**
          * The verification state of the range.
@@ -737,32 +721,48 @@ public final class DescriptorProtos {
         @ProtobufMessage.EnumField(index = 3)
         DescriptorProtos.ExtensionRangeOptions.VerificationState verification;
 
-        ExtensionRangeOptions(
-                List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
-                List<DescriptorProtos.ExtensionRangeOptions.Declaration> declaration,
-                DescriptorProtos.FeatureSet features,
-                DescriptorProtos.ExtensionRangeOptions.VerificationState verification
-        ) {
-            this.uninterpretedOption = uninterpretedOption;
-            this.declaration = declaration;
-            this.features = features;
-            this.verification = Objects.requireNonNullElse(verification, DescriptorProtos.ExtensionRangeOptions.VerificationState.UNVERIFIED);
-        }
+        /**
+         * Any features defined in the specific edition.
+         *
+         * <p><code>FeatureSet features = 50;</code>
+         */
+        @ProtobufMessage.MessageField(index = 50)
+        DescriptorProtos.FeatureSet features;
 
-        public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
-            return Collections.unmodifiableSequencedCollection(uninterpretedOption);
+        /**
+         * The parser stores options it doesn't recognize here. See above.
+         *
+         * <p><code>repeated UninterpretedOption uninterpreted_option = 999;</code>
+         */
+        @ProtobufMessage.MessageField(index = 999)
+        List<DescriptorProtos.UninterpretedOption> uninterpretedOption;
+
+        ExtensionRangeOptions(
+                List<DescriptorProtos.ExtensionRangeOptions.Declaration> declaration,
+                DescriptorProtos.ExtensionRangeOptions.VerificationState verification,
+                DescriptorProtos.FeatureSet features,
+                List<DescriptorProtos.UninterpretedOption> uninterpretedOption
+        ) {
+            this.declaration = declaration;
+            this.verification = Objects.requireNonNullElse(verification, DescriptorProtos.ExtensionRangeOptions.VerificationState.UNVERIFIED);
+            this.features = features;
+            this.uninterpretedOption = uninterpretedOption;
         }
 
         public SequencedCollection<DescriptorProtos.ExtensionRangeOptions.Declaration> declaration() {
             return Collections.unmodifiableSequencedCollection(declaration);
         }
 
+        public DescriptorProtos.ExtensionRangeOptions.VerificationState verification() {
+            return verification;
+        }
+
         public DescriptorProtos.FeatureSet features() {
             return features;
         }
 
-        public DescriptorProtos.ExtensionRangeOptions.VerificationState verification() {
-            return verification;
+        public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
+            return Collections.unmodifiableSequencedCollection(uninterpretedOption);
         }
     }
 
@@ -895,6 +895,15 @@ public final class DescriptorProtos {
         String name;
 
         /**
+         * For extensions, this is the name of the type being extended.  It is
+         * resolved in the same manner as type_name.
+         *
+         * <p><code>string extendee = 2;</code>
+         */
+        @ProtobufMessage.StringField(index = 2)
+        String extendee;
+
+        /**
          * <p><code>int32 number = 3;</code>
          */
         @ProtobufMessage.Int32Field(index = 3)
@@ -928,15 +937,6 @@ public final class DescriptorProtos {
         String typeName;
 
         /**
-         * For extensions, this is the name of the type being extended.  It is
-         * resolved in the same manner as type_name.
-         *
-         * <p><code>string extendee = 2;</code>
-         */
-        @ProtobufMessage.StringField(index = 2)
-        String extendee;
-
-        /**
          * For numeric types, contains the original text representation of the value.
          * For booleans, "true" or "false".
          * For strings, contains the default text contents (not escaped in any way).
@@ -946,6 +946,12 @@ public final class DescriptorProtos {
          */
         @ProtobufMessage.StringField(index = 7)
         String defaultValue;
+
+        /**
+         * <p><code>FieldOptions options = 8;</code>
+         */
+        @ProtobufMessage.MessageField(index = 8)
+        DescriptorProtos.FieldOptions options;
 
         /**
          * If set, gives the index of a oneof in the containing type's oneof_decl
@@ -966,12 +972,6 @@ public final class DescriptorProtos {
          */
         @ProtobufMessage.StringField(index = 10)
         String jsonName;
-
-        /**
-         * <p><code>FieldOptions options = 8;</code>
-         */
-        @ProtobufMessage.MessageField(index = 8)
-        DescriptorProtos.FieldOptions options;
 
         /**
          * If true, this is a proto3 "optional". When a proto3 field is optional, it
@@ -1003,32 +1003,36 @@ public final class DescriptorProtos {
 
         FieldDescriptorProto(
                 String name,
+                String extendee,
                 int number,
                 DescriptorProtos.FieldDescriptorProto.Label label,
                 Type type,
                 String typeName,
-                String extendee,
                 String defaultValue,
+                DescriptorProtos.FieldOptions options,
                 int oneofIndex,
                 String jsonName,
-                DescriptorProtos.FieldOptions options,
                 boolean proto3Optional
         ) {
             this.name = name;
+            this.extendee = extendee;
             this.number = number;
             this.label = label;
             this.type = type;
             this.typeName = typeName;
-            this.extendee = extendee;
             this.defaultValue = defaultValue;
+            this.options = options;
             this.oneofIndex = oneofIndex;
             this.jsonName = jsonName;
-            this.options = options;
             this.proto3Optional = proto3Optional;
         }
 
         public String name() {
             return name;
+        }
+
+        public String extendee() {
+            return extendee;
         }
 
         public int number() {
@@ -1047,12 +1051,12 @@ public final class DescriptorProtos {
             return typeName;
         }
 
-        public String extendee() {
-            return extendee;
-        }
-
         public String defaultValue() {
             return defaultValue;
+        }
+
+        public DescriptorProtos.FieldOptions options() {
+            return options;
         }
 
         public int oneofIndex() {
@@ -1061,10 +1065,6 @@ public final class DescriptorProtos {
 
         public String jsonName() {
             return jsonName;
-        }
-
-        public DescriptorProtos.FieldOptions options() {
-            return options;
         }
 
         public boolean proto3Optional() {
@@ -1487,6 +1487,12 @@ public final class DescriptorProtos {
         String javaOuterClassname;
 
         /**
+         * <p><code>OptimizeMode optimize_for = 9;</code>
+         */
+        @ProtobufMessage.EnumField(index = 9)
+        DescriptorProtos.FileOptions.OptimizeMode optimizeFor;
+
+        /**
          * If enabled, then the Java code generator will generate a separate .java
          * file for each top-level message, enum, and service defined in the .proto
          * file.  Thus, these types will *not* be nested inside the wrapper class
@@ -1498,38 +1504,6 @@ public final class DescriptorProtos {
          */
         @ProtobufMessage.BoolField(index = 10)
         boolean javaMultipleFiles;
-
-        /**
-         * This option does nothing.
-         *
-         * <p><code>bool java_generate_equals_and_hash = 20;</code>
-         */
-        @Deprecated
-        @ProtobufMessage.BoolField(index = 20)
-        boolean javaGenerateEqualsAndHash;
-
-        /**
-         * A proto2 file can set this to true to opt in to UTF-8 checking for Java,
-         * which will throw an exception if invalid UTF-8 is parsed from the wire or
-         * assigned to a string field.
-         *
-         * <p>TODO: clarify exactly what kinds of field types this option
-         * applies to, and update these docs accordingly.
-         *
-         * <p>Proto3 files already perform these checks. Setting the option explicitly to
-         * false has no effect: it cannot be used to opt proto3 files out of UTF-8
-         * checks.
-         *
-         * <p><code>bool java_string_check_utf8 = 27;</code>
-         */
-        @ProtobufMessage.BoolField(index = 27)
-        boolean javaStringCheckUtf8;
-
-        /**
-         * <p><code>OptimizeMode optimize_for = 9;</code>
-         */
-        @ProtobufMessage.EnumField(index = 9)
-        DescriptorProtos.FileOptions.OptimizeMode optimizeFor;
 
         /**
          * Sets the Go package where structs generated from this .proto will be
@@ -1576,6 +1550,15 @@ public final class DescriptorProtos {
         boolean pyGenericServices;
 
         /**
+         * This option does nothing.
+         *
+         * <p><code>bool java_generate_equals_and_hash = 20;</code>
+         */
+        @Deprecated
+        @ProtobufMessage.BoolField(index = 20)
+        boolean javaGenerateEqualsAndHash;
+
+        /**
          * Is this file deprecated?
          * Depending on the target platform, this can emit Deprecated annotations
          * for everything in the file, or it will be completely ignored; in the very
@@ -1585,6 +1568,23 @@ public final class DescriptorProtos {
          */
         @ProtobufMessage.BoolField(index = 23)
         boolean deprecated;
+
+        /**
+         * A proto2 file can set this to true to opt in to UTF-8 checking for Java,
+         * which will throw an exception if invalid UTF-8 is parsed from the wire or
+         * assigned to a string field.
+         *
+         * <p>TODO: clarify exactly what kinds of field types this option
+         * applies to, and update these docs accordingly.
+         *
+         * <p>Proto3 files already perform these checks. Setting the option explicitly to
+         * false has no effect: it cannot be used to opt proto3 files out of UTF-8
+         * checks.
+         *
+         * <p><code>bool java_string_check_utf8 = 27;</code>
+         */
+        @ProtobufMessage.BoolField(index = 27)
+        boolean javaStringCheckUtf8;
 
         /**
          * Enables the use of arenas for the proto messages in this file. This applies
@@ -1686,15 +1686,15 @@ public final class DescriptorProtos {
         FileOptions(
                 String javaPackage,
                 String javaOuterClassname,
-                boolean javaMultipleFiles,
-                boolean javaGenerateEqualsAndHash,
-                boolean javaStringCheckUtf8,
                 DescriptorProtos.FileOptions.OptimizeMode optimizeFor,
+                boolean javaMultipleFiles,
                 String goPackage,
                 boolean ccGenericServices,
                 boolean javaGenericServices,
                 boolean pyGenericServices,
+                boolean javaGenerateEqualsAndHash,
                 boolean deprecated,
+                boolean javaStringCheckUtf8,
                 boolean ccEnableArenas,
                 String objcClassPrefix,
                 String csharpNamespace,
@@ -1708,15 +1708,15 @@ public final class DescriptorProtos {
         ) {
             this.javaPackage = javaPackage;
             this.javaOuterClassname = javaOuterClassname;
-            this.javaMultipleFiles = javaMultipleFiles;
-            this.javaGenerateEqualsAndHash = javaGenerateEqualsAndHash;
-            this.javaStringCheckUtf8 = javaStringCheckUtf8;
             this.optimizeFor = Objects.requireNonNullElse(optimizeFor, DescriptorProtos.FileOptions.OptimizeMode.SPEED);
+            this.javaMultipleFiles = javaMultipleFiles;
             this.goPackage = goPackage;
             this.ccGenericServices = ccGenericServices;
             this.javaGenericServices = javaGenericServices;
             this.pyGenericServices = pyGenericServices;
+            this.javaGenerateEqualsAndHash = javaGenerateEqualsAndHash;
             this.deprecated = deprecated;
+            this.javaStringCheckUtf8 = javaStringCheckUtf8;
             this.ccEnableArenas = ccEnableArenas;
             this.objcClassPrefix = objcClassPrefix;
             this.csharpNamespace = csharpNamespace;
@@ -1737,21 +1737,12 @@ public final class DescriptorProtos {
             return javaOuterClassname;
         }
 
-        public boolean javaMultipleFiles() {
-            return javaMultipleFiles;
-        }
-
-        @Deprecated
-        public boolean javaGenerateEqualsAndHash() {
-            return javaGenerateEqualsAndHash;
-        }
-
-        public boolean javaStringCheckUtf8() {
-            return javaStringCheckUtf8;
-        }
-
         public DescriptorProtos.FileOptions.OptimizeMode optimizeFor() {
             return optimizeFor;
+        }
+
+        public boolean javaMultipleFiles() {
+            return javaMultipleFiles;
         }
 
         public String goPackage() {
@@ -1770,8 +1761,17 @@ public final class DescriptorProtos {
             return pyGenericServices;
         }
 
+        @Deprecated
+        public boolean javaGenerateEqualsAndHash() {
+            return javaGenerateEqualsAndHash;
+        }
+
         public boolean deprecated() {
             return deprecated;
+        }
+
+        public boolean javaStringCheckUtf8() {
+            return javaStringCheckUtf8;
         }
 
         public boolean ccEnableArenas() {
@@ -2113,12 +2113,6 @@ public final class DescriptorProtos {
         public static final class EditionDefault {
 
             /**
-             * <p><code>Edition edition = 3;</code>
-             */
-            @ProtobufMessage.EnumField(index = 3)
-            DescriptorProtos.Edition edition;
-
-            /**
              * Textproto value.
              *
              * <p><code>string value = 2;</code>
@@ -2126,17 +2120,23 @@ public final class DescriptorProtos {
             @ProtobufMessage.StringField(index = 2)
             String value;
 
-            EditionDefault(DescriptorProtos.Edition edition, String value) {
-                this.edition = edition;
-                this.value = value;
-            }
+            /**
+             * <p><code>Edition edition = 3;</code>
+             */
+            @ProtobufMessage.EnumField(index = 3)
+            DescriptorProtos.Edition edition;
 
-            public DescriptorProtos.Edition edition() {
-                return edition;
+            EditionDefault(String value, DescriptorProtos.Edition edition) {
+                this.value = value;
+                this.edition = edition;
             }
 
             public String value() {
                 return value;
+            }
+
+            public DescriptorProtos.Edition edition() {
+                return edition;
             }
         }
 
@@ -2259,22 +2259,15 @@ public final class DescriptorProtos {
         boolean packed;
 
         /**
-         * The jstype option determines the JavaScript type used for values of the
-         * field.  The option is permitted only for 64 bit integral and fixed types
-         * (int64, uint64, sint64, fixed64, sfixed64).  A field with jstype JS_STRING
-         * is represented as JavaScript string, which avoids loss of precision that
-         * can happen when a large value is converted to a floating point JavaScript.
-         * Specifying JS_NUMBER for the jstype causes the generated JavaScript code to
-         * use the JavaScript "number" type.  The behavior of the default option
-         * JS_NORMAL is implementation dependent.
+         * Is this field deprecated?
+         * Depending on the target platform, this can emit Deprecated annotations
+         * for accessors, or it will be completely ignored; in the very least, this
+         * is a formalization for deprecating fields.
          *
-         * <p>This option is an enum to permit additional types to be added, e.g.
-         * goog.math.Integer.
-         *
-         * <p><code>JSType jstype = 6;</code>
+         * <p><code>bool deprecated = 3;</code>
          */
-        @ProtobufMessage.EnumField(index = 6)
-        DescriptorProtos.FieldOptions.JSType jstype;
+        @ProtobufMessage.BoolField(index = 3)
+        boolean deprecated;
 
         /**
          * Should this field be parsed lazily?  Lazy applies only to message-type
@@ -2306,25 +2299,22 @@ public final class DescriptorProtos {
         boolean lazy;
 
         /**
-         * unverified_lazy does no correctness checks on the byte stream. This should
-         * only be used where lazy with verification is prohibitive for performance
-         * reasons.
+         * The jstype option determines the JavaScript type used for values of the
+         * field.  The option is permitted only for 64 bit integral and fixed types
+         * (int64, uint64, sint64, fixed64, sfixed64).  A field with jstype JS_STRING
+         * is represented as JavaScript string, which avoids loss of precision that
+         * can happen when a large value is converted to a floating point JavaScript.
+         * Specifying JS_NUMBER for the jstype causes the generated JavaScript code to
+         * use the JavaScript "number" type.  The behavior of the default option
+         * JS_NORMAL is implementation dependent.
          *
-         * <p><code>bool unverified_lazy = 15;</code>
-         */
-        @ProtobufMessage.BoolField(index = 15)
-        boolean unverifiedLazy;
-
-        /**
-         * Is this field deprecated?
-         * Depending on the target platform, this can emit Deprecated annotations
-         * for accessors, or it will be completely ignored; in the very least, this
-         * is a formalization for deprecating fields.
+         * <p>This option is an enum to permit additional types to be added, e.g.
+         * goog.math.Integer.
          *
-         * <p><code>bool deprecated = 3;</code>
+         * <p><code>JSType jstype = 6;</code>
          */
-        @ProtobufMessage.BoolField(index = 3)
-        boolean deprecated;
+        @ProtobufMessage.EnumField(index = 6)
+        DescriptorProtos.FieldOptions.JSType jstype;
 
         /**
          * DEPRECATED. DO NOT USE!
@@ -2335,6 +2325,16 @@ public final class DescriptorProtos {
         @Deprecated
         @ProtobufMessage.BoolField(index = 10)
         boolean weak;
+
+        /**
+         * unverified_lazy does no correctness checks on the byte stream. This should
+         * only be used where lazy with verification is prohibitive for performance
+         * reasons.
+         *
+         * <p><code>bool unverified_lazy = 15;</code>
+         */
+        @ProtobufMessage.BoolField(index = 15)
+        boolean unverifiedLazy;
 
         /**
          * Indicate that the field value should not be printed out when using debug
@@ -2391,11 +2391,11 @@ public final class DescriptorProtos {
         FieldOptions(
                 DescriptorProtos.FieldOptions.CType ctype,
                 boolean packed,
-                DescriptorProtos.FieldOptions.JSType jstype,
-                boolean lazy,
-                boolean unverifiedLazy,
                 boolean deprecated,
+                boolean lazy,
+                DescriptorProtos.FieldOptions.JSType jstype,
                 boolean weak,
+                boolean unverifiedLazy,
                 boolean debugRedact,
                 DescriptorProtos.FieldOptions.OptionRetention retention,
                 List<DescriptorProtos.FieldOptions.OptionTargetType> targets,
@@ -2406,11 +2406,11 @@ public final class DescriptorProtos {
         ) {
             this.ctype = Objects.requireNonNullElse(ctype, DescriptorProtos.FieldOptions.CType.STRING);
             this.packed = packed;
-            this.jstype = Objects.requireNonNullElse(jstype, DescriptorProtos.FieldOptions.JSType.JS_NORMAL);
-            this.lazy = lazy;
-            this.unverifiedLazy = unverifiedLazy;
             this.deprecated = deprecated;
+            this.lazy = lazy;
+            this.jstype = Objects.requireNonNullElse(jstype, DescriptorProtos.FieldOptions.JSType.JS_NORMAL);
             this.weak = weak;
+            this.unverifiedLazy = unverifiedLazy;
             this.debugRedact = debugRedact;
             this.retention = retention;
             this.targets = targets;
@@ -2428,25 +2428,25 @@ public final class DescriptorProtos {
             return packed;
         }
 
-        public DescriptorProtos.FieldOptions.JSType jstype() {
-            return jstype;
+        public boolean deprecated() {
+            return deprecated;
         }
 
         public boolean lazy() {
             return lazy;
         }
 
-        public boolean unverifiedLazy() {
-            return unverifiedLazy;
-        }
-
-        public boolean deprecated() {
-            return deprecated;
+        public DescriptorProtos.FieldOptions.JSType jstype() {
+            return jstype;
         }
 
         @Deprecated
         public boolean weak() {
             return weak;
+        }
+
+        public boolean unverifiedLazy() {
+            return unverifiedLazy;
         }
 
         public boolean debugRedact() {
@@ -2715,17 +2715,6 @@ public final class DescriptorProtos {
         // proto: extensions 1000 to max
 
         /**
-         * Any features defined in the specific edition.
-         * WARNING: This field should only be used by protobuf plugins or special
-         * cases like the proto compiler. Other uses are discouraged and
-         * developers should rely on the protoreflect APIs for their client language.
-         *
-         * <p><code>FeatureSet features = 34;</code>
-         */
-        @ProtobufMessage.MessageField(index = 34)
-        DescriptorProtos.FeatureSet features;
-
-        /**
          * Is this service deprecated?
          * Depending on the target platform, this can emit Deprecated annotations
          * for the service, or it will be completely ignored; in the very least,
@@ -2737,6 +2726,17 @@ public final class DescriptorProtos {
         boolean deprecated;
 
         /**
+         * Any features defined in the specific edition.
+         * WARNING: This field should only be used by protobuf plugins or special
+         * cases like the proto compiler. Other uses are discouraged and
+         * developers should rely on the protoreflect APIs for their client language.
+         *
+         * <p><code>FeatureSet features = 34;</code>
+         */
+        @ProtobufMessage.MessageField(index = 34)
+        DescriptorProtos.FeatureSet features;
+
+        /**
          * The parser stores options it doesn't recognize here. See above.
          *
          * <p><code>repeated UninterpretedOption uninterpreted_option = 999;</code>
@@ -2745,21 +2745,21 @@ public final class DescriptorProtos {
         List<DescriptorProtos.UninterpretedOption> uninterpretedOption;
 
         ServiceOptions(
-                DescriptorProtos.FeatureSet features,
                 boolean deprecated,
+                DescriptorProtos.FeatureSet features,
                 List<DescriptorProtos.UninterpretedOption> uninterpretedOption
         ) {
-            this.features = features;
             this.deprecated = deprecated;
+            this.features = features;
             this.uninterpretedOption = uninterpretedOption;
-        }
-
-        public DescriptorProtos.FeatureSet features() {
-            return features;
         }
 
         public boolean deprecated() {
             return deprecated;
+        }
+
+        public DescriptorProtos.FeatureSet features() {
+            return features;
         }
 
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {

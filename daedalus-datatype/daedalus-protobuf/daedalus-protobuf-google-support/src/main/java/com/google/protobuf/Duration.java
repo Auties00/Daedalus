@@ -10,7 +10,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  * two Timestamp values is a Duration and it can be added or subtracted
  * from a Timestamp. Range is approximately +-10,000 years.
  *
- * <h3>Examples</h3>
+ * <h2>Examples</h2>
  *
  *
  * <p>Example 1: Compute Duration from two Timestamps in pseudo code.
@@ -59,7 +59,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  *   duration.FromTimedelta(td)
  * </pre>
  *
- * <h3>JSON Mapping</h3>
+ * <h2>JSON Mapping</h2>
  *
  *
  * <p>In JSON format, the Duration type is encoded as a string rather than an
