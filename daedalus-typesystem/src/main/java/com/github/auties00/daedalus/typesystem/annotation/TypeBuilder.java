@@ -106,45 +106,46 @@ public @interface TypeBuilder {
      *
      * <p>The annotated method must be {@code static}, must have at least one
      * parameter, and must return the same type as its first parameter. When a
-     * builder field's type is assignable from the first parameter of the
-     * annotated method, the processor generates an additional convenience
-     * method on the builder that delegates to the annotated static method,
-     * passing the builder field as the first argument and forwarding the
-     * remaining parameters. The return value is assigned back to the builder
-     * field, allowing the mixin to handle {@code null} fields by creating a
-     * new instance. The generated method returns the builder instance for
-     * fluent chaining.
+     * mixin matches, the processor generates a convenience method on the
+     * builder that delegates to the annotated static method, passing the
+     * matched value as the first argument and forwarding the remaining
+     * parameters. The return value is assigned back, allowing the mixin to
+     * handle {@code null} values by creating a new instance. The generated
+     * method returns the builder instance for fluent chaining.
      *
-     * <p>Multiple mixins can match the same builder field, in which case a
-     * separate convenience method is generated for each matching mixin.
+     * <p>This annotation operates in two distinct matching modes depending on
+     * where the annotated method is declared:
      *
-     * <p>This annotation can also be used on static methods declared directly
-     * within a type that is {@link TypeBuilder} annotated, either explicitly
-     * or implicitly (for example, types managed by a specific data format may
-     * be implicitly {@code @TypeBuilder} annotated). In this case, the first
-     * parameter must match the enclosing type.
+     * <h2>Field-level mixin (external mixin class):</h2>
      *
-     * <p>The name of the generated builder method is determined by
-     * {@link #builderMethodName()}, which accepts an array of segments that
-     * are camelCase-joined at generation time. Segments can be literal strings
-     * or placeholder constants defined on {@link TypeBuilder} ({@link #FIELD_NAME},
-     * {@link #CLASS_NAME}, {@link #FIELD_TYPE_NAME}).
+     * <p>When the annotated method is declared in an external class, it
+     * matches against individual builder <em>fields</em>. A mixin is applicable
+     * to a field if its first parameter type, after substituting the method's
+     * type variables against the field type, is exactly equal to the field
+     * type. Strict type equality is required because the mixin both consumes
+     * the field as its first parameter and assigns its return value back to
+     * the same field — both directions must typecheck, which collapses to
+     * type equality. As a consequence, a {@code Collection<T>} mixin is
+     * <em>not</em> applied to a {@code List<String>} field even though
+     * {@code List<String>} is assignable to {@code Collection<String>}; the
+     * mixin's {@code Collection<String>} return value cannot be assigned back
+     * to the {@code List<String>} field. To support a {@code List<String>}
+     * field, declare the mixin method directly for {@code List<T>}.
      *
-     * <h2>In an external mixin class:</h2>
      * <pre>{@code
-     * public final class CollectionMixin {
+     * public final class ListMixin {
      *     @TypeBuilder.Mixin(builderMethodName = {"add", TypeBuilder.FIELD_NAME})
-     *     public static <T> Collection<T> addElement(Collection<T> collection, T value) {
-     *         if (collection == null) {
+     *     public static <T> List<T> addElement(List<T> list, T value) {
+     *         if (list == null) {
      *             var result = new ArrayList<T>();
      *             result.add(value);
      *             return result;
      *         } else {
      *             try {
-     *                 collection.add(value);
-     *                 return collection;
+     *                 list.add(value);
+     *                 return list;
      *             } catch (UnsupportedOperationException _) {
-     *                 var result = new ArrayList<>(collection);
+     *                 var result = new ArrayList<>(list);
      *                 result.add(value);
      *                 return result;
      *             }
@@ -156,9 +157,19 @@ public @interface TypeBuilder {
      * <p>A builder with a {@code List<String>} field named {@code tags} would
      * receive a method named {@code addTags(String value)}. The generated
      * method assigns the return value back to the field:
-     * {@code this.tags = CollectionMixin.addElement(this.tags, value)}.
+     * {@code this.tags = ListMixin.addElement(this.tags, value)}.
      *
-     * <h2>Inside a {@link TypeBuilder} annotated type:</h2>
+     * <h2>Type-level mixin (inside a {@link TypeBuilder} annotated type):</h2>
+     *
+     * <p>This annotation can also be used on static methods declared directly
+     * within a type that is {@link TypeBuilder} annotated, either explicitly
+     * or implicitly (for example, types managed by a specific data format may
+     * be implicitly {@code @TypeBuilder} annotated). In this mode the matching
+     * rule is different: the first parameter must equal the <em>enclosing
+     * type</em> rather than any individual field. The generated convenience
+     * method operates on the entire built instance rather than on a single
+     * field, and the return value replaces the in-progress builder state.
+     *
      * <pre>{@code
      * public class TagsMessage {
      *     private final List<String> tags;
@@ -181,6 +192,15 @@ public @interface TypeBuilder {
      *     }
      * }
      * }</pre>
+     *
+     * <p>Multiple mixins can match the same builder field (or enclosing type),
+     * in which case a separate convenience method is generated for each match.
+     *
+     * <p>The name of the generated builder method is determined by
+     * {@link #builderMethodName()}, which accepts an array of segments that
+     * are camelCase-joined at generation time. Segments can be literal strings
+     * or placeholder constants defined on {@link TypeBuilder} ({@link #FIELD_NAME},
+     * {@link #CLASS_NAME}, {@link #FIELD_TYPE_NAME}).
      *
      * @see TypeBuilder
      */
