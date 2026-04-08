@@ -3,6 +3,7 @@ package com.google.protobuf;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufReservedRange;
+import com.github.auties00.daedalus.protobuf.model.ProtobufUnknownFieldsStore;
 
 import java.util.Collections;
 import java.util.List;
@@ -737,16 +738,29 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 999)
         List<DescriptorProtos.UninterpretedOption> uninterpretedOption;
 
+        /**
+         * The store for unknown wire-level fields preserved during deserialization.
+         *
+         * <p>This carries any custom user extensions whose definitions were resolved
+         * by the parser but for which the canonical descriptor model has no typed
+         * representation. The codegen reads them on the way in and re-emits them on
+         * the way out.
+         */
+        @ProtobufMessage.UnknownFields
+        ProtobufUnknownFieldsStore unknownFields;
+
         ExtensionRangeOptions(
                 List<DescriptorProtos.ExtensionRangeOptions.Declaration> declaration,
                 DescriptorProtos.ExtensionRangeOptions.VerificationState verification,
                 DescriptorProtos.FeatureSet features,
-                List<DescriptorProtos.UninterpretedOption> uninterpretedOption
+                List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
+                ProtobufUnknownFieldsStore unknownFields
         ) {
             this.declaration = declaration;
             this.verification = Objects.requireNonNullElse(verification, DescriptorProtos.ExtensionRangeOptions.VerificationState.UNVERIFIED);
             this.features = features;
             this.uninterpretedOption = uninterpretedOption;
+            this.unknownFields = unknownFields;
         }
 
         public SequencedCollection<DescriptorProtos.ExtensionRangeOptions.Declaration> declaration() {
@@ -763,6 +777,10 @@ public final class DescriptorProtos {
 
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
+        }
+
+        public ProtobufUnknownFieldsStore unknownFields() {
+            return unknownFields;
         }
     }
 
@@ -1683,6 +1701,17 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 999)
         List<DescriptorProtos.UninterpretedOption> uninterpretedOption;
 
+        /**
+         * The store for unknown wire-level fields preserved during deserialization.
+         *
+         * <p>This carries any custom user extensions whose definitions were resolved
+         * by the parser but for which the canonical descriptor model has no typed
+         * representation. The codegen reads them on the way in and re-emits them on
+         * the way out.
+         */
+        @ProtobufMessage.UnknownFields
+        ProtobufUnknownFieldsStore unknownFields;
+
         FileOptions(
                 String javaPackage,
                 String javaOuterClassname,
@@ -1704,7 +1733,8 @@ public final class DescriptorProtos {
                 String phpMetadataNamespace,
                 String rubyPackage,
                 DescriptorProtos.FeatureSet features,
-                List<DescriptorProtos.UninterpretedOption> uninterpretedOption
+                List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
+                ProtobufUnknownFieldsStore unknownFields
         ) {
             this.javaPackage = javaPackage;
             this.javaOuterClassname = javaOuterClassname;
@@ -1727,6 +1757,7 @@ public final class DescriptorProtos {
             this.rubyPackage = rubyPackage;
             this.features = features;
             this.uninterpretedOption = uninterpretedOption;
+            this.unknownFields = unknownFields;
         }
 
         public String javaPackage() {
@@ -1812,6 +1843,10 @@ public final class DescriptorProtos {
 
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
+        }
+
+        public ProtobufUnknownFieldsStore unknownFields() {
+            return unknownFields;
         }
     }
 
@@ -1944,6 +1979,17 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 999)
         List<DescriptorProtos.UninterpretedOption> uninterpretedOption;
 
+        /**
+         * The store for unknown wire-level fields preserved during deserialization.
+         *
+         * <p>This carries any custom user extensions whose definitions were resolved
+         * by the parser but for which the canonical descriptor model has no typed
+         * representation. The codegen reads them on the way in and re-emits them on
+         * the way out.
+         */
+        @ProtobufMessage.UnknownFields
+        ProtobufUnknownFieldsStore unknownFields;
+
         MessageOptions(
                 boolean messageSetWireFormat,
                 boolean noStandardDescriptorAccessor,
@@ -1951,7 +1997,8 @@ public final class DescriptorProtos {
                 boolean mapEntry,
                 boolean deprecatedLegacyJsonFieldConflicts,
                 DescriptorProtos.FeatureSet features,
-                List<DescriptorProtos.UninterpretedOption> uninterpretedOption
+                List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
+                ProtobufUnknownFieldsStore unknownFields
         ) {
             this.messageSetWireFormat = messageSetWireFormat;
             this.noStandardDescriptorAccessor = noStandardDescriptorAccessor;
@@ -1960,6 +2007,7 @@ public final class DescriptorProtos {
             this.deprecatedLegacyJsonFieldConflicts = deprecatedLegacyJsonFieldConflicts;
             this.features = features;
             this.uninterpretedOption = uninterpretedOption;
+            this.unknownFields = unknownFields;
         }
 
         public boolean messageSetWireFormat() {
@@ -1989,6 +2037,10 @@ public final class DescriptorProtos {
 
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
+        }
+
+        public ProtobufUnknownFieldsStore unknownFields() {
+            return unknownFields;
         }
     }
 
@@ -2388,6 +2440,17 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 999)
         List<DescriptorProtos.UninterpretedOption> uninterpretedOption;
 
+        /**
+         * The store for unknown wire-level fields preserved during deserialization.
+         *
+         * <p>This carries any custom user extensions whose definitions were resolved
+         * by the parser but for which the canonical descriptor model has no typed
+         * representation. The codegen reads them on the way in and re-emits them on
+         * the way out.
+         */
+        @ProtobufMessage.UnknownFields
+        ProtobufUnknownFieldsStore unknownFields;
+
         FieldOptions(
                 DescriptorProtos.FieldOptions.CType ctype,
                 boolean packed,
@@ -2402,7 +2465,8 @@ public final class DescriptorProtos {
                 List<DescriptorProtos.FieldOptions.EditionDefault> editionDefaults,
                 DescriptorProtos.FeatureSet features,
                 DescriptorProtos.FieldOptions.FeatureSupport featureSupport,
-                List<DescriptorProtos.UninterpretedOption> uninterpretedOption
+                List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
+                ProtobufUnknownFieldsStore unknownFields
         ) {
             this.ctype = Objects.requireNonNullElse(ctype, DescriptorProtos.FieldOptions.CType.STRING);
             this.packed = packed;
@@ -2418,6 +2482,7 @@ public final class DescriptorProtos {
             this.features = features;
             this.featureSupport = featureSupport;
             this.uninterpretedOption = uninterpretedOption;
+            this.unknownFields = unknownFields;
         }
 
         public DescriptorProtos.FieldOptions.CType ctype() {
@@ -2476,6 +2541,10 @@ public final class DescriptorProtos {
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
         }
+
+        public ProtobufUnknownFieldsStore unknownFields() {
+            return unknownFields;
+        }
     }
 
     /**
@@ -2504,12 +2573,25 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 999)
         List<DescriptorProtos.UninterpretedOption> uninterpretedOption;
 
+        /**
+         * The store for unknown wire-level fields preserved during deserialization.
+         *
+         * <p>This carries any custom user extensions whose definitions were resolved
+         * by the parser but for which the canonical descriptor model has no typed
+         * representation. The codegen reads them on the way in and re-emits them on
+         * the way out.
+         */
+        @ProtobufMessage.UnknownFields
+        ProtobufUnknownFieldsStore unknownFields;
+
         OneofOptions(
                 DescriptorProtos.FeatureSet features,
-                List<DescriptorProtos.UninterpretedOption> uninterpretedOption
+                List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
+                ProtobufUnknownFieldsStore unknownFields
         ) {
             this.features = features;
             this.uninterpretedOption = uninterpretedOption;
+            this.unknownFields = unknownFields;
         }
 
         public DescriptorProtos.FeatureSet features() {
@@ -2518,6 +2600,10 @@ public final class DescriptorProtos {
 
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
+        }
+
+        public ProtobufUnknownFieldsStore unknownFields() {
+            return unknownFields;
         }
     }
 
@@ -2581,18 +2667,31 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 999)
         List<DescriptorProtos.UninterpretedOption> uninterpretedOption;
 
+        /**
+         * The store for unknown wire-level fields preserved during deserialization.
+         *
+         * <p>This carries any custom user extensions whose definitions were resolved
+         * by the parser but for which the canonical descriptor model has no typed
+         * representation. The codegen reads them on the way in and re-emits them on
+         * the way out.
+         */
+        @ProtobufMessage.UnknownFields
+        ProtobufUnknownFieldsStore unknownFields;
+
         EnumOptions(
                 boolean allowAlias,
                 boolean deprecated,
                 boolean deprecatedLegacyJsonFieldConflicts,
                 DescriptorProtos.FeatureSet features,
-                List<DescriptorProtos.UninterpretedOption> uninterpretedOption
+                List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
+                ProtobufUnknownFieldsStore unknownFields
         ) {
             this.allowAlias = allowAlias;
             this.deprecated = deprecated;
             this.deprecatedLegacyJsonFieldConflicts = deprecatedLegacyJsonFieldConflicts;
             this.features = features;
             this.uninterpretedOption = uninterpretedOption;
+            this.unknownFields = unknownFields;
         }
 
         public boolean allowAlias() {
@@ -2614,6 +2713,10 @@ public final class DescriptorProtos {
 
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
+        }
+
+        public ProtobufUnknownFieldsStore unknownFields() {
+            return unknownFields;
         }
     }
 
@@ -2672,18 +2775,31 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 999)
         List<DescriptorProtos.UninterpretedOption> uninterpretedOption;
 
+        /**
+         * The store for unknown wire-level fields preserved during deserialization.
+         *
+         * <p>This carries any custom user extensions whose definitions were resolved
+         * by the parser but for which the canonical descriptor model has no typed
+         * representation. The codegen reads them on the way in and re-emits them on
+         * the way out.
+         */
+        @ProtobufMessage.UnknownFields
+        ProtobufUnknownFieldsStore unknownFields;
+
         EnumValueOptions(
                 boolean deprecated,
                 DescriptorProtos.FeatureSet features,
                 boolean debugRedact,
                 DescriptorProtos.FieldOptions.FeatureSupport featureSupport,
-                List<DescriptorProtos.UninterpretedOption> uninterpretedOption
+                List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
+                ProtobufUnknownFieldsStore unknownFields
         ) {
             this.deprecated = deprecated;
             this.features = features;
             this.debugRedact = debugRedact;
             this.featureSupport = featureSupport;
             this.uninterpretedOption = uninterpretedOption;
+            this.unknownFields = unknownFields;
         }
 
         public boolean deprecated() {
@@ -2704,6 +2820,10 @@ public final class DescriptorProtos {
 
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
+        }
+
+        public ProtobufUnknownFieldsStore unknownFields() {
+            return unknownFields;
         }
     }
 
@@ -2744,14 +2864,27 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 999)
         List<DescriptorProtos.UninterpretedOption> uninterpretedOption;
 
+        /**
+         * The store for unknown wire-level fields preserved during deserialization.
+         *
+         * <p>This carries any custom user extensions whose definitions were resolved
+         * by the parser but for which the canonical descriptor model has no typed
+         * representation. The codegen reads them on the way in and re-emits them on
+         * the way out.
+         */
+        @ProtobufMessage.UnknownFields
+        ProtobufUnknownFieldsStore unknownFields;
+
         ServiceOptions(
                 boolean deprecated,
                 DescriptorProtos.FeatureSet features,
-                List<DescriptorProtos.UninterpretedOption> uninterpretedOption
+                List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
+                ProtobufUnknownFieldsStore unknownFields
         ) {
             this.deprecated = deprecated;
             this.features = features;
             this.uninterpretedOption = uninterpretedOption;
+            this.unknownFields = unknownFields;
         }
 
         public boolean deprecated() {
@@ -2764,6 +2897,10 @@ public final class DescriptorProtos {
 
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
+        }
+
+        public ProtobufUnknownFieldsStore unknownFields() {
+            return unknownFields;
         }
     }
 
@@ -2835,16 +2972,29 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 999)
         List<DescriptorProtos.UninterpretedOption> uninterpretedOption;
 
+        /**
+         * The store for unknown wire-level fields preserved during deserialization.
+         *
+         * <p>This carries any custom user extensions whose definitions were resolved
+         * by the parser but for which the canonical descriptor model has no typed
+         * representation. The codegen reads them on the way in and re-emits them on
+         * the way out.
+         */
+        @ProtobufMessage.UnknownFields
+        ProtobufUnknownFieldsStore unknownFields;
+
         MethodOptions(
                 boolean deprecated,
                 DescriptorProtos.MethodOptions.IdempotencyLevel idempotencyLevel,
                 DescriptorProtos.FeatureSet features,
-                List<DescriptorProtos.UninterpretedOption> uninterpretedOption
+                List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
+                ProtobufUnknownFieldsStore unknownFields
         ) {
             this.deprecated = deprecated;
             this.idempotencyLevel = Objects.requireNonNullElse(idempotencyLevel, DescriptorProtos.MethodOptions.IdempotencyLevel.IDEMPOTENCY_UNKNOWN);
             this.features = features;
             this.uninterpretedOption = uninterpretedOption;
+            this.unknownFields = unknownFields;
         }
 
         public boolean deprecated() {
@@ -2861,6 +3011,10 @@ public final class DescriptorProtos {
 
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
+        }
+
+        public ProtobufUnknownFieldsStore unknownFields() {
+            return unknownFields;
         }
     }
 
@@ -3215,6 +3369,38 @@ public final class DescriptorProtos {
         @ProtobufMessage.EnumField(index = 7)
         DescriptorProtos.FeatureSet.EnforceNamingStyle enforceNamingStyle;
 
+        /**
+         * C++ specific feature extension declared by {@code cpp_features.proto}.
+         *
+         * <p><code>CppFeatures (pb.cpp) = 1000;</code>
+         */
+        @ProtobufMessage.MessageField(index = 1000)
+        CppFeaturesProto.CppFeatures cppFeatures;
+
+        /**
+         * Java specific feature extension declared by {@code java_features.proto}.
+         *
+         * <p><code>JavaFeatures (pb.java) = 1001;</code>
+         */
+        @ProtobufMessage.MessageField(index = 1001)
+        JavaFeaturesProto.JavaFeatures javaFeatures;
+
+        /**
+         * Go specific feature extension declared by {@code go_features.proto}.
+         *
+         * <p><code>GoFeatures (pb.go) = 1002;</code>
+         */
+        @ProtobufMessage.MessageField(index = 1002)
+        GoFeaturesProto.GoFeatures goFeatures;
+
+        /**
+         * Java mutable feature extension declared by {@code java_mutable_features.proto}.
+         *
+         * <p><code>JavaMutableFeatures (pb.java_mutable) = 9989;</code>
+         */
+        @ProtobufMessage.MessageField(index = 9989)
+        JavaMutableFeaturesProto.JavaMutableFeatures javaMutableFeatures;
+
         FeatureSet(
                 DescriptorProtos.FeatureSet.FieldPresence fieldPresence,
                 DescriptorProtos.FeatureSet.EnumType enumType,
@@ -3222,7 +3408,11 @@ public final class DescriptorProtos {
                 JavaFeaturesProto.JavaFeatures.Utf8Validation utf8Validation,
                 DescriptorProtos.FeatureSet.MessageEncoding messageEncoding,
                 DescriptorProtos.FeatureSet.JsonFormat jsonFormat,
-                DescriptorProtos.FeatureSet.EnforceNamingStyle enforceNamingStyle
+                DescriptorProtos.FeatureSet.EnforceNamingStyle enforceNamingStyle,
+                CppFeaturesProto.CppFeatures cppFeatures,
+                JavaFeaturesProto.JavaFeatures javaFeatures,
+                GoFeaturesProto.GoFeatures goFeatures,
+                JavaMutableFeaturesProto.JavaMutableFeatures javaMutableFeatures
         ) {
             this.fieldPresence = fieldPresence;
             this.enumType = enumType;
@@ -3231,6 +3421,10 @@ public final class DescriptorProtos {
             this.messageEncoding = messageEncoding;
             this.jsonFormat = jsonFormat;
             this.enforceNamingStyle = enforceNamingStyle;
+            this.cppFeatures = cppFeatures;
+            this.javaFeatures = javaFeatures;
+            this.goFeatures = goFeatures;
+            this.javaMutableFeatures = javaMutableFeatures;
         }
 
         public DescriptorProtos.FeatureSet.FieldPresence fieldPresence() {
@@ -3259,6 +3453,22 @@ public final class DescriptorProtos {
 
         public DescriptorProtos.FeatureSet.EnforceNamingStyle enforceNamingStyle() {
             return enforceNamingStyle;
+        }
+
+        public CppFeaturesProto.CppFeatures cppFeatures() {
+            return cppFeatures;
+        }
+
+        public JavaFeaturesProto.JavaFeatures javaFeatures() {
+            return javaFeatures;
+        }
+
+        public GoFeaturesProto.GoFeatures goFeatures() {
+            return goFeatures;
+        }
+
+        public JavaMutableFeaturesProto.JavaMutableFeatures javaMutableFeatures() {
+            return javaMutableFeatures;
         }
     }
 

@@ -126,14 +126,14 @@ public final class JavaFeaturesProto {
          * <p><code>NestInFileClassFeature.NestInFileClass nest_in_file_class = 5;</code>
          */
         @ProtobufMessage.EnumField(index = 5)
-        JavaMutableFeaturesProto.JavaMutableFeatures.NestInFileClassFeature.NestInFileClass nestInFileClass;
+        JavaFeaturesProto.JavaFeatures.NestInFileClassFeature.NestInFileClass nestInFileClass;
 
         JavaFeatures(
                 boolean legacyClosedEnum,
                 JavaFeaturesProto.JavaFeatures.Utf8Validation utf8Validation,
                 boolean largeEnum,
                 boolean useOldOuterClassnameDefault,
-                JavaMutableFeaturesProto.JavaMutableFeatures.NestInFileClassFeature.NestInFileClass nestInFileClass
+                JavaFeaturesProto.JavaFeatures.NestInFileClassFeature.NestInFileClass nestInFileClass
         ) {
             this.legacyClosedEnum = legacyClosedEnum;
             this.utf8Validation = utf8Validation;
@@ -158,7 +158,7 @@ public final class JavaFeaturesProto {
             return useOldOuterClassnameDefault;
         }
 
-        public JavaMutableFeaturesProto.JavaMutableFeatures.NestInFileClassFeature.NestInFileClass nestInFileClass() {
+        public JavaFeaturesProto.JavaFeatures.NestInFileClassFeature.NestInFileClass nestInFileClass() {
             return nestInFileClass;
         }
     }
