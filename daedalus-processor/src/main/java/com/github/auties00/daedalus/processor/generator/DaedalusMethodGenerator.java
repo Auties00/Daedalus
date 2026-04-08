@@ -11,12 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * An abstract base class for method generators that create individual methods in Spec
- * classes using JavaPoet.
- *
- * <p>Provides method signature construction, Spec class name resolution, deferred
- * operations, and type utilities. Subclasses implement the abstract hooks to define
- * the method's name, parameters, return type, modifiers, and body.
+ * An abstract base class for method generators that create individual methods in classes.
  */
 public abstract class DaedalusMethodGenerator {
     private static final ConcurrentMap<String, String> SPECS_CACHE = new ConcurrentHashMap<>();
@@ -103,6 +98,10 @@ public abstract class DaedalusMethodGenerator {
         methodBuilder.addModifiers(modifiers().toArray(new Modifier[0]));
         methodBuilder.returns(returnType());
 
+        for (var annotation : annotations()) {
+            methodBuilder.addAnnotation(annotation);
+        }
+
         for (var i = 0; i < parametersTypes.size(); i++) {
             var paramType = parametersTypes.get(i);
             var paramName = parametersNames.get(i);
@@ -170,6 +169,16 @@ public abstract class DaedalusMethodGenerator {
      * @return the parameter names
      */
     protected abstract List<String> parametersNames();
+
+    /**
+     * Returns the annotations to apply to the generated method.
+     *
+     * <p>The default implementation returns an empty list. Subclasses may override
+     * to attach method-level annotations (for example, {@code @TypeSerializer}).
+     *
+     * @return the list of annotation specs to apply
+     */
+    public abstract List<AnnotationSpec> annotations();
 
     /**
      * Returns a code expression that accesses the given element on the given object.

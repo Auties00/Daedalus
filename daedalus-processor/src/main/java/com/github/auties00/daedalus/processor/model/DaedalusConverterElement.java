@@ -3,7 +3,8 @@ package com.github.auties00.daedalus.processor.model;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * A converter element that represents a type conversion step in a serialization
@@ -37,13 +38,20 @@ public sealed interface DaedalusConverterElement {
          * @param delegate the converter method that performs the serialization
          * @param parameterType the input type of the conversion
          * @param returnType the output type of the conversion
+         * @param sizer the size calculation method for {@code parameterType}, or
+         *        {@code null} if no sizer is registered for this step
          */
         record Serializer(
                 DaedalusMethodElement delegate,
                 TypeMirror parameterType,
-                TypeMirror returnType
+                TypeMirror returnType,
+                DaedalusMethodElement sizer
         ) implements Attributed {
-
+            public Serializer {
+                Objects.requireNonNull(delegate, "delegate cannot be null");
+                Objects.requireNonNull(parameterType, "parameterType cannot be null");
+                Objects.requireNonNull(returnType, "returnType cannot be null");
+            }
         }
 
         /**
@@ -58,7 +66,11 @@ public sealed interface DaedalusConverterElement {
                 TypeMirror parameterType,
                 TypeMirror returnType
         ) implements Attributed {
-
+            public Deserializer {
+                Objects.requireNonNull(delegate, "delegate cannot be null");
+                Objects.requireNonNull(parameterType, "parameterType cannot be null");
+                Objects.requireNonNull(returnType, "returnType cannot be null");
+            }
         }
     }
 
@@ -69,7 +81,6 @@ public sealed interface DaedalusConverterElement {
      * @param invoker the element that triggered this conversion requirement
      * @param from the source type of the conversion
      * @param to the target type of the conversion
-     * @param targetDescription a textual description of the expected target format
      * @param mixins the mixin type elements to consider during path resolution
      * @param type whether this element represents a serializer or deserializer
      */
@@ -77,10 +88,16 @@ public sealed interface DaedalusConverterElement {
             Element invoker,
             TypeMirror from,
             TypeMirror to,
-            String targetDescription,
-            List<TypeElement> mixins,
+            Set<TypeElement> mixins,
             Type type
     ) implements DaedalusConverterElement {
+        public Unattributed {
+            Objects.requireNonNull(invoker, "invoker cannot be null");
+            Objects.requireNonNull(from, "from cannot be null");
+            Objects.requireNonNull(to, "to cannot be null");
+            Objects.requireNonNull(mixins, "mixins cannot be null");
+            Objects.requireNonNull(type, "type cannot be null");
+        }
 
         /**
          * The direction of a converter element.

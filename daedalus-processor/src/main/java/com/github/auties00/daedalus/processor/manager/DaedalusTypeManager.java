@@ -27,23 +27,25 @@ import java.util.stream.Stream;
  */
 public class DaedalusTypeManager {
 
-    private final ProcessingEnvironment processingEnv;
-    private final TypeMirror booleanType;
-    private final TypeMirror byteType;
-    private final TypeMirror shortType;
-    private final TypeMirror intType;
-    private final TypeMirror longType;
-    private final TypeMirror charType;
-    private final TypeMirror floatType;
-    private final TypeMirror doubleType;
-    private final TypeMirror wrappedBooleanType;
-    private final TypeMirror wrappedByteType;
-    private final TypeMirror wrappedShortType;
-    private final TypeMirror wrappedIntType;
-    private final TypeMirror wrappedLongType;
-    private final TypeMirror wrappedCharType;
-    private final TypeMirror wrappedFloatType;
-    private final TypeMirror wrappedDoubleType;
+    protected final ProcessingEnvironment processingEnv;
+    protected final TypeMirror booleanType;
+    protected final TypeMirror byteType;
+    protected final TypeMirror shortType;
+    protected final TypeMirror intType;
+    protected final TypeMirror longType;
+    protected final TypeMirror charType;
+    protected final TypeMirror floatType;
+    protected final TypeMirror doubleType;
+    protected final TypeMirror wrappedBooleanType;
+    protected final TypeMirror wrappedByteType;
+    protected final TypeMirror wrappedShortType;
+    protected final TypeMirror wrappedIntType;
+    protected final TypeMirror wrappedLongType;
+    protected final TypeMirror wrappedCharType;
+    protected final TypeMirror wrappedFloatType;
+    protected final TypeMirror wrappedDoubleType;
+    protected final TypeMirror byteArrayType;
+    protected final TypeMirror stringType;
 
     /**
      * Constructs a new type utility with the given processing environment.
@@ -52,6 +54,7 @@ public class DaedalusTypeManager {
      */
     public DaedalusTypeManager(ProcessingEnvironment processingEnv) {
         this.processingEnv = processingEnv;
+
         this.booleanType = processingEnv.getTypeUtils().getPrimitiveType(TypeKind.BOOLEAN);
         this.byteType = processingEnv.getTypeUtils().getPrimitiveType(TypeKind.BYTE);
         this.shortType = processingEnv.getTypeUtils().getPrimitiveType(TypeKind.SHORT);
@@ -60,6 +63,7 @@ public class DaedalusTypeManager {
         this.charType = processingEnv.getTypeUtils().getPrimitiveType(TypeKind.CHAR);
         this.floatType = processingEnv.getTypeUtils().getPrimitiveType(TypeKind.FLOAT);
         this.doubleType = processingEnv.getTypeUtils().getPrimitiveType(TypeKind.DOUBLE);
+
         this.wrappedBooleanType = getType(Boolean.class);
         this.wrappedByteType = getType(Byte.class);
         this.wrappedShortType = getType(Short.class);
@@ -68,6 +72,9 @@ public class DaedalusTypeManager {
         this.wrappedCharType = getType(Character.class);
         this.wrappedFloatType = getType(Float.class);
         this.wrappedDoubleType = getType(Double.class);
+
+        this.byteArrayType = getType(byte[].class);
+        this.stringType = getType(String.class);
     }
 
     /**
@@ -130,6 +137,7 @@ public class DaedalusTypeManager {
             case CHAR -> charType;
             case FLOAT -> floatType;
             case DOUBLE -> doubleType;
+            case VOID -> processingEnv.getTypeUtils().getNoType(TypeKind.VOID);
             default -> throw new IllegalStateException("Unexpected value: " + kind);
         };
     }
@@ -309,20 +317,20 @@ public class DaedalusTypeManager {
      *
      * @param supplier a supplier that invokes the annotation method returning
      *        {@code Class<?>[]}
-     * @return a list of resolved type elements
+     * @return a set of resolved type elements
      */
-    public List<TypeElement> getMirroredTypes(Supplier<Class<?>[]> supplier) {
+    public Set<TypeElement> getMirroredTypes(Supplier<Class<?>[]> supplier) {
         try {
             return Arrays.stream(supplier.get())
                     .map(mixin -> processingEnv.getElementUtils().getTypeElement(mixin.getName()))
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toSet());
         } catch (MirroredTypesException exception) {
             return exception.getTypeMirrors()
                     .stream()
                     .map(entry -> entry instanceof DeclaredType declaredType
                             && declaredType.asElement() instanceof TypeElement typeElement ? typeElement : null)
                     .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
+                    .collect(Collectors.toSet());
         }
     }
 
@@ -394,10 +402,27 @@ public class DaedalusTypeManager {
             return returnType;
         }
 
-        if ((method.getReceiverType() != null && method.getReceiverType().getKind() != TypeKind.NONE) || method.isVarArgs()) {
+        method.getReceiverType();
+        if (method.getReceiverType().getKind() != TypeKind.NONE || method.isVarArgs()) {
             return returnType;
         }
 
+        var typeParametersToLcb = inferTypeBindings(method, arguments);
+        return substituteTypeVariables(returnType, typeParametersToLcb);
+    }
+
+    /**
+     * Infers type variable bindings for a method by unifying each parameter type
+     * with the corresponding actual argument type.
+     *
+     * <p>When the same type variable appears in multiple parameters, the lower
+     * common bound of the candidate bindings is used.
+     *
+     * @param method the executable element whose type parameters to infer
+     * @param arguments the actual argument types
+     * @return a map of type variable names to inferred type bindings
+     */
+    public Map<String, TypeMirror> inferTypeBindings(ExecutableElement method, List<TypeMirror> arguments) {
         Map<String, Stream<TypeMirror>> typeParametersToArguments = HashMap.newHashMap(method.getParameters().size());
         var parametersIterator = method.getParameters().iterator();
         var argumentsIterator = arguments.iterator();
@@ -416,11 +441,20 @@ public class DaedalusTypeManager {
         for (var entry : typeParametersToArguments.entrySet()) {
             typeParametersToLcb.put(entry.getKey(), lowerCommonBound(entry.getValue()));
         }
-
-        return getReturnType(returnType, typeParametersToLcb);
+        return typeParametersToLcb;
     }
 
-    private TypeMirror getReturnType(TypeMirror type, Map<String, TypeMirror> typeParametersToMirrors) {
+    /**
+     * Substitutes type variables in the given type with concrete bindings.
+     *
+     * <p>Handles declared types, type variables, wildcard types, array types,
+     * and primitive types. Unresolved type variables are returned unchanged.
+     *
+     * @param type the type mirror to substitute into
+     * @param typeParametersToMirrors a map of type variable names to their bindings
+     * @return the substituted type mirror
+     */
+    public TypeMirror substituteTypeVariables(TypeMirror type, Map<String, TypeMirror> typeParametersToMirrors) {
         if (type.getKind() == TypeKind.TYPEVAR) {
             var result = typeParametersToMirrors.getOrDefault(type.toString(), type);
             return boxOrErase(result, false);
@@ -428,6 +462,19 @@ public class DaedalusTypeManager {
 
         if (type instanceof PrimitiveType primitiveType) {
             return boxOrErase(primitiveType, false);
+        }
+
+        if (type instanceof ArrayType arrayType) {
+            var componentType = substituteTypeVariables(arrayType.getComponentType(), typeParametersToMirrors);
+            return processingEnv.getTypeUtils().getArrayType(componentType);
+        }
+
+        if (type instanceof WildcardType wildcardType) {
+            var extendsBound = wildcardType.getExtendsBound();
+            var superBound = wildcardType.getSuperBound();
+            var substitutedExtends = extendsBound == null ? null : substituteTypeVariables(extendsBound, typeParametersToMirrors);
+            var substitutedSuper = superBound == null ? null : substituteTypeVariables(superBound, typeParametersToMirrors);
+            return processingEnv.getTypeUtils().getWildcardType(substitutedExtends, substitutedSuper);
         }
 
         if (!(type instanceof DeclaredType declaredType)) {
@@ -441,7 +488,7 @@ public class DaedalusTypeManager {
         var resultArguments = new TypeMirror[declaredType.getTypeArguments().size()];
         for (var index = 0; index < resultArguments.length; index++) {
             var typeArgument = declaredType.getTypeArguments().get(index);
-            resultArguments[index] = getReturnType(typeArgument, typeParametersToMirrors);
+            resultArguments[index] = substituteTypeVariables(typeArgument, typeParametersToMirrors);
         }
 
         return processingEnv.getTypeUtils()
@@ -452,10 +499,10 @@ public class DaedalusTypeManager {
         var counter = new HashMap<TypeMirror, Integer>();
         types.forEach(type -> {
             for (var implementedInterface : getAllImplementedInterfaces(type)) {
-                counter.compute(implementedInterface, (key, value) -> value == null ? 1 : value + 1);
+                counter.compute(implementedInterface, (_, value) -> value == null ? 1 : value + 1);
             }
             while (type != null) {
-                counter.compute(type, (key, value) -> value == null ? 1 : value + 1);
+                counter.compute(type, (_, value) -> value == null ? 1 : value + 1);
                 type = getDirectSuperClass(type)
                         .orElse(null);
             }
@@ -490,10 +537,9 @@ public class DaedalusTypeManager {
         for (var index = 0; index < methodParameterTypeParameters.size(); index++) {
             var methodParameterTypeParameter = methodParameterTypeParameters.get(index);
             if (methodParameterTypeParameter.getKind() == TypeKind.TYPEVAR) {
-                var currentIndex = index;
                 var type = getTypeParameter(argumentType, parameterType, index)
                         .orElseThrow(() -> new IllegalStateException("Cannot determine type"));
-                uses.compute(methodParameterTypeParameter.toString(), (key, value) -> {
+                uses.compute(methodParameterTypeParameter.toString(), (_, value) -> {
                     if (value == null) {
                         var data = new ArrayList<TypeMirror>();
                         data.add(type);
@@ -633,11 +679,7 @@ public class DaedalusTypeManager {
     public Optional<TypeMirror> getDirectSuperClass(TypeMirror mirror) {
         return switch (mirror) {
             case ArrayType ignored -> Optional.of(getType(Object.class));
-            case DeclaredType declaredType
-                    when declaredType.asElement() instanceof TypeElement typeElement
-                        && typeElement.getSuperclass() != null
-                        && typeElement.getSuperclass().getKind() != TypeKind.NONE
-                            -> Optional.ofNullable(typeElement.getSuperclass());
+            case DeclaredType declaredType when declaredType.asElement() instanceof TypeElement typeElement && typeElement.getSuperclass().getKind() != TypeKind.NONE -> Optional.of(typeElement.getSuperclass());
             default -> Optional.empty();
         };
     }
@@ -651,7 +693,7 @@ public class DaedalusTypeManager {
      */
     public Optional<TypeElement> getDirectSuperClass(TypeElement typeElement) {
         var superClassMirror = typeElement.getSuperclass();
-        if (superClassMirror == null || superClassMirror.getKind() == TypeKind.NONE) {
+        if (superClassMirror.getKind() == TypeKind.NONE) {
             return Optional.empty();
         }
 
@@ -664,5 +706,46 @@ public class DaedalusTypeManager {
         }
 
         return Optional.of(superClassElement);
+    }
+
+    /**
+     * Returns the nearest enclosing type element for the given element.
+     *
+     * <p>If the element is itself a type element, it is returned directly. Otherwise,
+     * this method walks up the enclosing element chain until a type element is found.
+     *
+     * @param element the element whose enclosing type to find
+     * @return the nearest enclosing type element
+     */
+    public TypeElement getEnclosingTypeElement(Element element) {
+        Objects.requireNonNull(element);
+        if (element instanceof TypeElement typeElement) {
+            return typeElement;
+        }
+        return getEnclosingTypeElement(element.getEnclosingElement());
+    }
+
+    /**
+     * Returns the name of the package that owns the input type element
+     *
+     * @param typeElement the non-null type element
+     * @return a package name
+     */
+    public String getPackageName(TypeElement typeElement) {
+        Objects.requireNonNull(typeElement);
+        var pkg = processingEnv.getElementUtils().getPackageOf(typeElement);
+        return pkg == null || pkg.isUnnamed() ? "" : pkg.getQualifiedName().toString();
+    }
+
+    /**
+     * Returns the name of the module that owns the input type element
+     *
+     * @param typeElement the non-null type element
+     * @return a package name
+     */
+    String getModuleName(TypeElement typeElement) {
+        Objects.requireNonNull(typeElement);
+        var module = processingEnv.getElementUtils().getModuleOf(typeElement);
+        return module == null || module.isUnnamed() ? "" : module.getQualifiedName().toString();
     }
 }

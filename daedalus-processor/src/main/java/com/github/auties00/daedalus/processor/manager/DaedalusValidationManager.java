@@ -1,10 +1,6 @@
 package com.github.auties00.daedalus.processor.manager;
 
-import com.github.auties00.daedalus.typesystem.annotation.TypeBuilder;
-import com.github.auties00.daedalus.typesystem.annotation.TypeDefaultValue;
-import com.github.auties00.daedalus.typesystem.annotation.TypeDeserializer;
-import com.github.auties00.daedalus.typesystem.annotation.TypeMixin;
-import com.github.auties00.daedalus.typesystem.annotation.TypeSerializer;
+import com.github.auties00.daedalus.typesystem.annotation.*;
 
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.*;
@@ -73,7 +69,9 @@ public abstract class DaedalusValidationManager {
         checkMixins(roundEnv);
         checkSerializers(roundEnv);
         checkDeserializers(roundEnv);
+        checkSizes(roundEnv);
         checkBuilders(roundEnv);
+        checkBuilderMixins(roundEnv);
         checkDefaultValues(roundEnv);
     }
 
@@ -91,7 +89,9 @@ public abstract class DaedalusValidationManager {
                 TypeMixin.class.getCanonicalName(),
                 TypeSerializer.class.getCanonicalName(),
                 TypeDeserializer.class.getCanonicalName(),
+                TypeSize.class.getCanonicalName(),
                 TypeBuilder.class.getCanonicalName(),
+                TypeBuilder.Mixin.class.getCanonicalName(),
                 TypeDefaultValue.class.getCanonicalName()
         );
     }
@@ -163,8 +163,8 @@ public abstract class DaedalusValidationManager {
             return;
         }
 
-        if (executableElement.getParameters().size() != (inMixin ? 1 : 0)) {
-            var message = inMixin ? "Illegal method: a method annotated with @TypeSerializer in a mixin must take exactly one parameter" : "Illegal method: a method annotated with @TypeSerializer must take no parameters";
+        if (executableElement.getParameters().size() < (inMixin ? 1 : 0)) {
+            var message = inMixin ? "Illegal method: a method annotated with @TypeSerializer in a mixin must take at least one parameter" : "Illegal method: a method annotated with @TypeSerializer must take no mandatory parameters";
             messages.printError(message, executableElement);
             return;
         }
@@ -220,23 +220,23 @@ public abstract class DaedalusValidationManager {
             return;
         }
 
-        if (!executableElement.getModifiers().contains(Modifier.STATIC)) {
+        var inMixin = types.isMixin(enclosingType);
+        if (executableElement.getKind() == ElementKind.CONSTRUCTOR) {
+            if (inMixin) {
+                messages.printError("Illegal method: a constructor annotated with @TypeDeserializer cannot be inside a mixin", executableElement);
+                return;
+            }
+        } else if (!executableElement.getModifiers().contains(Modifier.STATIC)) {
             messages.printError("Illegal method: a method annotated with @TypeDeserializer must be static", executableElement);
             return;
         }
 
-        var inMixin = types.isMixin(enclosingType);
-        if (executableElement.getKind() == ElementKind.CONSTRUCTOR && inMixin) {
-            messages.printError("Illegal method: a method annotated with @TypeDeserializer in a mixin cannot be a constructor", executableElement);
+        if (executableElement.getParameters().isEmpty()) {
+            messages.printError("Illegal method: a method annotated with @TypeDeserializer must take at least one parameter", executableElement);
             return;
         }
 
-        if (executableElement.getParameters().size() != 1) {
-            messages.printError("Illegal method: a method annotated with @TypeDeserializer must take exactly one parameter", executableElement);
-            return;
-        }
-
-        if (inMixin && !types.isAssignable(executableElement.getReturnType(), enclosingType)) {
+        if (!inMixin && !types.isAssignable(executableElement.getReturnType(), enclosingType)) {
             messages.printError("Illegal method: a method annotated with @TypeDeserializer must return a type assignable to its parent or be in a mixin", executableElement);
             return;
         }
@@ -249,6 +249,81 @@ public abstract class DaedalusValidationManager {
 
         if (executableElement.isVarArgs()) {
             messages.printError("Illegal method: a method annotated with @TypeDeserializer cannot be varargs", executableElement);
+        }
+    }
+
+    /**
+     * Validates all elements annotated with {@link TypeSize} in the given round.
+     *
+     * @param roundEnv the current annotation processing round environment
+     */
+    protected void checkSizes(RoundEnvironment roundEnv) {
+        var sizes = roundEnv.getElementsAnnotatedWith(TypeSize.class);
+        for (var size : sizes) {
+            checkSize(size);
+        }
+    }
+
+    /**
+     * Validates a single element annotated with {@link TypeSize}.
+     *
+     * <p>A valid size method must be a non-constructor executable element with at
+     * least package-private visibility. It must not be declared inside a
+     * format-managed type. If it is inside a mixin, it must be static and accept
+     * at least one parameter; otherwise it must be non-static. It must return
+     * {@code int}, and must not have a receiver type or be varargs.
+     *
+     * @param element the element to validate
+     */
+    protected void checkSize(Element element) {
+        if (!(element instanceof ExecutableElement executableElement)) {
+            messages.printError("Invalid delegate: only methods can be annotated with @TypeSize", element);
+            return;
+        }
+
+        if (executableElement.getKind() == ElementKind.CONSTRUCTOR) {
+            messages.printError("Invalid delegate: constructors cannot be annotated with @TypeSize", element);
+            return;
+        }
+
+        var enclosingType = executableElement.getEnclosingElement().asType();
+        if (isFormatManagedType(enclosingType)) {
+            messages.printError("Illegal method: a method annotated with @TypeSize cannot be inside a format-managed type", executableElement);
+            return;
+        }
+
+        if (executableElement.getModifiers().contains(Modifier.PRIVATE)) {
+            messages.printError("Weak visibility: a method annotated with @TypeSize must have at least package-private visibility", executableElement);
+            return;
+        }
+
+        var inMixin = types.isMixin(enclosingType);
+        if (executableElement.getModifiers().contains(Modifier.STATIC) != inMixin) {
+            var message = inMixin
+                    ? "Illegal method: a method annotated with @TypeSize in a mixin must be static"
+                    : "Illegal method: a method annotated with @TypeSize must not be static";
+            messages.printError(message, executableElement);
+            return;
+        }
+
+        if (inMixin && executableElement.getParameters().isEmpty()) {
+            messages.printError("Illegal method: a method annotated with @TypeSize in a mixin must take at least one parameter", executableElement);
+            return;
+        }
+
+        if (executableElement.getReturnType().getKind() != TypeKind.INT) {
+            messages.printError("Illegal method: a method annotated with @TypeSize must return int", executableElement);
+            return;
+        }
+
+        var receiverType = executableElement.getReceiverType();
+        if (receiverType.getKind() != TypeKind.NONE) {
+            messages.printError("Illegal method: a method annotated with @TypeSize cannot have a receiver type", executableElement);
+            return;
+        }
+
+        if (executableElement.isVarArgs()) {
+            messages.printError("Illegal method: a method annotated with @TypeSize cannot be varargs", executableElement);
         }
     }
 
@@ -290,6 +365,54 @@ public abstract class DaedalusValidationManager {
     }
 
     /**
+     * Validates all elements annotated with {@link TypeBuilder.Mixin} in the given round.
+     *
+     * @param roundEnv the current annotation processing round environment
+     */
+    protected void checkBuilderMixins(RoundEnvironment roundEnv) {
+        var mixins = roundEnv.getElementsAnnotatedWith(TypeBuilder.Mixin.class);
+        for (var mixin : mixins) {
+            checkBuilderMixin(mixin);
+        }
+    }
+
+    /**
+     * Validates a single element annotated with {@link TypeBuilder.Mixin}.
+     *
+     * <p>A valid builder mixin must be a static method with at least package-private
+     * visibility. It must have at least one parameter, and its return type must be
+     * assignable to the type of its first parameter.
+     *
+     * @param element the element to validate
+     */
+    protected void checkBuilderMixin(Element element) {
+        if (!(element instanceof ExecutableElement executableElement)) {
+            messages.printError("Invalid delegate: only methods can be annotated with @TypeBuilder.Mixin", element);
+            return;
+        }
+
+        if (executableElement.getModifiers().contains(Modifier.PRIVATE)) {
+            messages.printError("Weak visibility: a method annotated with @TypeBuilder.Mixin must have at least package-private visibility", executableElement);
+            return;
+        }
+
+        if (!executableElement.getModifiers().contains(Modifier.STATIC)) {
+            messages.printError("Illegal method: a method annotated with @TypeBuilder.Mixin must be static", executableElement);
+            return;
+        }
+
+        if (executableElement.getParameters().isEmpty()) {
+            messages.printError("Illegal method: a method annotated with @TypeBuilder.Mixin must have at least one parameter", executableElement);
+            return;
+        }
+
+        var firstParamType = executableElement.getParameters().getFirst().asType();
+        if (!types.isAssignable(executableElement.getReturnType(), firstParamType)) {
+            messages.printError("Illegal method: a method annotated with @TypeBuilder.Mixin must return a type assignable to its first parameter", executableElement);
+        }
+    }
+
+    /**
      * Validates all elements annotated with {@link TypeDefaultValue} in the given round.
      *
      * @param roundEnv the current annotation processing round environment
@@ -324,17 +447,39 @@ public abstract class DaedalusValidationManager {
                     return;
                 }
 
-                var enclosingElement = getEnclosingTypeElement(element);
+                if (!((ExecutableElement) element).getParameters().isEmpty()) {
+                    messages.printError("Illegal method: a method annotated with @TypeDefaultValue must take no arguments", element);
+                    return;
+                }
+
+                var enclosingElement = types.getEnclosingTypeElement(element);
                 if (!types.isMixin(enclosingElement.asType()) && !types.isAssignable(((ExecutableElement) element).getReturnType(), enclosingElement.asType())) {
                     messages.printError("Illegal method: a method annotated with @TypeDefaultValue must return a type assignable to its parent or be in a mixin", element);
                 }
             }
 
             case ENUM_CONSTANT -> {
-                // All uses are fine
+                // Enum constants are always valid default values
             }
 
-            default -> messages.printError("Invalid delegate: only methods and enum constants can be annotated with @TypeDefaultValue", element);
+            case FIELD -> {
+                if (element.getModifiers().contains(Modifier.PRIVATE)) {
+                    messages.printError("Weak visibility: a field annotated with @TypeDefaultValue must have at least package-private visibility", element);
+                    return;
+                }
+
+                if (!element.getModifiers().contains(Modifier.STATIC)) {
+                    messages.printError("Illegal field: a field annotated with @TypeDefaultValue must be static", element);
+                    return;
+                }
+
+                var enclosingElement = types.getEnclosingTypeElement(element);
+                if (!types.isMixin(enclosingElement.asType()) && !types.isAssignable(element.asType(), enclosingElement.asType())) {
+                    messages.printError("Illegal field: a field annotated with @TypeDefaultValue must have a type assignable to its enclosing type or be in a mixin", element);
+                }
+            }
+
+            default -> messages.printError("Invalid delegate: only methods, fields, and enum constants can be annotated with @TypeDefaultValue", element);
         }
     }
 
@@ -344,7 +489,7 @@ public abstract class DaedalusValidationManager {
      * @param property the property element that references the mixins
      * @param mixins the list of type elements to validate as mixins
      */
-    protected void checkMixins(Element property, List<TypeElement> mixins) {
+    protected void checkMixins(Element property, Set<TypeElement> mixins) {
         for (var mixin : mixins) {
             if (!types.isMixin(mixin.asType())) {
                 messages.printError("Illegal argument: %s is not a valid mixin".formatted(mixin.getSimpleName()), property);
@@ -387,28 +532,10 @@ public abstract class DaedalusValidationManager {
         roundEnv.getElementsAnnotatedWith(annotation)
                 .stream()
                 .filter(property -> {
-                    var enclosingTypeElement = getEnclosingTypeElement(property);
+                    var enclosingTypeElement = types.getEnclosingTypeElement(property);
                     return Arrays.stream(requiredAnnotations)
                             .noneMatch(type -> enclosingTypeElement.getAnnotation(type) != null);
                 })
                 .forEach(property -> messages.printError(error, property));
-    }
-
-    /**
-     * Returns the nearest enclosing type element for the given element.
-     *
-     * <p>If the element is itself a type element, it is returned directly. Otherwise,
-     * this method walks up the enclosing element chain until a type element is found.
-     *
-     * @param element the element whose enclosing type to find
-     * @return the nearest enclosing type element
-     */
-    protected TypeElement getEnclosingTypeElement(Element element) {
-        Objects.requireNonNull(element);
-        if (element instanceof TypeElement typeElement) {
-            return typeElement;
-        }
-
-        return getEnclosingTypeElement(element.getEnclosingElement());
     }
 }

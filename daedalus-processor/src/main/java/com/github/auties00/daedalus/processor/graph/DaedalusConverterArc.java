@@ -9,10 +9,14 @@ import javax.lang.model.type.TypeMirror;
  * @param method the converter method for this step
  * @param returnType the resolved return type (may differ from the method's declared return type
  *        when generics are involved)
+ * @param sizer the size calculation method for the source type of this step, or {@code null}
+ *        if none is registered. Only set for arcs that originate from a serializer node with
+ *        an associated {@code @TypeSize} method.
  */
 public record DaedalusConverterArc(
         DaedalusMethodElement method,
-        TypeMirror returnType
+        TypeMirror returnType,
+        DaedalusMethodElement sizer
 ) {
 
 }

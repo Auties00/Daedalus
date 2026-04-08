@@ -4,10 +4,7 @@ import javax.annotation.processing.Filer;
 import javax.lang.model.element.TypeElement;
 
 /**
- * An abstract base class for code generators that create class files using JavaPoet.
- *
- * <p>Provides common utilities for generating class names from type elements,
- * handling nested class hierarchies.
+ * An abstract base class for code generators that create class files.
  */
 public abstract class DaedalusClassGenerator {
     /**
@@ -35,8 +32,8 @@ public abstract class DaedalusClassGenerator {
      * @param suffix the suffix to append
      * @return the generated class name
      */
-    protected String getGeneratedClassNameBySuffix(TypeElement element, String suffix) {
-        return getGeneratedClassNameByName(element, element.getSimpleName() + suffix);
+    protected String getGeneratedClassNameWithSuffix(TypeElement element, String suffix) {
+        return getGeneratedClassName(element, element.getSimpleName() + suffix);
     }
 
     /**
@@ -48,7 +45,7 @@ public abstract class DaedalusClassGenerator {
      * @param className the class name to use
      * @return the generated class name with enclosing type names prepended
      */
-    protected String getGeneratedClassNameByName(TypeElement element, String className) {
+    protected String getGeneratedClassName(TypeElement element, String className) {
         var name = new StringBuilder();
         while (element.getEnclosingElement() instanceof TypeElement parent) {
             name.append(parent.getSimpleName());

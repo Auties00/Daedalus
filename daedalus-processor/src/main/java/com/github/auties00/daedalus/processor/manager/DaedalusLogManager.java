@@ -56,11 +56,21 @@ public final class DaedalusLogManager {
     }
 
     /**
-     * Prints an informational note.
+     * Prints an informational note without an associated element.
      *
      * @param msg the note message
      */
     public void printInfo(String msg) {
         processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, msg);
+    }
+
+    /**
+     * Prints an informational note associated with the given element.
+     *
+     * @param msg the note message
+     * @param element the element to associate with the note
+     */
+    public void printNote(String msg, Element element) {
+        processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE, msg, element);
     }
 }

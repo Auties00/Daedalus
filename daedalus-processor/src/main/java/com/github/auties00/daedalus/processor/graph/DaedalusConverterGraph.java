@@ -28,8 +28,9 @@ import java.util.*;
  */
 public final class DaedalusConverterGraph {
     private final DaedalusTypeManager types;
-    private final List<DaedalusProcessorExtension> extensions;
+    private final SequencedCollection<DaedalusProcessorExtension> extensions;
     private final Set<DaedalusConverterNode> nodes;
+    private final SequencedCollection<DaedalusOrphanSizer> orphanedSizers;
 
     /**
      * Constructs a new converter graph with the given type utilities.
@@ -37,10 +38,11 @@ public final class DaedalusConverterGraph {
      * @param types      the common type utilities
      * @param extensions the extensions
      */
-    public DaedalusConverterGraph(DaedalusTypeManager types, List<DaedalusProcessorExtension> extensions) {
+    public DaedalusConverterGraph(DaedalusTypeManager types, SequencedCollection<DaedalusProcessorExtension> extensions) {
         this.types = types;
         this.extensions = extensions;
         this.nodes = new HashSet<>();
+        this.orphanedSizers = new ArrayList<>();
     }
 
     /**
@@ -67,15 +69,79 @@ public final class DaedalusConverterGraph {
     }
 
     /**
-     * Links a converter method into the graph as a transformation from one type to another.
+     * Links a serializer converter method into the graph as a transformation from
+     * a value type to a wire-format type.
+     *
+     * <p>If a sizer for {@code from} has previously been registered via
+     * {@link #attachSizer(TypeMirror, DaedalusMethodElement)} as an orphan, it is
+     * consumed and attached to the new serializer node.
+     *
+     * @param from the source value type
+     * @param to the target wire-format type
+     * @param arc the converter method
+     */
+    public void linkSerializer(TypeMirror from, TypeMirror to, DaedalusMethodElement arc) {
+        var serializer = new DaedalusConverterNode.Serializer(from, to, arc);
+        orphanedSizers.parallelStream()
+                .filter(orphan -> types.isSameType(orphan.valueType(), from, false))
+                .findAny()
+                .ifPresent(orphan -> {
+                    serializer.setSizer(orphan.sizer());
+                    orphanedSizers.remove(orphan);
+                });
+        nodes.add(serializer);
+    }
+
+    /**
+     * Links a deserializer converter method into the graph as a transformation from
+     * a wire-format reader type to a value type.
+     *
+     * @param from the source wire-format type
+     * @param to the target value type
+     * @param arc the converter method
+     */
+    public void linkDeserializer(TypeMirror from, TypeMirror to, DaedalusMethodElement arc) {
+        nodes.add(new DaedalusConverterNode.Deserializer(from, to, arc));
+    }
+
+    /**
+     * Attaches a sizer to every existing serializer node whose source type matches
+     * {@code valueType}, or stores it as an orphan to be picked up by a future
+     * {@link #linkSerializer(TypeMirror, TypeMirror, DaedalusMethodElement)} call
+     * if no matching serializer exists yet.
+     *
+     * <p>The matching scan runs in parallel and mutates serializer nodes in place,
+     * which avoids the cost of rebuilding the node set.
+     *
+     * @param valueType the value type the sizer applies to
+     * @param sizer the size calculation method
+     */
+    public void attachSizer(TypeMirror valueType, DaedalusMethodElement sizer) {
+        var matches = nodes.parallelStream()
+                .filter(node -> node instanceof DaedalusConverterNode.Serializer serializer
+                        && serializer.sizer() == null
+                        && types.isSameType(serializer.from(), valueType, false))
+                .map(node -> (DaedalusConverterNode.Serializer) node)
+                .toList();
+        if (matches.isEmpty()) {
+            orphanedSizers.add(new DaedalusOrphanSizer(valueType, sizer));
+        } else {
+            for (var match : matches) {
+                match.setSizer(sizer);
+            }
+        }
+    }
+
+    /**
+     * Links a converter method into the graph as a generic transformation, used by tests
+     * and legacy callers that do not need to distinguish serialization direction.
      *
      * @param from the source type
      * @param to the target type
      * @param arc the converter method
      */
     public void link(TypeMirror from, TypeMirror to, DaedalusMethodElement arc) {
-        var node = new DaedalusConverterNode(from, to, arc);
-        nodes.add(node);
+        linkSerializer(from, to, arc);
     }
 
     /**
@@ -87,11 +153,10 @@ public final class DaedalusConverterGraph {
      * @param mixins the mixins that provide accessible converters
      * @return the list of conversion arcs forming the path, or an empty list if no path exists
      */
-    public List<DaedalusConverterArc> findPath(TypeMirror from, TypeMirror to, List<TypeElement> mixins) {
-        var mixinsSet = Set.copyOf(mixins);
+    public List<DaedalusConverterArc> findPath(TypeMirror from, TypeMirror to, Set<TypeElement> mixins) {
         var visited = new HashSet<String>();
         visited.add(from.toString());
-        return findAnyPath(from, to, mixinsSet, visited);
+        return findAnyPath(from, to, mixins, visited);
     }
 
     private List<DaedalusConverterArc> findAnyPath(TypeMirror from, TypeMirror to, Set<TypeElement> mixins, Set<String> visited) {
@@ -105,13 +170,19 @@ public final class DaedalusConverterGraph {
     private List<DaedalusConverterArc> findSubPath(DaedalusConverterNode node, TypeMirror to, Set<TypeElement> mixins, TypeMirror from, Set<String> visited) {
         if (!types.isAssignable(from, node.from())) {
             return List.of();
-        } else if (node.arc().isParametrized()) {
+        }
+
+        var sizer = switch (node) {
+            case DaedalusConverterNode.Serializer serializer -> serializer.sizer();
+            case DaedalusConverterNode.Deserializer ignored -> null;
+        };
+        if (node.arc().isParametrized()) {
             var returnType = node.arc()
                     .element()
                     .map(element -> types.getReturnType(element, List.of(from)))
                     .orElse(node.arc().returnType());
             if (types.isAssignable(to, returnType, false)) {
-                var arc = new DaedalusConverterArc(node.arc(), returnType);
+                var arc = new DaedalusConverterArc(node.arc(), returnType, sizer);
                 return List.of(arc);
             }
 
@@ -132,12 +203,12 @@ public final class DaedalusConverterGraph {
                 return List.of();
             }
 
-            var arc = new DaedalusConverterArc(node.arc(), returnType);
+            var arc = new DaedalusConverterArc(node.arc(), returnType, sizer);
             var result = new LinkedList<>(nested);
             result.addFirst(arc);
             return result;
         } else if (types.isAssignable(to, node.to()) && isPathLegal(node, from, to, mixins)) {
-            var arc = new DaedalusConverterArc(node.arc(), node.arc().returnType());
+            var arc = new DaedalusConverterArc(node.arc(), node.arc().returnType(), sizer);
             return List.of(arc);
         } else if (isPathLegal(node, from, node.to(), mixins)) {
             var toKey = node.to().toString();
@@ -152,7 +223,7 @@ public final class DaedalusConverterGraph {
                 return List.of();
             }
 
-            var arc = new DaedalusConverterArc(node.arc(), node.arc().returnType());
+            var arc = new DaedalusConverterArc(node.arc(), node.arc().returnType(), sizer);
             var result = new LinkedList<>(nested);
             result.addFirst(arc);
             return result;

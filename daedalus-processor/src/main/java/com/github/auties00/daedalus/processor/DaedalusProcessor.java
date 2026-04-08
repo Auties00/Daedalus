@@ -1,7 +1,9 @@
 package com.github.auties00.daedalus.processor;
 
+import com.github.auties00.daedalus.processor.generator.converter.DaedalusConverterParametersAnnotationGenerator;
 import com.github.auties00.daedalus.processor.graph.DaedalusConverterGraph;
 import com.github.auties00.daedalus.processor.manager.DaedalusLogManager;
+import com.github.auties00.daedalus.processor.manager.DaedalusMixinScopeManager;
 import com.github.auties00.daedalus.processor.manager.DaedalusTypeManager;
 import com.github.auties00.daedalus.processor.model.DaedalusConverterElement;
 import com.github.auties00.daedalus.processor.type.DaedalusFieldType;
@@ -44,12 +46,12 @@ public class DaedalusProcessor extends AbstractProcessor {
     /**
      * The common type utilities shared across all extensions.
      */
-    private DaedalusTypeManager types;
+    private DaedalusTypeManager typeManager;
 
     /**
      * The compiler diagnostics utility.
      */
-    private DaedalusLogManager messages;
+    private DaedalusLogManager logManager;
 
     /**
      * The common validation checks instance.
@@ -64,7 +66,12 @@ public class DaedalusProcessor extends AbstractProcessor {
     /**
      * The discovered extension implementations.
      */
-    private List<DaedalusProcessorExtension> extensions;
+    private SequencedCollection<DaedalusProcessorExtension> extensions;
+
+    /**
+     * The mixin scope resolver for auto-applying scoped mixins.
+     */
+    private DaedalusMixinScopeManager mixinScopeManager;
 
     /**
      * Initializes this processor by discovering extensions via {@link ServiceLoader}
@@ -80,21 +87,22 @@ public class DaedalusProcessor extends AbstractProcessor {
     public synchronized void init(ProcessingEnvironment wrapperProcessingEnv) {
         var unwrappedProcessingEnv = unwrapProcessingEnv(wrapperProcessingEnv);
         super.init(unwrappedProcessingEnv);
-        this.types = new DaedalusTypeManager(processingEnv);
-        this.messages = new DaedalusLogManager(processingEnv);
+        this.typeManager = new DaedalusTypeManager(processingEnv);
+        this.logManager = new DaedalusLogManager(processingEnv);
         this.extensions = ServiceLoader.load(DaedalusProcessorExtension.class, getClass().getClassLoader())
                 .stream()
                 .map(ServiceLoader.Provider::get)
                 .toList();
-        this.validator = new DaedalusValidationManager(types, messages) {
+        this.validator = new DaedalusValidationManager(typeManager, logManager) {
             @Override
             protected boolean isFormatManagedType(TypeMirror type) {
                 return extensions.stream().anyMatch(ext -> ext.isManagedType(type));
             }
         };
-        this.converterGraph = new DaedalusConverterGraph(types, extensions);
+        this.converterGraph = new DaedalusConverterGraph(typeManager, extensions);
+        this.mixinScopeManager = new DaedalusMixinScopeManager(typeManager);
         for (var extension : extensions) {
-            extension.init(processingEnv, types, messages);
+            extension.init(processingEnv, typeManager, logManager, mixinScopeManager);
         }
     }
 
@@ -169,14 +177,17 @@ public class DaedalusProcessor extends AbstractProcessor {
      */
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        runWithTimer("common checks", () -> validator.runCommonChecks(roundEnv));
+        runWithTimer("common checks", () -> {
+            validator.runCommonChecks(roundEnv);
+            mixinScopeManager.populate(roundEnv);
+        });
         runWithTimer("extension checks", () -> {
             for (var extension : extensions) {
                 extension.runChecks(roundEnv);
             }
         });
         var objectsByExtension = runWithTimer("object processing", () -> {
-            Map<DaedalusProcessorExtension, List<? extends DaedalusTypeElement>> result = new LinkedHashMap<>();
+            Map<DaedalusProcessorExtension, SequencedCollection<? extends DaedalusTypeElement>> result = new LinkedHashMap<>();
             for (var extension : extensions) {
                 var objects = extension.processObjects(roundEnv, converterGraph);
                 result.put(extension, objects);
@@ -189,6 +200,11 @@ public class DaedalusProcessor extends AbstractProcessor {
             }
         });
         runWithTimer("code generation", () -> {
+            var supportedIOTypes = extensions.stream()
+                    .flatMap(ext -> ext.supportedIOTypes().stream())
+                    .collect(java.util.stream.Collectors.toUnmodifiableSet());
+            var parametersGenerator = new DaedalusConverterParametersAnnotationGenerator(processingEnv.getFiler(), typeManager, logManager, supportedIOTypes);
+            parametersGenerator.generate(roundEnv);
             for (var entry : objectsByExtension.entrySet()) {
                 entry.getKey().generateCode(entry.getValue());
             }
@@ -205,9 +221,9 @@ public class DaedalusProcessor extends AbstractProcessor {
      *
      * @param objects the processed objects whose properties should be attributed
      */
-    private void attributeObjects(List<? extends DaedalusTypeElement> objects) {
+    private void attributeObjects(SequencedCollection<? extends DaedalusTypeElement> objects) {
         for (var object : objects) {
-            for (var propertyType : object.properties()) {
+            for (var propertyType : object.fields()) {
                 attributeConverter(propertyType.type());
             }
         }
@@ -237,6 +253,10 @@ public class DaedalusProcessor extends AbstractProcessor {
         for (var entry : attributed) {
             type.addConverter(entry);
         }
+
+        for (var nested : type.nestedTypes()) {
+            attributeConverter(nested);
+        }
     }
 
     /**
@@ -254,22 +274,23 @@ public class DaedalusProcessor extends AbstractProcessor {
      */
     private List<DaedalusConverterElement.Attributed> attributeConverter(DaedalusConverterElement.Unattributed unattributedElement) {
         var from = unattributedElement.from();
-        List<DaedalusConverterElement.Attributed> results = new ArrayList<>();
-        var methodPath = converterGraph.findPath(from, unattributedElement.to(), unattributedElement.mixins());
+        var to = unattributedElement.to();
+        var results = new ArrayList<DaedalusConverterElement.Attributed>();
+        var methodPath = converterGraph.findPath(from, to, unattributedElement.mixins());
         if (methodPath.isEmpty()) {
             var errorMessage = switch (unattributedElement.type()) {
-                case SERIALIZER -> "Missing converter: cannot find a serializer from %s to %s".formatted(from, unattributedElement.targetDescription());
-                case DESERIALIZER -> "Missing converter: cannot find a deserializer from %s to %s".formatted(unattributedElement.targetDescription(), unattributedElement.to());
+                case SERIALIZER -> "Missing converter: cannot find a serializer from %s".formatted(from);
+                case DESERIALIZER -> "Missing converter: cannot find a deserializer to %s".formatted(to);
             };
-            messages.printError(errorMessage, unattributedElement.invoker());
+            logManager.printError(errorMessage, unattributedElement.invoker());
         } else {
             for (var element : methodPath) {
                 var warning = element.method().warning();
                 if (!warning.isEmpty()) {
-                    messages.printWarning(warning, unattributedElement.invoker());
+                    logManager.printWarning(warning, unattributedElement.invoker());
                 }
                 var attributed = switch (unattributedElement.type()) {
-                    case SERIALIZER -> new DaedalusConverterElement.Attributed.Serializer(element.method(), from, element.returnType());
+                    case SERIALIZER -> new DaedalusConverterElement.Attributed.Serializer(element.method(), from, element.returnType(), element.sizer());
                     case DESERIALIZER -> new DaedalusConverterElement.Attributed.Deserializer(element.method(), from, element.returnType());
                 };
                 results.add(attributed);
@@ -291,9 +312,9 @@ public class DaedalusProcessor extends AbstractProcessor {
     @SuppressWarnings("SameParameterValue")
     private <T> T runWithTimer(String name, Supplier<T> supplier) {
         var start = System.currentTimeMillis();
-        messages.printInfo("Running %s...".formatted(name));
+        logManager.printInfo("Running %s...".formatted(name));
         var result = supplier.get();
-        messages.printInfo("Finished %s(%dms)".formatted(name, System.currentTimeMillis() - start));
+        logManager.printInfo("Finished %s(%dms)".formatted(name, System.currentTimeMillis() - start));
         return result;
     }
 
@@ -306,8 +327,8 @@ public class DaedalusProcessor extends AbstractProcessor {
      */
     private void runWithTimer(String name, Runnable runnable) {
         var start = System.currentTimeMillis();
-        messages.printInfo("Running %s...".formatted(name));
+        logManager.printInfo("Running %s...".formatted(name));
         runnable.run();
-        messages.printInfo("Finished %s(%dms)".formatted(name, System.currentTimeMillis() - start));
+        logManager.printInfo("Finished %s(%dms)".formatted(name, System.currentTimeMillis() - start));
     }
 }

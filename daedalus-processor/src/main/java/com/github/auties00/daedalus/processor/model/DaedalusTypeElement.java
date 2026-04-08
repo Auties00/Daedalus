@@ -1,6 +1,7 @@
 package com.github.auties00.daedalus.processor.model;
 
 import javax.lang.model.element.TypeElement;
+import java.util.Optional;
 import java.util.SequencedCollection;
 
 /**
@@ -20,12 +21,33 @@ public interface DaedalusTypeElement {
     TypeElement typeElement();
 
     /**
-     * Returns the property types that require converter attribution.
-     *
-     * <p>For composite property types (e.g. maps with separate key and value types),
-     * this method should return each leaf type individually.
+     * Returns the fields
      *
      * @return the list of property types to attribute
      */
-    SequencedCollection<? extends DaedalusFieldElement> properties();
+    SequencedCollection<? extends DaedalusFieldElement> fields();
+
+    /**
+     * Returns the builder elements declared on this type.
+     *
+     * @return a non-null collection of builder elements
+     */
+    SequencedCollection<? extends DaedalusBuilderElement> builders();
+
+    /**
+     * Returns whether this type supports generation of a default builder.
+     *
+     * <p>Format extensions control this: for example, protobuf returns {@code true}
+     * for messages and groups but {@code false} for enums.
+     *
+     * @return {@code true} if a default builder should be generated
+     */
+    boolean supportsDefaultBuilder();
+
+    /**
+     * Returns the method that constructs this type if the type is constructable.
+     *
+     * @return an optional containing the method that constructs this type if present, or empty otherwise
+     */
+    Optional<? extends DaedalusMethodElement> constructor();
 }
