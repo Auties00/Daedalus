@@ -1,5 +1,6 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
 /**
@@ -12,7 +13,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  *
  * <p>Protobuf type {@code com.google.protobuf.StringValue}
  */
-@ProtobufMessage
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
 public final class StringValue {
 
     /**
@@ -23,10 +24,23 @@ public final class StringValue {
     @ProtobufMessage.StringField(index = 1)
     String value;
 
+    /**
+     * Constructs a new {@code StringValue} with the specified field values.
+     *
+     * @param value the value of the {@code value} field
+     */
     StringValue(String value) {
         this.value = value;
     }
 
+    /**
+     * Returns the value of the {@code value} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code value} field
+     */
     public String value() {
         return value;
     }

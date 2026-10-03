@@ -6,7 +6,6 @@ package com.github.auties00.daedalus.protobuf.compiler.expression;
  * Null expressions represent the absence of a value or an explicitly null value in Protocol
  * Buffer definitions. This is primarily used in message literal syntax and option values.
  * </p>
- * </p>
  *
  * @see ProtobufExpression
  */

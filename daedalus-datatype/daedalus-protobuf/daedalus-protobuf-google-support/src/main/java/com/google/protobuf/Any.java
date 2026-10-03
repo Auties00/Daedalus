@@ -1,5 +1,6 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
 /**
@@ -54,7 +55,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  *
  * <p>Protobuf type {@code com.google.protobuf.Any}
  */
-@ProtobufMessage
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
 public final class Any {
 
     /**
@@ -101,16 +102,38 @@ public final class Any {
     @ProtobufMessage.BytesField(index = 2)
     byte[] value;
 
+    /**
+     * Constructs a new {@code Any} with the specified field values.
+     *
+     * @param typeUrl the value of the {@code type_url} field
+     * @param value the value of the {@code value} field
+     */
     Any(String typeUrl, byte[] value) {
         this.typeUrl = typeUrl;
         this.value = value;
     }
 
+    /**
+     * Returns the value of the {@code type_url} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code type_url} field
+     */
     public String typeUrl() {
         return typeUrl;
     }
 
+    /**
+     * Returns a copy of the value of the {@code value} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return a copy of the value of the {@code value} field
+     */
     public byte[] value() {
-        return value;
+        return value.clone();
     }
 }

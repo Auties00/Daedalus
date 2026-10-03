@@ -1,7 +1,9 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
 import com.google.protobuf.DescriptorProtos;
-import com.google.protobuf.EnumValueDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosEnumValueDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosEnumValueOptionsBuilder;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufBoolExpression;
 import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufOptionExpression;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufInteger;
 
@@ -65,21 +67,74 @@ public final class ProtobufEnumConstantStatement
     private final SequencedMap<String, ProtobufOptionExpression> options;
 
     /**
-     * Constructs a new enum constant statement at the specified line number.
+     * Constructs a new enum constant statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param range the source range covering this statement
      */
-    public ProtobufEnumConstantStatement(int line) {
-        super(line);
+    public ProtobufEnumConstantStatement(ProtobufTreeSourceRange range) {
+        super(range);
         this.options = new LinkedHashMap<>();
     }
 
     @Override
     public DescriptorProtos.EnumValueDescriptorProto toDescriptor() {
-        return new EnumValueDescriptorProtoBuilder()
-                .name(name())
-                .number(hasIndex() ? (int) index().value() : 0)
-                .build();
+        var builder = new DescriptorProtosEnumValueDescriptorProtoBuilder()
+                .name(name());
+
+        index.toEnumConstantIndex()
+                .ifPresent(builder::number);
+
+        var enumValueOptions = buildEnumValueOptions();
+        if (enumValueOptions != null) {
+            builder.options(enumValueOptions);
+        }
+
+        return builder.build();
+    }
+
+    private DescriptorProtosEnumValueOptionsBuilder buildEnumValueOptions() {
+        if (options.isEmpty()) {
+            return null;
+        }
+        var builder = new DescriptorProtosEnumValueOptionsBuilder();
+        for (var option : options.values()) {
+            if (option.name().segments().size() != 1) {
+                continue;
+            }
+            var segment = option.name().segments().getFirst();
+            if (segment.isExtension()) {
+                continue;
+            }
+            var value = option.value();
+            switch (segment.name()) {
+                case "deprecated" -> {
+                    if (value instanceof ProtobufBoolExpression(var deprecated)) {
+                        builder.deprecated(deprecated);
+                    }
+                }
+                case "debug_redact" -> {
+                    if (value instanceof ProtobufBoolExpression(var debugRedact)) {
+                        builder.debugRedact(debugRedact);
+                    }
+                }
+                default -> {
+                    // Unknown or unsupported enum value option.
+                    // The following EnumValueOptions fields cannot be derived from the AST:
+                    //   feature_support (4): FieldOptions.FeatureSupport aggregate with typed sub fields
+                    //   uninterpreted_option (999): reserved for the descriptor pipeline, not set here
+                    // The features field (2) is populated below from multi segment options.
+                }
+            }
+        }
+        var features = ProtobufTreeFeatures.featureSet(this);
+        if (features != null) {
+            builder.features(features);
+        }
+        var unknownExtensions = ProtobufTreeFeatures.collectUnknownExtensions(this);
+        if (!unknownExtensions.isEmpty()) {
+            builder.unknownFields(unknownExtensions);
+        }
+        return builder;
     }
 
     @Override

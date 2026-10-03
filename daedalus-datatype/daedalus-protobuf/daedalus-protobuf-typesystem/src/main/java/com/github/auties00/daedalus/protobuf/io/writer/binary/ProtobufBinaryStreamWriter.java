@@ -1,7 +1,8 @@
 package com.github.auties00.daedalus.protobuf.io.writer.binary;
 
+import com.github.auties00.daedalus.typesystem.util.BinaryUtils;
 import com.github.auties00.daedalus.protobuf.exception.ProtobufSerializationException;
-import com.github.auties00.daedalus.protobuf.io.ProtobufIODataType;
+import com.github.auties00.daedalus.typesystem.model.BinaryDataType;
 import com.github.auties00.daedalus.protobuf.io.writer.ProtobufBinaryWriter;
 
 import java.io.IOException;
@@ -12,9 +13,13 @@ import java.nio.ByteBuffer;
 
 public final class ProtobufBinaryStreamWriter extends ProtobufBinaryWriter<OutputStream> {
     private static final int BUFFER_LENGTH = 8192;
+    private static final int MAX_PRIMITIVE_LENGTH = 16;
 
     private final OutputStream outputStream;
     private final byte[] buffer;
+    // Holds a single encoded primitive: the fast varint encoders write up to 16 bytes, which could
+    // exceed the length of the user provided buffer
+    private final byte[] scratch;
 
     public ProtobufBinaryStreamWriter(OutputStream outputStream) {
         this(outputStream, BUFFER_LENGTH);
@@ -22,51 +27,56 @@ public final class ProtobufBinaryStreamWriter extends ProtobufBinaryWriter<Outpu
 
     public ProtobufBinaryStreamWriter(OutputStream outputStream, int tempBufferLength) {
         this.outputStream = outputStream;
-        this.buffer = new byte[tempBufferLength];
+        this.buffer = new byte[Math.max(tempBufferLength, 1)];
+        this.scratch = new byte[MAX_PRIMITIVE_LENGTH];
     }
 
     @Override
-    public void writeRawByte(byte entry) {
+    public void writeRawByte(byte entry) throws ProtobufSerializationException {
         try {
             outputStream.write(entry);
         } catch (IOException e) {
-            throw new ProtobufSerializationException("Cannot write to output stream", e);
+            throw ProtobufSerializationException.outputStreamFailure(e);
         }
     }
 
     @Override
-    public void writeRawBytes(byte[] entry, int offset, int length) {
+    public void writeRawBytes(byte[] entry, int offset, int length) throws ProtobufSerializationException {
         try {
             outputStream.write(entry, offset, length);
         } catch (IOException e) {
-            throw new ProtobufSerializationException("Cannot write to output stream", e);
+            throw ProtobufSerializationException.outputStreamFailure(e);
         }
     }
 
     @Override
-    public void writeRawBuffer(ByteBuffer entry) {
+    public void writeRawBuffer(ByteBuffer entry) throws ProtobufSerializationException {
         try {
             if (entry.hasArray()) {
                 outputStream.write(entry.array(), entry.arrayOffset() + entry.position(), entry.remaining());
                 return;
             }
 
-            while (entry.hasRemaining()) {
-                var readable = Math.min(entry.remaining(), buffer.length);
-                entry.put(buffer, entry.position(), readable);
+            var position = entry.position();
+            var limit = entry.limit();
+            while (position < limit) {
+                var readable = Math.min(limit - position, buffer.length);
+                entry.get(position, buffer, 0, readable);
                 outputStream.write(buffer, 0, readable);
+                position += readable;
             }
         } catch (IOException e) {
-            throw new ProtobufSerializationException("Cannot write to output stream", e);
+            throw ProtobufSerializationException.outputStreamFailure(e);
         }
     }
 
     @Override
-    public void writeRawMemorySegment(MemorySegment entry) {
+    public void writeRawMemorySegment(MemorySegment entry) throws ProtobufSerializationException {
         try {
             var heapBase = entry.heapBase();
             if(heapBase.isPresent() && heapBase.get() instanceof byte[] array) {
-                writeRawBytes(array);
+                // The address of a heap segment is its offset in the backing array
+                outputStream.write(array, (int) entry.address(), (int) entry.byteSize());
                 return;
             }
 
@@ -86,128 +96,128 @@ public final class ProtobufBinaryStreamWriter extends ProtobufBinaryWriter<Outpu
                 offset += readable;
             }
         } catch (IOException e) {
-            throw new ProtobufSerializationException("Cannot write to output stream", e);
+            throw ProtobufSerializationException.outputStreamFailure(e);
         }
     }
 
     @Override
-    public void writeRawFixedInt32(int entry) {
+    public void writeRawFixedInt32(int entry) throws ProtobufSerializationException {
         try {
-            ARRAY_AS_INT32_LE.set(buffer, 0, entry);
-            outputStream.write(buffer, 0, Integer.BYTES);
+            BinaryUtils.writeIntLE(scratch, 0, entry);
+            outputStream.write(scratch, 0, Integer.BYTES);
         } catch (IOException e) {
-            throw new ProtobufSerializationException("Cannot write to output stream", e);
+            throw ProtobufSerializationException.outputStreamFailure(e);
         }
     }
 
     @Override
-    public void writeRawFixedInt64(long entry) {
+    public void writeRawFixedInt64(long entry) throws ProtobufSerializationException {
         try {
-            ARRAY_AS_INT64_LE.set(buffer, 0, entry);
-            outputStream.write(buffer, 0, Long.BYTES);
+            BinaryUtils.writeLongLE(scratch, 0, entry);
+            outputStream.write(scratch, 0, Long.BYTES);
         } catch (IOException e) {
-            throw new ProtobufSerializationException("Cannot write to output stream", e);
+            throw ProtobufSerializationException.outputStreamFailure(e);
         }
     }
 
     @Override
-    public void writeRawFloat(float entry) {
+    public void writeRawFloat(float entry) throws ProtobufSerializationException {
         try {
-            ARRAY_AS_FLOAT_LE.set(buffer, 0, entry);
-            outputStream.write(buffer, 0, Float.BYTES);
+            BinaryUtils.writeFloatLE(scratch, 0, entry);
+            outputStream.write(scratch, 0, Float.BYTES);
         } catch (IOException e) {
-            throw new ProtobufSerializationException("Cannot write to output stream", e);
+            throw ProtobufSerializationException.outputStreamFailure(e);
         }
     }
 
     @Override
-    public void writeRawDouble(double entry) {
+    public void writeRawDouble(double entry) throws ProtobufSerializationException {
         try {
-            ARRAY_AS_DOUBLE_LE.set(buffer, 0, entry);
-            outputStream.write(buffer, 0, Double.BYTES);
+            BinaryUtils.writeDoubleLE(scratch, 0, entry);
+            outputStream.write(scratch, 0, Double.BYTES);
         } catch (IOException e) {
-            throw new ProtobufSerializationException("Cannot write to output stream", e);
+            throw ProtobufSerializationException.outputStreamFailure(e);
         }
     }
 
     @Override
-    public void writeRawVarInt32(int entry) {
+    public void writeRawVarInt32(int entry) throws ProtobufSerializationException {
         try {
-            var len = writeRawVarInt32(buffer, 0, entry);
-            outputStream.write(buffer, 0, len);
+            var len = writeRawVarInt32(scratch, 0, entry);
+            outputStream.write(scratch, 0, len);
         } catch (IOException e) {
-            throw new ProtobufSerializationException("Cannot write to output stream", e);
+            throw ProtobufSerializationException.outputStreamFailure(e);
         }
     }
 
     @Override
-    public void writeRawVarInt64(long entry) {
+    public void writeRawVarInt64(long entry) throws ProtobufSerializationException {
         try {
-            var len = writeRawVarInt64(buffer, 0, entry);
-            outputStream.write(buffer, 0, len);
+            var len = writeRawVarInt64(scratch, 0, entry);
+            outputStream.write(scratch, 0, len);
         } catch (IOException e) {
-            throw new ProtobufSerializationException("Cannot write to output stream", e);
+            throw ProtobufSerializationException.outputStreamFailure(e);
         }
     }
 
     @Override
-    public void writeRawPackedFixedInt32(int[] input) {
+    public void writeRawPackedFixedInt32(int[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawFixedInt32(value);
         }
     }
 
     @Override
-    public void writeRawPackedFixedInt64(long[] input) {
+    public void writeRawPackedFixedInt64(long[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawFixedInt64(value);
         }
     }
 
     @Override
-    public void writeRawPackedFloat(float[] input) {
+    public void writeRawPackedFloat(float[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawFloat(value);
         }
     }
 
     @Override
-    public void writeRawPackedDouble(double[] input) {
+    public void writeRawPackedDouble(double[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawDouble(value);
         }
     }
 
     @Override
-    public void writeRawPackedVarInt32(int[] input) {
+    public void writeRawPackedVarInt32(int[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawVarInt32(value);
         }
     }
 
     @Override
-    public void writeRawPackedZigZagVarInt32(int[] input) {
+    public void writeRawPackedZigZagVarInt32(int[] input) throws ProtobufSerializationException {
         for (var value : input) {
-            writeRawVarInt32((value << 1) ^ (value >> 31));
+            writeRawZigZagVarInt32(value);
         }
     }
 
     @Override
-    public void writeRawPackedVarInt64(long[] input) {
+    public void writeRawPackedVarInt64(long[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawVarInt64(value);
         }
     }
 
     @Override
-    public void writeRawPackedZigZagVarInt64(long[] input) {
+    public void writeRawPackedZigZagVarInt64(long[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawVarInt64((value << 1) ^ (value >> 63));
         }
     }
 
     @Override
-    public void writeRawPackedBool(boolean[] input) {
+    public void writeRawPackedBool(boolean[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawByte(value ? (byte) 1 : (byte) 0);
         }
@@ -219,8 +229,8 @@ public final class ProtobufBinaryStreamWriter extends ProtobufBinaryWriter<Outpu
     }
 
     @Override
-    public ProtobufIODataType rawDataTypePreference() {
-        return ProtobufIODataType.BYTE_ARRAY;
+    public BinaryDataType rawDataTypePreference() {
+        return BinaryDataType.BYTE_ARRAY;
     }
 
     @Override

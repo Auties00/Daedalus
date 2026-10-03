@@ -31,6 +31,14 @@
                     <compilerArgument>-proc:none</compilerArgument>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- The tests are patched into the named module: open their package to JUnit -->
+                    <argLine>--enable-preview --add-opens com.github.auties00.daedalus.processor/com.github.auties00.daedalus.processor.graph=ALL-UNNAMED</argLine>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
     <dependencies>

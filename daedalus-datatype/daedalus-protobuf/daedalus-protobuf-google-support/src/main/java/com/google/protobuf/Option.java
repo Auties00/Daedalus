@@ -1,6 +1,9 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
+
+import java.util.Optional;
 
 /**
  * A protocol buffer option, which can be attached to a message, field,
@@ -12,7 +15,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  *
  * <p>Protobuf type {@code com.google.protobuf.Option}
  */
-@ProtobufMessage
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
 public final class Option {
 
     /**
@@ -37,16 +40,37 @@ public final class Option {
     @ProtobufMessage.MessageField(index = 2)
     Any value;
 
+    /**
+     * Constructs a new {@code Option} with the specified field values.
+     *
+     * @param name the value of the {@code name} field
+     * @param value the value of the {@code value} field, or {@code null} if the
+     *              field is not set
+     */
     Option(String name, Any value) {
         this.name = name;
         this.value = value;
     }
 
+    /**
+     * Returns the value of the {@code name} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code name} field
+     */
     public String name() {
         return name;
     }
 
-    public Any value() {
-        return value;
+    /**
+     * Returns the value of the {@code value} field, if present.
+     *
+     * @return an {@code Optional} containing the value of the {@code value}
+     *         field, or an empty {@code Optional} if the field is not set
+     */
+    public Optional<Any> value() {
+        return Optional.ofNullable(value);
     }
 }

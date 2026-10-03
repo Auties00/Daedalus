@@ -1,30 +1,56 @@
 package com.github.auties00.daedalus.protobuf.processor.type;
 
+import com.github.auties00.daedalus.processor.model.DaedalusMixins;
 import com.github.auties00.daedalus.processor.model.DaedalusConverterElement;
+import com.github.auties00.daedalus.processor.type.DaedalusFieldType;
 import com.github.auties00.daedalus.protobuf.model.ProtobufType;
 
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
+/**
+ * A simple (non-collection, non-map) protobuf field type.
+ *
+ * <p>This record covers scalar types ({@code int32}, {@code float}, etc.),
+ * strings, bytes, enums, and nested messages. It holds the protobuf wire type,
+ * the Java types used for declaration and access, a default value expression,
+ * associated mixins, and an ordered converter chain for serialization and
+ * deserialization.
+ *
+ * @param protobufType the protobuf wire type of the field
+ * @param descriptorElementType the Java type used to declare the field (input
+ *        type for deserialization and constructors)
+ * @param accessorType the Java type returned by the field accessor (output
+ *        type for serialization)
+ * @param descriptorDefaultValue the default initialization expression for
+ *        the field
+ * @param mixins the mixins that apply to this field
+ * @param converters the mutable list of converters forming the conversion chain
+ */
 public record ProtobufSimpleFieldType(
         ProtobufType protobufType,
         TypeMirror descriptorElementType,
         TypeMirror accessorType,
         String descriptorDefaultValue,
-        List<TypeElement> mixins,
+        DaedalusMixins mixins,
         List<DaedalusConverterElement> converters
-) implements ProtobufFieldType {
+) implements ProtobufValueFieldType {
 
+    /**
+     * Creates a simple field type with an empty converter chain.
+     *
+     * @param protobufType the protobuf wire type of the field
+     * @param descriptorElementType the Java type used to declare the field
+     * @param accessorType the Java type returned by the field accessor
+     * @param descriptorDefaultValue the default initialization expression
+     * @param mixins the mixins that apply to this field
+     */
     public ProtobufSimpleFieldType(
             ProtobufType protobufType,
             TypeMirror descriptorElementType,
             TypeMirror accessorType,
             String descriptorDefaultValue,
-            List<TypeElement> mixins
+            DaedalusMixins mixins
     ) {
         this(protobufType, descriptorElementType, accessorType, descriptorDefaultValue, mixins, new ArrayList<>());
     }
@@ -64,9 +90,10 @@ public record ProtobufSimpleFieldType(
         return descriptorDefaultValue;
     }
 
+
     @Override
-    public List<TypeElement> mixins() {
-        return Collections.unmodifiableList(mixins);
+    public Collection<? extends DaedalusFieldType> nestedTypes() {
+        return List.of();
     }
 
     @Override

@@ -53,6 +53,33 @@ public final class NamingStrategy {
         return protoConstantName;
     }
 
+    /**
+     * Converts a Java name to the {@code snake_case} name that the annotation processor
+     * derives from it when a field annotation does not declare a {@code name}.
+     *
+     * <p>An underscore is inserted before an uppercase letter that follows a lowercase
+     * letter or a digit, and before the last letter of a run of uppercase letters that is
+     * followed by a lowercase letter, so that {@code URLValue} becomes {@code url_value}.
+     *
+     * @param javaName the Java name
+     * @return the {@code snake_case} name
+     */
+    public String toSnakeCase(String javaName) {
+        var result = new StringBuilder(javaName.length() + 4);
+        for (var i = 0; i < javaName.length(); i++) {
+            var current = javaName.charAt(i);
+            if (Character.isUpperCase(current) && i > 0) {
+                var previous = javaName.charAt(i - 1);
+                var nextIsLower = i + 1 < javaName.length() && Character.isLowerCase(javaName.charAt(i + 1));
+                if (Character.isLowerCase(previous) || Character.isDigit(previous) || (Character.isUpperCase(previous) && nextIsLower)) {
+                    result.append('_');
+                }
+            }
+            result.append(Character.toLowerCase(current));
+        }
+        return result.toString();
+    }
+
     private String toPascalCase(String input) {
         var result = new StringBuilder(input.length());
         var capitalizeNext = true;

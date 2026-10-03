@@ -1,7 +1,7 @@
 package com.github.auties00.daedalus.protobuf.compiler;
 
 import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
-import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufSemanticException;
+import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufDiagnosticMessage;
 import com.github.auties00.daedalus.protobuf.compiler.tree.*;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufObjectTypeReference;
 import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
@@ -19,7 +19,7 @@ class ProtobufAnalyzerTest {
     @Nested
     class TypeResolutionTests {
         @Test
-        public void testTypeResolutionGlobalScope() {
+        public void testTypeResolutionGlobalScope() throws ProtobufParserException {
             var proto = """
                     syntax = "proto3";
 
@@ -35,7 +35,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testTypeResolutionNestedMultipleLevels() {
+        public void testTypeResolutionNestedMultipleLevels() throws ProtobufParserException {
             var proto = """
                     syntax = "proto3";
 
@@ -58,7 +58,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testTypeResolutionShadowedNames() {
+        public void testTypeResolutionShadowedNames() throws ProtobufParserException {
             var proto = """
                     syntax = "proto3";
 
@@ -106,7 +106,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testDirectNestingResolution() {
+        public void testDirectNestingResolution() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -126,7 +126,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testQualifiedNestingResolution() {
+        public void testQualifiedNestingResolution() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -148,7 +148,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testDeepNestingResolution() {
+        public void testDeepNestingResolution() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -172,7 +172,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testGlobalScopeResolution() {
+        public void testGlobalScopeResolution() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
                         package foo.bar;
@@ -193,7 +193,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testRelativeResolution() {
+        public void testRelativeResolution() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
                         package test;
@@ -214,7 +214,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testForwardTypeReference() {
+        public void testForwardTypeReference() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -231,7 +231,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testTypeResolutionWithSiblingScope() {
+        public void testTypeResolutionWithSiblingScope() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -248,7 +248,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testNestedTypeVisibilityFromParent() {
+        public void testNestedTypeVisibilityFromParent() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -264,7 +264,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testNestedTypeVisibilityAcrossSiblings() {
+        public void testNestedTypeVisibilityAcrossSiblings() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -282,7 +282,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testAmbiguousTypeReferenceResolution() {
+        public void testAmbiguousTypeReferenceResolution() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -308,7 +308,7 @@ class ProtobufAnalyzerTest {
     @Nested
     class ImportResolutionTests {
         @Test
-        public void testBasicImportResolution() throws IOException {
+        public void testBasicImportResolution() throws IOException, ProtobufParserException {
             var imported = """
                         syntax = "proto3";
                         message ImportedType {
@@ -336,7 +336,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testPublicImportTransitivity() throws IOException {
+        public void testPublicImportTransitivity() throws IOException, ProtobufParserException {
             var fileB = """
                         syntax = "proto3";
                         message TypeB {
@@ -372,7 +372,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testNonPublicImportNonTransitivity() throws IOException {
+        public void testNonPublicImportNonTransitivity() throws IOException, ProtobufParserException {
             var fileB = """
                         syntax = "proto3";
                         message TypeB {
@@ -468,7 +468,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testOverallRangeLimits() {
+        public void testOverallRangeLimits() throws ProtobufParserException {
             var protoZero = """
                         syntax = "proto3";
 
@@ -507,7 +507,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testConsequencesOfReusePrevention() {
+        public void testConsequencesOfReusePrevention() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -524,7 +524,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testFieldNumberOne() {
+        public void testFieldNumberOne() throws ProtobufParserException {
             var proto = """
                     syntax = "proto3";
 
@@ -537,7 +537,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testFieldNumberJustBeforeReservedRange() {
+        public void testFieldNumberJustBeforeReservedRange() throws ProtobufParserException {
             var proto = """
                     syntax = "proto3";
 
@@ -550,7 +550,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testFieldNumberJustAfterReservedRange() {
+        public void testFieldNumberJustAfterReservedRange() throws ProtobufParserException {
             var proto = """
                     syntax = "proto3";
 
@@ -805,7 +805,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testReservedWithMaxKeyword() {
+        public void testReservedWithMaxKeyword() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -818,7 +818,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testReservedNumbersInProtobufImplementationRange() {
+        public void testReservedNumbersInProtobufImplementationRange() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -897,7 +897,7 @@ class ProtobufAnalyzerTest {
     @Nested
     class EnumConstraintTests {
         @Test
-        public void testFirstEnumValueMustBeZero() {
+        public void testFirstEnumValueMustBeZero() throws ProtobufParserException {
             var protoValid = """
                         syntax = "proto3";
 
@@ -920,7 +920,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testZeroValueNamedUnknownOrUnspecifiedRecommendation() {
+        public void testZeroValueNamedUnknownOrUnspecifiedRecommendation() throws ProtobufParserException {
             var protoUnknown = """
                         syntax = "proto3";
 
@@ -949,7 +949,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testAllowAliasOption() {
+        public void testAllowAliasOption() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -984,7 +984,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testReservedEnumValuesEnforcement() {
+        public void testReservedEnumValuesEnforcement() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -1038,7 +1038,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testEnumValueNegativeNumbers() {
+        public void testEnumValueNegativeNumbers() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -1055,7 +1055,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testEnumValueMaxInt32() {
+        public void testEnumValueMaxInt32() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -1071,7 +1071,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testEnumValueMinInt32() {
+        public void testEnumValueMinInt32() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -1204,7 +1204,7 @@ class ProtobufAnalyzerTest {
     @Nested
     class MapValidationTests {
         @Test
-        public void testMapKeyTypeRestrictions() {
+        public void testMapKeyTypeRestrictions() throws ProtobufParserException {
             var protoValid = """
                         syntax = "proto3";
 
@@ -1245,7 +1245,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testMapValueTypeRestrictions() {
+        public void testMapValueTypeRestrictions() throws ProtobufParserException {
             var protoValid = """
                         syntax = "proto3";
 
@@ -1301,7 +1301,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testMapWithValidStringKey() {
+        public void testMapWithValidStringKey() throws ProtobufParserException {
             var proto = """
                     syntax = "proto3";
 
@@ -1314,7 +1314,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testMapWithValidBoolKey() {
+        public void testMapWithValidBoolKey() throws ProtobufParserException {
             var proto = """
                     syntax = "proto3";
 
@@ -1327,7 +1327,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testMapWithValidInt32Key() {
+        public void testMapWithValidInt32Key() throws ProtobufParserException {
             var proto = """
                     syntax = "proto3";
 
@@ -1340,7 +1340,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testMapWithValidInt64Key() {
+        public void testMapWithValidInt64Key() throws ProtobufParserException {
             var proto = """
                     syntax = "proto3";
 
@@ -1367,7 +1367,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testMapWithEnumValue() {
+        public void testMapWithEnumValue() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -1382,7 +1382,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testAllValidMapKeyTypes() {
+        public void testAllValidMapKeyTypes() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -1406,7 +1406,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testMapWithMessageValue() {
+        public void testMapWithMessageValue() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -1531,7 +1531,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testOneofFieldNumbersUniqueWithinMessage() {
+        public void testOneofFieldNumbersUniqueWithinMessage() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -1588,7 +1588,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testOneofWithSingleField() {
+        public void testOneofWithSingleField() throws ProtobufParserException {
             var proto = """
                     syntax = "proto3";
 
@@ -1603,7 +1603,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testOneofWithMultipleFields() {
+        public void testOneofWithMultipleFields() throws ProtobufParserException {
             var proto = """
                     syntax = "proto3";
 
@@ -1620,7 +1620,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testMultipleOneofsInSameMessage() {
+        public void testMultipleOneofsInSameMessage() throws ProtobufParserException {
             var proto = """
                     syntax = "proto3";
 
@@ -1638,7 +1638,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testEnumInOneof() {
+        public void testEnumInOneof() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -1656,7 +1656,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testOneofWithMessageTypes() {
+        public void testOneofWithMessageTypes() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -1676,14 +1676,14 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testOneofWithWellKnownTypes() {
+        public void testOneofWithWellKnownTypes() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
                         message M {
                           oneof choice {
-                            com.google.protobuf.Timestamp timestamp = 1;
-                            com.google.protobuf.Duration duration = 2;
+                            google.protobuf.Timestamp timestamp = 1;
+                            google.protobuf.Duration duration = 2;
                           }
                         }
                         """;
@@ -1807,7 +1807,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testOneofFieldsWithDistinctJsonNames() {
+        public void testOneofFieldsWithDistinctJsonNames() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -1857,7 +1857,7 @@ class ProtobufAnalyzerTest {
     @Nested
     class Proto2Proto3RuleTests {
         @Test
-        public void testProto2RequiredFieldEnforcement() {
+        public void testProto2RequiredFieldEnforcement() throws ProtobufParserException {
             var proto = """
                         syntax = "proto2";
 
@@ -1887,7 +1887,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testProto3OptionalVsImplicitPresence() {
+        public void testProto3OptionalVsImplicitPresence() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -1905,7 +1905,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testCompatibilityChecks() {
+        public void testCompatibilityChecks() throws ProtobufParserException {
             var proto2 = """
                         syntax = "proto2";
 
@@ -1952,7 +1952,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testGroupValidInProto2() {
+        public void testGroupValidInProto2() throws ProtobufParserException {
             var proto = """
                         syntax = "proto2";
 
@@ -2049,7 +2049,7 @@ class ProtobufAnalyzerTest {
     @Nested
     class ExtensionValidationTests {
         @Test
-        public void testBasicExtensionRangeDeclaration() {
+        public void testBasicExtensionRangeDeclaration() throws ProtobufParserException {
             var proto = """
                         syntax = "proto2";
 
@@ -2064,7 +2064,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testExtensionRangeWithMax() {
+        public void testExtensionRangeWithMax() throws ProtobufParserException {
             var proto = """
                         syntax = "proto2";
 
@@ -2077,7 +2077,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testMultipleExtensionRanges() {
+        public void testMultipleExtensionRanges() throws ProtobufParserException {
             var proto = """
                         syntax = "proto2";
 
@@ -2090,7 +2090,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testExtensionFieldDefinition() {
+        public void testExtensionFieldDefinition() throws ProtobufParserException {
             var proto = """
                         syntax = "proto2";
 
@@ -2220,7 +2220,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testProto3CanExtendWellKnownTypes() {
+        public void testProto3CanExtendWellKnownTypes() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -2291,7 +2291,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testJsonNameNoConflictWithExplicitOverride() {
+        public void testJsonNameNoConflictWithExplicitOverride() throws ProtobufParserException {
             // Explicit json_name avoids conflict
             var proto = """
                         syntax = "proto3";
@@ -2306,7 +2306,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testJsonNameValidDifferentCamelCase() {
+        public void testJsonNameValidDifferentCamelCase() throws ProtobufParserException {
             // Different fields with legitimately different JSON names
             var proto = """
                         syntax = "proto3";
@@ -2398,7 +2398,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testRpcWithValidMessageTypes() {
+        public void testRpcWithValidMessageTypes() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -2419,7 +2419,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testRpcStreamingWithValidTypes() {
+        public void testRpcStreamingWithValidTypes() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -2550,12 +2550,12 @@ class ProtobufAnalyzerTest {
     @Nested
     class WellKnownTypeTests {
         @Test
-        public void testBasicWellKnownTypeUsage() {
+        public void testBasicWellKnownTypeUsage() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
                         message MyMessage {
-                          com.google.protobuf.Timestamp timestamp = 1;
+                          google.protobuf.Timestamp timestamp = 1;
                         }
                         """;
             var document = ProtobufParser.parseOnly(proto);
@@ -2563,18 +2563,18 @@ class ProtobufAnalyzerTest {
             var field = message.getDirectChildByNameAndType("timestamp", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, field.type());
             var typeRef = (ProtobufObjectTypeReference) field.type();
-            assertEquals("com.google.protobuf.Timestamp", typeRef.name());
+            assertEquals("google.protobuf.Timestamp", typeRef.name());
         }
 
         @Test
-        public void testWrapperTypesRecognition() {
+        public void testWrapperTypesRecognition() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
                         message MyMessage {
-                          com.google.protobuf.BoolValue bool_field = 1;
-                          com.google.protobuf.Int32Value int_field = 2;
-                          com.google.protobuf.StringValue string_field = 3;
+                          google.protobuf.BoolValue bool_field = 1;
+                          google.protobuf.Int32Value int_field = 2;
+                          google.protobuf.StringValue string_field = 3;
                         }
                         """;
             var document = ProtobufParser.parseOnly(proto);
@@ -2582,35 +2582,35 @@ class ProtobufAnalyzerTest {
 
             var boolField = message.getDirectChildByNameAndType("bool_field", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, boolField.type());
-            assertEquals("com.google.protobuf.BoolValue", boolField.type().name());
+            assertEquals("google.protobuf.BoolValue", boolField.type().name());
 
             var intField = message.getDirectChildByNameAndType("int_field", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, intField.type());
-            assertEquals("com.google.protobuf.Int32Value", intField.type().name());
+            assertEquals("google.protobuf.Int32Value", intField.type().name());
 
             var stringField = message.getDirectChildByNameAndType("string_field", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, stringField.type());
-            assertEquals("com.google.protobuf.StringValue", stringField.type().name());
+            assertEquals("google.protobuf.StringValue", stringField.type().name());
         }
 
         @Test
-        public void testAnyTypeRecognition() {
+        public void testAnyTypeRecognition() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
                         message MyMessage {
-                          com.google.protobuf.Any data = 1;
+                          google.protobuf.Any data = 1;
                         }
                         """;
             var document = ProtobufParser.parseOnly(proto);
             var message = document.getDirectChildByType(ProtobufMessageStatement.class).orElseThrow();
             var field = message.getDirectChildByNameAndType("data", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, field.type());
-            assertEquals("com.google.protobuf.Any", field.type().name());
+            assertEquals("google.protobuf.Any", field.type().name());
         }
 
         @Test
-        public void testJsonRepresentationImplicationsOfWKTs() {
+        public void testJsonRepresentationImplicationsOfWKTs() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -2620,9 +2620,9 @@ class ProtobufAnalyzerTest {
                         import "google/protobuf/struct.proto";
 
                         message MyMessage {
-                          com.google.protobuf.Timestamp timestamp = 1;
-                          com.google.protobuf.Duration duration = 2;
-                          com.google.protobuf.Any any = 3;
+                          google.protobuf.Timestamp timestamp = 1;
+                          google.protobuf.Duration duration = 2;
+                          google.protobuf.Any any = 3;
                           google.protobuf.Struct struct = 4;
                           google.protobuf.Value value = 5;
                         }
@@ -2634,18 +2634,18 @@ class ProtobufAnalyzerTest {
 
             var timestamp = message.getDirectChildByNameAndType("timestamp", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, timestamp.type());
-            assertEquals("com.google.protobuf.Timestamp", timestamp.type().name());
+            assertEquals("google.protobuf.Timestamp", timestamp.type().name());
 
             var duration = message.getDirectChildByNameAndType("duration", ProtobufFieldStatement.class).orElseThrow();
             assertInstanceOf(ProtobufObjectTypeReference.class, duration.type());
-            assertEquals("com.google.protobuf.Duration", duration.type().name());
+            assertEquals("google.protobuf.Duration", duration.type().name());
         }
     }
 
     @Nested
     class CustomOptionTests {
         @Test
-        public void testCustomOptionDefinitionAndUsage() {
+        public void testCustomOptionDefinitionAndUsage() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
                         import "google/protobuf/descriptor.proto";
@@ -2673,7 +2673,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testOptionRetentionRecognition() {
+        public void testOptionRetentionRecognition() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -2689,7 +2689,7 @@ class ProtobufAnalyzerTest {
         }
 
         @Test
-        public void testOptionTargetsValidation() {
+        public void testOptionTargetsValidation() throws ProtobufParserException {
             var proto = """
                         syntax = "proto3";
 
@@ -2714,11 +2714,13 @@ class ProtobufAnalyzerTest {
                       };
                     }
                     """;
-            assertThrows(ProtobufSemanticException.class, () -> ProtobufParser.parseOnly(proto));
+            var exception = assertThrows(ProtobufParserException.class, () -> ProtobufParser.parseOnly(proto));
+            assertEquals(1, exception.diagnostics().size());
+            assertEquals(ProtobufDiagnosticMessage.Kind.SEMANTIC, exception.diagnostics().getFirst().message().kind());
         }
 
         @Test
-        public void testGroupCustomOption() {
+        public void testGroupCustomOption() throws ProtobufParserException {
             var proto = """
                     extend google.protobuf.MessageOptions {
                       optional group MyOption = 50001 {

@@ -11,7 +11,6 @@ import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufInteger
 import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufLiteralExpression;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufFieldStatement;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufGroupStatement;
-import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufModifier;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufReservedStatement;
 import com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig;
 import com.github.auties00.daedalus.protobuf.cli.model.TypeForm;
@@ -58,20 +57,12 @@ public final class GroupGenerator {
         }
 
         cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufGroup");
-        cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage.ProtobufProperty");
-        cu.addImport("com.github.auties00.daedalus.protobuf.model.ProtobufType");
 
         var typeName = naming.toTypeName(group.name());
         var fields = new ArrayList<>(group.getDirectChildrenByType(ProtobufFieldStatement.class).toList());
 
         for (var field : fields) {
-            if (field.type() instanceof com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufMapTypeReference) {
-                cu.addImport("java.util.Map");
-            }
-            if (field.modifier() == ProtobufModifier.REPEATED
-                    && !(field.type() instanceof com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufMapTypeReference)) {
-                cu.addImport("java.util.List");
-            }
+            propertyGenerator.requiredImports(field).forEach(cu::addImport);
         }
 
         var typeForm = resolveTypeForm(protoFqn);
@@ -114,22 +105,22 @@ public final class GroupGenerator {
         }
 
         var reservedNames = new ArrayList<String>();
-        var reservedIndexes = new ArrayList<Long>();
-        var reservedRanges = new ArrayList<long[]>();
+        var reservedIndexes = new ArrayList<Integer>();
+        var reservedRanges = new ArrayList<int[]>();
 
         group.getDirectChildrenByType(ProtobufReservedStatement.class).forEach(reserved ->
                 reserved.expressions().forEach(expr -> {
                     if (expr instanceof ProtobufLiteralExpression literal) {
                         reservedNames.add(literal.value());
                     } else if (expr instanceof ProtobufIntegerExpression intExpr) {
-                        reservedIndexes.add(intExpr.value().value().longValueExact());
+                        reservedIndexes.add((int) intExpr.value().value());
                     } else if (expr instanceof ProtobufIntegerRangeExpression rangeExpr) {
                         var range = rangeExpr.value();
-                        var lower = range.lowerBound().value().longValueExact();
+                        var lower = (int) range.lowerBound().value();
                         var upper = range.upperBound()
-                                .map(u -> u.value().longValueExact())
-                                .orElse(536_870_911L);
-                        reservedRanges.add(new long[]{lower, upper});
+                                .map(u -> (int) u.value())
+                                .orElse(536_870_911);
+                        reservedRanges.add(new int[]{lower, upper});
                     }
                 })
         );
@@ -156,8 +147,8 @@ public final class GroupGenerator {
                 values.add(new NormalAnnotationExpr(
                         new Name("ProtobufReservedRange"),
                         new NodeList<>(
-                                new MemberValuePair("min", new LongLiteralExpr(String.valueOf(range[0]))),
-                                new MemberValuePair("max", new LongLiteralExpr(String.valueOf(range[1])))
+                                new MemberValuePair("min", new IntegerLiteralExpr(String.valueOf(range[0]))),
+                                new MemberValuePair("max", new IntegerLiteralExpr(String.valueOf(range[1])))
                         )
                 ));
             }

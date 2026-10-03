@@ -1,9 +1,6 @@
 package com.github.auties00.daedalus.protobuf.compiler.number;
 
-import java.math.BigDecimal;
-import java.util.Objects;
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 
 /**
  * Represents a floating-point value in a Protocol Buffer definition.
@@ -19,7 +16,7 @@ import java.util.OptionalLong;
  * </ul>
  * <p>
  * Floating-point values cannot be used as field indexes or enum constants, so the
- * {@link #toFieldIndex()} and {@link #toEnumConstant()} methods always return empty optionals.
+ * {@link #toMessageFieldIndex()} and {@link #toEnumConstantIndex()} methods always return empty optionals.
  * </p>
  * <p>
  * The interface has three implementations:
@@ -36,12 +33,12 @@ import java.util.OptionalLong;
  */
 public sealed interface ProtobufFloatingPoint extends ProtobufNumber {
     @Override
-    default OptionalLong toFieldIndex() {
-        return OptionalLong.empty();
+    default OptionalInt toMessageFieldIndex() {
+        return OptionalInt.empty();
     }
 
     @Override
-    default OptionalInt toEnumConstant() {
+    default OptionalInt toEnumConstantIndex() {
         return OptionalInt.empty();
     }
 

@@ -1,5 +1,6 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
 /**
@@ -12,7 +13,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  *
  * <p>Protobuf type {@code com.google.protobuf.BytesValue}
  */
-@ProtobufMessage
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
 public final class BytesValue {
 
     /**
@@ -23,11 +24,24 @@ public final class BytesValue {
     @ProtobufMessage.BytesField(index = 1)
     byte[] value;
 
+    /**
+     * Constructs a new {@code BytesValue} with the specified field values.
+     *
+     * @param value the value of the {@code value} field
+     */
     BytesValue(byte[] value) {
         this.value = value;
     }
 
+    /**
+     * Returns a copy of the value of the {@code value} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return a copy of the value of the {@code value} field
+     */
     public byte[] value() {
-        return value;
+        return value.clone();
     }
 }

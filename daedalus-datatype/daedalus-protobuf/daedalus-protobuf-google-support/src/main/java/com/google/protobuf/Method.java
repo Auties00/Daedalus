@@ -1,5 +1,6 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 import java.util.Collections;
 import java.util.List;
@@ -15,7 +16,7 @@ import java.util.SequencedCollection;
  *
  * <p>Protobuf type {@code com.google.protobuf.Method}
  */
-@ProtobufMessage
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
 public final class Method {
 
     /**
@@ -90,6 +91,18 @@ public final class Method {
     @ProtobufMessage.StringField(index = 8)
     String edition;
 
+    /**
+     * Constructs a new {@code Method} with the specified field values.
+     *
+     * @param name the value of the {@code name} field
+     * @param requestTypeUrl the value of the {@code request_type_url} field
+     * @param requestStreaming the value of the {@code request_streaming} field
+     * @param responseTypeUrl the value of the {@code response_type_url} field
+     * @param responseStreaming the value of the {@code response_streaming} field
+     * @param options the values of the repeated {@code options} field
+     * @param syntax the value of the {@code syntax} field
+     * @param edition the value of the {@code edition} field
+     */
     Method(
             String name,
             String requestTypeUrl,
@@ -110,35 +123,100 @@ public final class Method {
         this.edition = edition;
     }
 
+    /**
+     * Returns the value of the {@code name} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code name} field
+     */
     public String name() {
         return name;
     }
 
+    /**
+     * Returns the value of the {@code request_type_url} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code request_type_url} field
+     */
     public String requestTypeUrl() {
         return requestTypeUrl;
     }
 
+    /**
+     * Returns the value of the {@code request_streaming} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code request_streaming} field
+     */
     public boolean requestStreaming() {
         return requestStreaming;
     }
 
+    /**
+     * Returns the value of the {@code response_type_url} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code response_type_url} field
+     */
     public String responseTypeUrl() {
         return responseTypeUrl;
     }
 
+    /**
+     * Returns the value of the {@code response_streaming} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code response_streaming} field
+     */
     public boolean responseStreaming() {
         return responseStreaming;
     }
 
+    /**
+     * Returns an unmodifiable view of the values of the repeated
+     * {@code options} field.
+     *
+     * @return an unmodifiable view of the values of the {@code options} field,
+     *         in encounter order
+     */
     public SequencedCollection<Option> options() {
         return Collections.unmodifiableSequencedCollection(options);
     }
 
+    /**
+     * Returns the value of the {@code syntax} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code syntax} field
+     * @deprecated The {@code .proto} declaration marks this field as deprecated.
+     */
     @Deprecated
     public Syntax syntax() {
         return syntax;
     }
 
+    /**
+     * Returns the value of the {@code edition} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code edition} field
+     * @deprecated The {@code .proto} declaration marks this field as deprecated.
+     */
     @Deprecated
     public String edition() {
         return edition;

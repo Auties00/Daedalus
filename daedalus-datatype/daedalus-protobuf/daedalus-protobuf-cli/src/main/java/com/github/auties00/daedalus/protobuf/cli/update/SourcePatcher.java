@@ -1,5 +1,6 @@
 package com.github.auties00.daedalus.protobuf.cli.update;
 
+import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufOneofStatement;
 import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.*;
@@ -12,7 +13,6 @@ import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufEnumConstantS
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufEnumStatement;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufFieldStatement;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufMessageStatement;
-import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufModifier;
 import com.github.auties00.daedalus.protobuf.cli.generation.NamingStrategy;
 import com.github.auties00.daedalus.protobuf.cli.generation.PropertyGenerator;
 
@@ -58,25 +58,38 @@ public final class SourcePatcher {
         var typeDecl = scannedType.typeDeclaration();
         var existingIndexes = scannedType.existingFieldIndexes();
 
-        var newFields = message.getDirectChildrenByType(ProtobufFieldStatement.class)
-                .filter(field -> !existingIndexes.contains(field.index().value().longValueExact()))
+        var newFields = propertyGenerator.collectFields(message)
+                .stream()
+                .filter(field -> !existingIndexes.contains((int) field.index().value()))
+                .toList();
+
+        // A oneof is held by a single field of a sealed type, which cannot be patched one member at a time
+        for (var field : newFields) {
+            if (field.parent() instanceof ProtobufOneofStatement oneof) {
+                changes.add("Skipped member '" + field.name() + "' (index " + field.index().value() + ") of oneof '" + oneof.name() + "': add it as a case of the oneof manually, or regenerate the message");
+            }
+        }
+        newFields = newFields.stream()
+                .filter(field -> !(field.parent() instanceof ProtobufOneofStatement))
                 .toList();
 
         if (newFields.isEmpty()) {
             return changes;
         }
 
+        var withAccessors = false;
         if (typeDecl instanceof RecordDeclaration record) {
             patchRecordFields(record, newFields, changes, scannedType);
         } else if (typeDecl instanceof ClassOrInterfaceDeclaration classOrInterface) {
             if (classOrInterface.isInterface()) {
                 patchInterfaceFields(classOrInterface, newFields, changes, scannedType);
             } else {
-                patchClassFields(classOrInterface, newFields, changes, scannedType);
+                withAccessors = hasAccessors(classOrInterface, scannedType);
+                patchClassFields(classOrInterface, newFields, changes, withAccessors);
             }
         }
 
-        addMissingImports(scannedType, newFields);
+        addMissingImports(scannedType, newFields, withAccessors);
         return changes;
     }
 
@@ -94,7 +107,7 @@ public final class SourcePatcher {
         var existingIndexes = scannedType.existingEnumConstantIndexes();
 
         var newConstants = enumStmt.getDirectChildrenByType(ProtobufEnumConstantStatement.class)
-                .filter(constant -> !existingIndexes.contains((long) constant.index().value().longValueExact()))
+                .filter(constant -> !existingIndexes.contains((int) constant.index().value()))
                 .toList();
 
         if (newConstants.isEmpty()) {
@@ -131,39 +144,49 @@ public final class SourcePatcher {
             var component = propertyGenerator.createRecordComponent(field);
             record.getParameters().add(component);
             var fieldName = propertyGenerator.resolveFieldName(field);
-            var index = field.index().value().longValueExact();
+            var index = (int) field.index().value();
             changes.add("Added record component '" + fieldName + "' (index " + index + ")");
         }
     }
 
+    /**
+     * Adds the declarations of new proto fields to a class.
+     *
+     * <p>Each field is added as a package private field, which the generated Spec class
+     * reads directly, and, if the class declares accessors, together with a public
+     * accessor that returns an {@code Optional} for a field that can be unset, exactly
+     * like the {@link com.github.auties00.daedalus.protobuf.cli.generation.MessageGenerator}
+     * does for a newly generated class.
+     *
+     * @param classDecl the class declaration to patch
+     * @param newFields the proto fields to add
+     * @param changes the list that receives a description of each change
+     * @param withAccessors whether an accessor is added for each new field
+     */
     private void patchClassFields(ClassOrInterfaceDeclaration classDecl, List<? extends ProtobufFieldStatement> newFields,
-                                   List<String> changes, ScannedType scannedType) {
+                                   List<String> changes, boolean withAccessors) {
         for (var field : newFields) {
             var fieldName = propertyGenerator.resolveFieldName(field);
-            var javaType = propertyGenerator.resolveJavaType(field);
-            var index = field.index().value().longValueExact();
+            var index = (int) field.index().value();
 
-            // Add field declaration
-            var fieldDeclaration = classDecl.addField(javaType, fieldName,
-                    Modifier.Keyword.PRIVATE, Modifier.Keyword.FINAL);
-            fieldDeclaration.getVariable(0).getParentNode().ifPresent(parent -> {
-                if (parent instanceof FieldDeclaration fd) {
-                    fd.addAnnotation(propertyGenerator.createPropertyAnnotation(field));
+            // The LexicalPreservingPrinter does not indent a member whose annotations are attached
+            // before it joins the observed tree, so the annotations are attached afterwards
+            var fieldDeclaration = propertyGenerator.createField(field);
+            var annotations = new ArrayList<>(fieldDeclaration.getAnnotations());
+            fieldDeclaration.getAnnotations().clear();
+            classDecl.addMember(fieldDeclaration);
+            annotations.forEach(fieldDeclaration::addAnnotation);
+            if (withAccessors) {
+                // The LexicalPreservingPrinter prints a comment that is attached before its node
+                // joins the observed tree once for each observer, and does not indent it, so it
+                // is attached afterwards with the indentation of the existing members
+                var accessor = propertyGenerator.createAccessor(field);
+                var javadoc = accessor.getJavadoc().orElse(null);
+                accessor.removeComment();
+                classDecl.addMember(accessor);
+                if (javadoc != null) {
+                    accessor.setJavadocComment(resolveMemberIndentation(classDecl), javadoc);
                 }
-            });
-
-            // Add accessor method if the class uses @ProtobufAccessor
-            if (hasAccessorAnnotations(classDecl)) {
-                var accessor = classDecl.addMethod(fieldName, Modifier.Keyword.PUBLIC);
-                accessor.setType(javaType);
-                accessor.addAnnotation(new NormalAnnotationExpr(
-                        new Name("ProtobufAccessor"),
-                        new NodeList<>(new MemberValuePair("index",
-                                new LongLiteralExpr(String.valueOf(index))))
-                ));
-                accessor.setBody(new BlockStmt().addStatement(
-                        new ReturnStmt(new NameExpr(fieldName))
-                ));
             }
 
             changes.add("Added field '" + fieldName + "' (index " + index + ")");
@@ -176,12 +199,12 @@ public final class SourcePatcher {
         for (var field : newFields) {
             var fieldName = propertyGenerator.resolveFieldName(field);
             var javaType = propertyGenerator.resolveJavaType(field);
-            var index = field.index().value().longValueExact();
+            var index = (int) field.index().value();
 
             var method = interfaceDecl.addMethod(fieldName);
             method.setType(javaType);
             method.removeBody();
-            method.addAnnotation(propertyGenerator.createPropertyAnnotation(field));
+            method.addAnnotation(propertyGenerator.createFieldAnnotation(field));
 
             changes.add("Added method '" + fieldName + "()' (index " + index + ")");
         }
@@ -192,7 +215,7 @@ public final class SourcePatcher {
                                          List<String> changes) {
         for (var constant : newConstants) {
             var constantName = naming.toEnumConstantName(constant.name());
-            var index = constant.index().value().longValueExact();
+            var index = (int) constant.index().value();
 
             var entry = new EnumConstantDeclaration(constantName);
             entry.addAnnotation(new NormalAnnotationExpr(
@@ -212,7 +235,7 @@ public final class SourcePatcher {
         var typeName = classDecl.getNameAsString();
         for (var constant : newConstants) {
             var constantName = naming.toEnumConstantName(constant.name());
-            var index = constant.index().value().longValueExact();
+            var index = (int) constant.index().value();
 
             var fieldDecl = classDecl.addFieldWithInitializer(
                     typeName, constantName,
@@ -237,7 +260,7 @@ public final class SourcePatcher {
         var typeName = recordDecl.getNameAsString();
         for (var constant : newConstants) {
             var constantName = naming.toEnumConstantName(constant.name());
-            var index = constant.index().value().longValueExact();
+            var index = (int) constant.index().value();
 
             var fieldDecl = new FieldDeclaration();
             fieldDecl.addModifier(Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
@@ -259,9 +282,43 @@ public final class SourcePatcher {
         }
     }
 
-    private boolean hasAccessorAnnotations(ClassOrInterfaceDeclaration classDecl) {
+    /**
+     * Returns the indentation of the members of a class, as written in its source.
+     *
+     * <p>The indentation is the one of the first member of the class that has a position
+     * in the source, or four spaces if there is none.
+     *
+     * @param classDecl the class declaration to inspect
+     * @return the indentation of the members of the class
+     */
+    private String resolveMemberIndentation(ClassOrInterfaceDeclaration classDecl) {
+        return classDecl.getMembers()
+                .stream()
+                .flatMap(member -> member.getBegin().stream())
+                .findFirst()
+                .map(position -> " ".repeat(Math.max(position.column - 1, 0)))
+                .orElse("    ");
+    }
+
+    /**
+     * Returns whether a class declares accessors for its proto fields.
+     *
+     * <p>A class declares accessors if one of its methods is annotated with
+     * {@code @ProtobufAccessor}, or if one of its methods takes no parameters and is
+     * named after one of its existing proto fields, which is how the generator declares
+     * them.
+     *
+     * @param classDecl the class declaration to inspect
+     * @param scannedType the scanned type of the class
+     * @return {@code true} if the class declares accessors, otherwise {@code false}
+     */
+    private boolean hasAccessors(ClassOrInterfaceDeclaration classDecl, ScannedType scannedType) {
+        var fieldNames = scannedType.existingFieldsByIndex().values();
         for (var member : classDecl.getMembers()) {
             if (member instanceof MethodDeclaration method) {
+                if (method.getParameters().isEmpty() && fieldNames.contains(method.getNameAsString())) {
+                    return true;
+                }
                 for (var annotation : method.getAnnotations()) {
                     if (annotation.getNameAsString().contains("ProtobufAccessor")) {
                         return true;
@@ -272,28 +329,25 @@ public final class SourcePatcher {
         return false;
     }
 
-    private void addMissingImports(ScannedType scannedType, List<? extends ProtobufFieldStatement> newFields) {
+    /**
+     * Adds the imports needed by new proto fields, and by their accessors, to the
+     * compilation unit of a scanned type.
+     *
+     * @param scannedType the scanned type whose compilation unit is patched
+     * @param newFields the proto fields that were added
+     * @param withAccessors whether an accessor was added for each new field
+     */
+    private void addMissingImports(ScannedType scannedType, List<? extends ProtobufFieldStatement> newFields, boolean withAccessors) {
         var cu = scannedType.compilationUnit();
-        var hasMap = false;
-        var hasList = false;
-
         for (var field : newFields) {
-            if (field.type() instanceof com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufMapTypeReference) {
-                hasMap = true;
+            for (var importName : propertyGenerator.requiredImports(field)) {
+                addImportIfMissing(cu, importName);
             }
-            if (field.modifier() == ProtobufModifier.REPEATED
-                    && !(field.type() instanceof com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufMapTypeReference)) {
-                hasList = true;
+            if (withAccessors) {
+                for (var importName : propertyGenerator.requiredAccessorImports(field)) {
+                    addImportIfMissing(cu, importName);
+                }
             }
-        }
-
-        addImportIfMissing(cu, "com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage.ProtobufProperty");
-        addImportIfMissing(cu, "com.github.auties00.daedalus.protobuf.model.ProtobufType");
-        if (hasMap) {
-            addImportIfMissing(cu, "java.util.Map");
-        }
-        if (hasList) {
-            addImportIfMissing(cu, "java.util.List");
         }
     }
 

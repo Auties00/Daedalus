@@ -1,31 +1,57 @@
 package com.github.auties00.daedalus.protobuf.processor.type;
 
+import com.github.auties00.daedalus.processor.model.DaedalusMixins;
 import com.github.auties00.daedalus.processor.model.DaedalusConverterElement;
-import com.github.auties00.daedalus.protobuf.model.ProtobufType;
-import com.github.auties00.daedalus.protobuf.processor.element.ProtobufFieldElement;
+import com.github.auties00.daedalus.processor.type.DaedalusFieldType;
 
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * A map protobuf field type with separate key and value types.
+ *
+ * <p>A map field has no type of its own: it is encoded as a repeated message whose
+ * key and value have the types of {@link #keyType()} and {@link #valueType()}, which
+ * are both {@link ProtobufSimpleFieldType simple field types}. An ordered converter chain mediates
+ * between the wire format and the Java model during serialization and
+ * deserialization.
+ *
+ * @param descriptorElementType the declared Java map type of the field
+ * @param keyType the simple field type describing each map key
+ * @param valueType the field type describing each map value
+ * @param descriptorDefaultValue the default initialization expression for
+ *        the field
+ * @param mixins the mixins that apply to this field
+ * @param converters the mutable list of converters forming the conversion chain
+ */
 public record ProtobufMapFieldType(
         TypeMirror descriptorElementType,
         ProtobufSimpleFieldType keyType,
-        ProtobufFieldType valueType,
+        ProtobufSimpleFieldType valueType,
         String descriptorDefaultValue,
-        List<TypeElement> mixins,
+        DaedalusMixins mixins,
         List<DaedalusConverterElement> converters
 ) implements ProtobufFieldType {
 
+    /**
+     * Creates a map field type with an empty converter chain.
+     *
+     * @param descriptorElementType the declared Java map type of the field
+     * @param keyType the simple field type describing each map key
+     * @param valueType the field type describing each map value
+     * @param descriptorDefaultValue the default initialization expression
+     * @param mixins the mixins that apply to this field
+     */
     public ProtobufMapFieldType(
             TypeMirror descriptorElementType,
             ProtobufSimpleFieldType keyType,
-            ProtobufFieldType valueType,
+            ProtobufSimpleFieldType valueType,
             String descriptorDefaultValue,
-            List<TypeElement> mixins
+            DaedalusMixins mixins
     ) {
         this(descriptorElementType, keyType, valueType, descriptorDefaultValue, mixins, new ArrayList<>());
     }
@@ -40,10 +66,6 @@ public record ProtobufMapFieldType(
         return Collections.unmodifiableList(converters);
     }
 
-    @Override
-    public List<TypeElement> mixins() {
-        return Collections.unmodifiableList(mixins);
-    }
 
     @Override
     public void addConverter(DaedalusConverterElement element) {
@@ -55,9 +77,15 @@ public record ProtobufMapFieldType(
         converters.clear();
     }
 
+    /**
+     * Returns the key and value field types so that the framework recurses into
+     * them during converter attribution.
+     *
+     * @return a list containing {@link #keyType()} and {@link #valueType()}
+     */
     @Override
-    public ProtobufType protobufType() {
-        return ProtobufType.MAP;
+    public Collection<? extends DaedalusFieldType> nestedTypes() {
+        return List.of(keyType, valueType);
     }
 
     @Override

@@ -96,7 +96,7 @@ public final class ProtobufWireType {
      *
      * @see <a href="https://developers.google.com/protocol-buffers/docs/encoding#structure">Protocol Buffers Wire Format</a>
      */
-    public static long makeTag(long fieldNumber, int wireType) {
-        return (fieldNumber << 3) | wireType;
+    public static long makeTag(int fieldNumber, int wireType) {
+        return ((long) fieldNumber << 3) | wireType;
     }
 }

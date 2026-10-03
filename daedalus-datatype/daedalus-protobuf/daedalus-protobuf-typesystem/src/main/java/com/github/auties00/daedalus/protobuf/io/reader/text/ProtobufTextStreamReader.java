@@ -6,13 +6,10 @@ import com.github.auties00.daedalus.protobuf.io.reader.ProtobufTextReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 import static com.github.auties00.daedalus.protobuf.io.reader.text.ProtobufTextChars.*;
-import static com.github.auties00.daedalus.protobuf.io.reader.text.ProtobufTextLimits.*;
 
 /**
  * A streaming text reader for Protocol Buffers text format (textproto)
@@ -31,6 +28,14 @@ import static com.github.auties00.daedalus.protobuf.io.reader.text.ProtobufTextL
  */
 public final class ProtobufTextStreamReader extends ProtobufTextReader {
     private static final int DEFAULT_BUFFER_SIZE = 8192;
+
+    /**
+     * The minimum size of the internal buffer, which must hold the longest escape sequence of a
+     * string, {@code \UHHHHHHHH}, so that it can be decoded at once.
+     */
+    private static final int MIN_BUFFER_SIZE = 16;
+    private static final long ULONG_MAX_DIV_10 = Long.divideUnsigned(-1L, 10);
+    private static final int ULONG_MAX_MOD_10 = (int) Long.remainderUnsigned(-1L, 10);
 
     private final InputStream inputStream;
     private final boolean autoclose;
@@ -59,14 +64,15 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
      * @param inputStream the input stream to read from
      * @param limit       the maximum number of bytes to read, or {@code -1} for unlimited
      * @param autoclose   whether to close the stream when {@link #close()} is called
-     * @param bufferSize  the internal buffer size in bytes
+     * @param bufferSize  the internal buffer size in bytes, which is raised to
+     *                    {@value #MIN_BUFFER_SIZE} if it is smaller
      */
     public ProtobufTextStreamReader(InputStream inputStream, long limit, boolean autoclose, int bufferSize) {
         Objects.requireNonNull(inputStream, "inputStream cannot be null");
         this.inputStream = inputStream;
         this.autoclose = autoclose;
         this.limit = limit;
-        this.buffer = new byte[bufferSize];
+        this.buffer = new byte[Math.max(bufferSize, MIN_BUFFER_SIZE)];
     }
 
     /**
@@ -232,98 +238,198 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
     /**
      * {@inheritDoc}
      *
-     * @throws ProtobufDeserializationException if the next token is not
-     *         {@code &#123;} or {@code <}
+     * @throws ProtobufDeserializationException if a message is open and the next token is
+     *         neither {@code &#123;} nor {@code <}, or if the message exceeds the recursion limit
      */
     @Override
-    public void readStartObject() {
+    public void readStartMessage() throws ProtobufDeserializationException {
         var b = skipWhitespaceAndComments();
-        if (b != LBRACE && b != LANGLE) {
-            throw new ProtobufDeserializationException("Expected '{' or '<' to start object");
+        if (b == LBRACE || b == LANGLE) {
+            readByte();
+            pushMessage(b == LBRACE ? RBRACE : RANGLE);
+            return;
         }
-        readByte();
+
+        if (messageDepth() != 0) {
+            throw ProtobufDeserializationException.expectedMessageStart(describeByte(b));
+        }
+
+        pushMessage(END_OF_TEXT);
     }
 
     /**
      * {@inheritDoc}
-     *
-     * @throws ProtobufDeserializationException if the next token is not
-     *         {@code &#125;} or {@code >}
      */
     @Override
-    public void readEndObject() {
+    public boolean nextField() throws ProtobufDeserializationException {
         var b = skipWhitespaceAndComments();
-        if (b != RBRACE && b != RANGLE) {
-            throw new ProtobufDeserializationException("Expected '}' or '>' to end object");
-        }
-        readByte();
-        skipOptionalSeparator();
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @throws ProtobufDeserializationException if the next token is not {@code [}
-     */
-    @Override
-    public void readStartArray() {
-        var b = skipWhitespaceAndComments();
-        if (b != LBRACKET) {
-            throw new ProtobufDeserializationException("Expected '[' to start array");
-        }
-        readByte();
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @throws ProtobufDeserializationException if the next token is not {@code ]}
-     */
-    @Override
-    public void readEndArray() {
-        var b = skipWhitespaceAndComments();
-        if (b != RBRACKET) {
-            throw new ProtobufDeserializationException("Expected ']' to end array");
-        }
-        readByte();
-        skipOptionalSeparator();
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Returns {@code false} if the stream is exhausted or the next token
-     * is not an identifier (e.g. a closing bracket, a value token, or a
-     * numeric literal). If an identifier is found, the optional colon
-     * separator after the field name is also consumed.
-     */
-    @Override
-    public boolean readPropertyName() {
-        var b = skipWhitespaceAndComments();
-        if (b == -1 || !isWordByte(b) || (b >= '0' && b <= '9') || b == DOT) {
+        if (b == -1) {
+            if (messageDelimiter() != END_OF_TEXT) {
+                throw ProtobufDeserializationException.unexpectedEndOfText();
+            }
             return false;
         }
-        var builder = new StringBuilder();
-        while (true) {
-            if (bufferPosition >= bufferLimit) {
-                if (finished || !refill()) {
-                    return false;
-                }
+
+        if (b == RBRACE || b == RANGLE) {
+            var delimiter = messageDelimiter();
+            if (delimiter == END_OF_TEXT) {
+                throw ProtobufDeserializationException.expectedEndOfText(describeByte(b));
             }
-            var codepoint = buffer[bufferPosition] & 0xFF;
-            if(!isWordByte(codepoint)) {
-                break;
+            if (b != delimiter) {
+                throw ProtobufDeserializationException.expectedMessageEnd(Character.toString(delimiter), describeByte(b));
             }
-            builder.appendCodePoint(codepoint);
-            bufferPosition++;
-            position++;
+            return false;
         }
-        propertyName = builder.toString();
-        b = skipWhitespaceAndComments();
-        if (b == COLON) {
+
+        if (b == LBRACKET) {
+            readByte();
+            fieldName = readBracketedName();
+        } else if (isIdentifierStart(b)) {
+            fieldName = readWordAsString();
+        } else {
+            throw ProtobufDeserializationException.expectedFieldName(describeByte(b));
+        }
+
+        if (skipWhitespaceAndComments() == COLON) {
             readByte();
         }
         return true;
+    }
+
+    /**
+     * Reads the name of an extension, or the type URL of an expanded {@code Any}, whose opening
+     * square bracket was consumed, and the closing square bracket that follows it.
+     *
+     * <p>The words of the name are concatenated, dropping the whitespace and the comments
+     * between them.
+     *
+     * @return the name, enclosed in square brackets
+     * @throws ProtobufDeserializationException if the name is empty, or if the text ends before
+     *                                          the closing square bracket
+     */
+    private String readBracketedName() throws ProtobufDeserializationException {
+        var result = new StringBuilder();
+        result.append('[');
+        while (true) {
+            var b = skipWhitespaceAndComments();
+            if (b == -1) {
+                throw ProtobufDeserializationException.unexpectedEndOfText();
+            } else if (b == RBRACKET) {
+                readByte();
+                break;
+            } else if (b == MINUS) {
+                readByte();
+                result.append('-');
+            } else if (isWordByte(b)) {
+                result.append(readWordAsString());
+            } else {
+                throw ProtobufDeserializationException.expectedFieldName(describeByte(b));
+            }
+        }
+        if (result.length() == 1) {
+            throw ProtobufDeserializationException.expectedFieldName("]");
+        }
+        return result.append(']').toString();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ProtobufDeserializationException if the next token is not the delimiter that
+     *         closes the message, or if the message is the top level message and the text does
+     *         not end
+     */
+    @Override
+    public void readEndMessage() throws ProtobufDeserializationException {
+        var delimiter = popMessage();
+        var b = skipWhitespaceAndComments();
+        if (delimiter == END_OF_TEXT) {
+            if (b != -1) {
+                throw ProtobufDeserializationException.expectedEndOfText(describeByte(b));
+            }
+            return;
+        }
+
+        if (b == -1) {
+            throw ProtobufDeserializationException.unexpectedEndOfText();
+        }
+        if (b != delimiter) {
+            throw ProtobufDeserializationException.expectedMessageEnd(Character.toString(delimiter), describeByte(b));
+        }
+        readByte();
+        skipOptionalSeparator();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean readStartList() {
+        if (skipWhitespaceAndComments() == LBRACKET) {
+            readByte();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean nextListElement() throws ProtobufDeserializationException {
+        var b = skipWhitespaceAndComments();
+        if (b == -1) {
+            throw ProtobufDeserializationException.unexpectedEndOfText();
+        }
+        if (b == RBRACKET) {
+            readByte();
+            skipOptionalSeparator();
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isNextValueIdentifier() {
+        return isIdentifierStart(skipWhitespaceAndComments());
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String readIdentifierField() throws ProtobufDeserializationException {
+        var b = skipWhitespaceAndComments();
+        if (!isIdentifierStart(b)) {
+            throw ProtobufDeserializationException.expectedValue("identifier", describeByte(b));
+        }
+        var result = readWordAsString();
+        skipOptionalSeparator();
+        return result;
+    }
+
+    /**
+     * Returns whether the given byte starts an identifier, which is a word that does not start
+     * with a digit or a dot.
+     *
+     * @param b the byte, or {@code -1} for the end of the text
+     * @return {@code true} if the byte starts an identifier
+     */
+    private static boolean isIdentifierStart(int b) {
+        return isWordByte(b) && (b < '0' || b > '9') && b != DOT;
+    }
+
+    /**
+     * Describes the given byte in an error message.
+     *
+     * @param b the byte, or {@code -1} for the end of the text
+     * @return the character of the byte, or an empty string for the end of the text
+     */
+    private static String describeByte(int b) {
+        return b == -1 ? "" : Character.toString(b);
     }
 
     /**
@@ -341,29 +447,136 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
      * concatenation, and nested objects or arrays at arbitrary depth.
      */
     @Override
-    public void skipUnknownProperty() {
+    public void skipUnknownField() throws ProtobufDeserializationException {
         var b = skipWhitespaceAndComments();
         if (b == -1) {
-            return;
+            throw ProtobufDeserializationException.unexpectedEndOfText();
         }
 
         switch (b) {
             case LBRACE -> skipMatchingBlock(LBRACE, RBRACE);
             case LANGLE -> skipMatchingBlock(LANGLE, RANGLE);
             case LBRACKET -> skipMatchingBlock(LBRACKET, RBRACKET);
-            case MINUS -> {
-                readByte();
-                skipScalarValue();
-            }
             case DQUOTE, SQUOTE -> {
                 skipAdjacentStrings();
                 skipOptionalSeparator();
             }
             default -> {
-                skipWord();
+                streamSign();
+                if (readNumberWord().isEmpty()) {
+                    throw ProtobufDeserializationException.expectedValue("scalar", describeByte(b));
+                }
                 skipOptionalSeparator();
             }
         }
+    }
+
+    /**
+     * Reads a word that is a number or an identifier, merging it with the negative exponent
+     * that follows it, if any.
+     *
+     * <p>The minus sign is not a word byte, so a number like {@code 1e-5} is read as the word
+     * {@code 1e}, which is followed by the minus sign and the digits of its exponent.
+     *
+     * @return the word
+     */
+    private String readNumberWord() {
+        var word = readWordAsString();
+        if (word.isEmpty() || peekByte() != MINUS) {
+            return word;
+        }
+
+        var last = word.charAt(word.length() - 1);
+        var hex = word.length() > 1 && word.charAt(0) == '0' && (word.charAt(1) | 0x20) == 'x';
+        var digit = word.charAt(0) >= '0' && word.charAt(0) <= '9' || word.charAt(0) == '.';
+        if ((last != 'e' && last != 'E') || hex || !digit) {
+            return word;
+        }
+
+        readByte();
+        return word + "-" + readWordAsString();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isNextValueMessage() {
+        var b = skipWhitespaceAndComments();
+        return b == LBRACE || b == LANGLE;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isNextValueString() {
+        var b = skipWhitespaceAndComments();
+        return b == DQUOTE || b == SQUOTE;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String readScalarField() throws ProtobufDeserializationException {
+        var negative = streamSign();
+        var b = skipWhitespaceAndComments();
+        var text = readNumberWord();
+        if (text.isEmpty()) {
+            throw ProtobufDeserializationException.expectedValue("scalar", describeByte(b));
+        }
+        skipOptionalSeparator();
+        return negative ? "-" + text : text;
+    }
+
+    /**
+     * Reads a contiguous unquoted word and returns it as a string.
+     *
+     * <p>The word is accumulated across buffer refills in a linked list of chunks.
+     *
+     * @return the word text
+     */
+    private String readWordAsString() {
+        Node head = null, tail = null;
+        var totalLength = 0;
+
+        while (true) {
+            if (bufferPosition >= bufferLimit && (finished || !refill())) {
+                break;
+            }
+
+            var scanStart = bufferPosition;
+            var scanPos = scanStart;
+            while (scanPos < bufferLimit && isWordByte(buffer[scanPos] & 0xFF)) {
+                scanPos++;
+            }
+
+            var chunkLen = scanPos - scanStart;
+            if (chunkLen > 0) {
+                var chunk = new byte[chunkLen];
+                System.arraycopy(buffer, scanStart, chunk, 0, chunkLen);
+
+                var current = new Node(chunk);
+                if (head == null) {
+                    head = current;
+                    tail = head;
+                } else {
+                    tail.next = current;
+                    tail = current;
+                }
+                totalLength += chunkLen;
+            }
+
+            position += chunkLen;
+            bufferPosition = scanPos;
+
+            if (bufferPosition < bufferLimit) {
+                break;
+            }
+        }
+
+        return Node.join(head, totalLength);
     }
 
     /**
@@ -374,13 +587,13 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
      * @param open  the opening bracket character
      * @param close the closing bracket character
      */
-    private void skipMatchingBlock(int open, int close) {
+    private void skipMatchingBlock(int open, int close) throws ProtobufDeserializationException {
         readByte();
         var depth = 1;
         while (depth > 0) {
             var b = skipWhitespaceAndComments();
             if (b == -1) {
-                throw new ProtobufDeserializationException("Unterminated block");
+                throw ProtobufDeserializationException.unterminatedBlock();
             }
             if (b == open) {
                 depth++;
@@ -398,48 +611,9 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
     }
 
     /**
-     * Skips a single scalar value (word, string, or nested block).
-     */
-    private void skipScalarValue() {
-        var b = skipWhitespaceAndComments();
-        if (b == DQUOTE || b == SQUOTE) {
-            skipAdjacentStrings();
-            skipOptionalSeparator();
-        } else if (b == LBRACE) {
-            skipMatchingBlock(LBRACE, RBRACE);
-        } else if (b == LANGLE) {
-            skipMatchingBlock(LANGLE, RANGLE);
-        } else if (b == LBRACKET) {
-            skipMatchingBlock(LBRACKET, RBRACKET);
-        } else {
-            skipWord();
-            skipOptionalSeparator();
-        }
-    }
-
-    /**
-     * Skips one word
-     */
-    private void skipWord() {
-        while (true) {
-            if (bufferPosition >= bufferLimit && (finished || !refill())) {
-                break;
-            }
-            var start = bufferPosition;
-            while (bufferPosition < bufferLimit && isWordByte(buffer[bufferPosition] & 0xFF)) {
-                bufferPosition++;
-            }
-            position += bufferPosition - start;
-            if (bufferPosition < bufferLimit) {
-                break;
-            }
-        }
-    }
-
-    /**
      * Skips one or more adjacent quoted strings (textproto concatenation).
      */
-    private void skipAdjacentStrings() {
+    private void skipAdjacentStrings() throws ProtobufDeserializationException {
         var b = peekByte();
         while (b == DQUOTE || b == SQUOTE) {
             skipQuotedString(b);
@@ -452,12 +626,12 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
      *
      * @param quoteChar the quote character ({@code "} or {@code '})
      */
-    private void skipQuotedString(int quoteChar) {
+    private void skipQuotedString(int quoteChar) throws ProtobufDeserializationException {
         readByte();
         while (true) {
             var b = readByte();
             if (b == -1) {
-                throw new ProtobufDeserializationException("Unterminated string");
+                throw ProtobufDeserializationException.unterminatedString();
             }
             if (b == quoteChar) {
                 break;
@@ -477,10 +651,10 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
      * @throws ProtobufDeserializationException if no digits are found or
      *         the value exceeds 64 bits
      */
-    private long streamMagnitude() {
+    private long streamMagnitude() throws ProtobufDeserializationException {
         var b = peekByte();
         if (b < '0' || b > '9') {
-            throw new ProtobufDeserializationException("Expected numeric value");
+            throw ProtobufDeserializationException.expectedNumericValue();
         } else if (b == '0') {
             readByte();
             b = peekByte();
@@ -504,7 +678,7 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
      * @return the parsed decimal value
      * @throws ProtobufDeserializationException on overflow
      */
-    private long streamDecimal() {
+    private long streamDecimal() throws ProtobufDeserializationException {
         var value = 0L;
         while (true) {
             var b = peekByte();
@@ -515,7 +689,7 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
             var digit = b - '0';
             if (Long.compareUnsigned(value, ULONG_MAX_DIV_10) > 0
                     || (value == ULONG_MAX_DIV_10 && digit > ULONG_MAX_MOD_10)) {
-                throw new ProtobufDeserializationException("Integer overflow");
+                throw ProtobufDeserializationException.integerOverflow();
             }
             value = value * 10 + digit;
         }
@@ -530,7 +704,7 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
      * @return the parsed hex value
      * @throws ProtobufDeserializationException on overflow
      */
-    private long streamHex() {
+    private long streamHex() throws ProtobufDeserializationException {
         var value = 0L;
         var hasDigits = false;
         while (true) {
@@ -541,12 +715,12 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
             readByte();
             hasDigits = true;
             if ((value >>> 60) != 0) {
-                throw new ProtobufDeserializationException("Integer overflow");
+                throw ProtobufDeserializationException.integerOverflow();
             }
             value = (value << 4) | digit;
         }
         if (!hasDigits) {
-            throw new ProtobufDeserializationException("Expected hex digits after 0x prefix");
+            throw ProtobufDeserializationException.expectedHexDigits();
         }
         return value;
     }
@@ -559,7 +733,7 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
      * @return the parsed octal value
      * @throws ProtobufDeserializationException on overflow
      */
-    private long streamOctal() {
+    private long streamOctal() throws ProtobufDeserializationException {
         var value = 0L;
         while (true) {
             var b = peekByte();
@@ -568,7 +742,7 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
             }
             readByte();
             if ((value >>> 61) != 0) {
-                throw new ProtobufDeserializationException("Integer overflow");
+                throw ProtobufDeserializationException.integerOverflow();
             }
             value = (value << 3) | (b - '0');
         }
@@ -594,244 +768,130 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
      * {@inheritDoc}
      */
     @Override
-    public float readFloatProperty() {
+    public float readFloatField() throws ProtobufDeserializationException {
         var negative = streamSign();
-        var b = peekByte() | 0x20;
-        float value;
-        if (b == 'i') {
-            readByte();
-            if ((readByte() | 0x20) != 'n') {
-                throw new ProtobufDeserializationException("Expected float value");
-            }
-            if ((readByte() | 0x20) != 'f') {
-                throw new ProtobufDeserializationException("Expected float value");
-            }
-            if (isWordByte(peekByte())) {
-                if ((readByte() | 0x20) != 'i') {
-                    throw new ProtobufDeserializationException("Expected float value");
-                }
-                if ((readByte() | 0x20) != 'n') {
-                    throw new ProtobufDeserializationException("Expected float value");
-                }
-                if ((readByte() | 0x20) != 'i') {
-                    throw new ProtobufDeserializationException("Expected float value");
-                }
-                if ((readByte() | 0x20) != 't') {
-                    throw new ProtobufDeserializationException("Expected float value");
-                }
-                if ((readByte() | 0x20) != 'y') {
-                    throw new ProtobufDeserializationException("Expected float value");
-                }
-                if (isWordByte(peekByte())) {
-                    throw new ProtobufDeserializationException("Expected float value");
-                }
-            }
-            value = Float.POSITIVE_INFINITY;
-        } else if (b == 'n') {
-            readByte();
-            if ((readByte() | 0x20) != 'a') {
-                throw new ProtobufDeserializationException("Expected float value");
-            }
-            if ((readByte() | 0x20) != 'n') {
-                throw new ProtobufDeserializationException("Expected float value");
-            }
-            if (isWordByte(peekByte())) {
-                throw new ProtobufDeserializationException("Expected float value");
-            }
-            value = Float.NaN;
-        } else {
-            value = streamFloat();
+        var value = parseFloat(readNumberWord());
+        skipOptionalSeparator();
+        return negative ? -value : value;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public double readDoubleField() throws ProtobufDeserializationException {
+        var negative = streamSign();
+        var value = parseDouble(readNumberWord());
+        skipOptionalSeparator();
+        return negative ? -value : value;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int readInt32Field() throws ProtobufDeserializationException {
+        var negative = streamSign();
+        return toSignedInt32(readMagnitude("int32"), negative, "int32");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int readSInt32Field() throws ProtobufDeserializationException {
+        var negative = streamSign();
+        return toSignedInt32(readMagnitude("sint32"), negative, "sint32");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int readSFixed32Field() throws ProtobufDeserializationException {
+        var negative = streamSign();
+        return toSignedInt32(readMagnitude("sfixed32"), negative, "sfixed32");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int readUInt32Field() throws ProtobufDeserializationException {
+        skipWhitespaceAndComments();
+        return toUnsignedInt32(readMagnitude("uint32"), "uint32");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int readFixed32Field() throws ProtobufDeserializationException {
+        skipWhitespaceAndComments();
+        return toUnsignedInt32(readMagnitude("fixed32"), "fixed32");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public long readInt64Field() throws ProtobufDeserializationException {
+        var negative = streamSign();
+        return toSignedInt64(readMagnitude("int64"), negative, "int64");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public long readSInt64Field() throws ProtobufDeserializationException {
+        var negative = streamSign();
+        return toSignedInt64(readMagnitude("sint64"), negative, "sint64");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public long readSFixed64Field() throws ProtobufDeserializationException {
+        var negative = streamSign();
+        return toSignedInt64(readMagnitude("sfixed64"), negative, "sfixed64");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public long readUInt64Field() throws ProtobufDeserializationException {
+        skipWhitespaceAndComments();
+        return readMagnitude("uint64");
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public long readFixed64Field() throws ProtobufDeserializationException {
+        skipWhitespaceAndComments();
+        return readMagnitude("fixed64");
+    }
+
+    /**
+     * Reads the magnitude of an integer directly from the stream, checking that it is not
+     * followed by other bytes of the same word, and the separator that follows it, if any.
+     *
+     * @param type the name of the type of the field, used in the error message
+     * @return the magnitude, interpreted as unsigned
+     * @throws ProtobufDeserializationException if the next word is not an integer, or if the
+     *                                          integer does not fit in 64 bits
+     */
+    private long readMagnitude(String type) throws ProtobufDeserializationException {
+        var magnitude = streamMagnitude();
+        if (isWordByte(peekByte())) {
+            throw ProtobufDeserializationException.expectedValue(type, readWordAsString());
         }
         skipOptionalSeparator();
-        return negative ? -value : value;
-    }
-
-    /**
-     * Parses a float from the stream
-     *
-     * @return the parsed float
-     */
-    private float streamFloat() {
-        // TODO
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public double readDoubleProperty() {
-        var negative = streamSign();
-        var b = peekByte();
-        double value;
-        if (b == 'i' || b == 'I') {
-            readByte();
-            if ((readByte() | 0x20) != 'n') {
-                throw new ProtobufDeserializationException("Expected double value");
-            }
-            if ((readByte() | 0x20) != 'f') {
-                throw new ProtobufDeserializationException("Expected double value");
-            }
-            if (isWordByte(peekByte())) {
-                if ((readByte() | 0x20) != 'i') {
-                    throw new ProtobufDeserializationException("Expected double value");
-                }
-                if ((readByte() | 0x20) != 'n') {
-                    throw new ProtobufDeserializationException("Expected double value");
-                }
-                if ((readByte() | 0x20) != 'i') {
-                    throw new ProtobufDeserializationException("Expected double value");
-                }
-                if ((readByte() | 0x20) != 't') {
-                    throw new ProtobufDeserializationException("Expected double value");
-                }
-                if ((readByte() | 0x20) != 'y') {
-                    throw new ProtobufDeserializationException("Expected double value");
-                }
-                if (isWordByte(peekByte())) {
-                    throw new ProtobufDeserializationException("Expected double value");
-                }
-            }
-            value = Double.POSITIVE_INFINITY;
-        } else if (b == 'n' || b == 'N') {
-            readByte();
-            if ((readByte() | 0x20) != 'a') {
-                throw new ProtobufDeserializationException("Expected double value");
-            }
-            if ((readByte() | 0x20) != 'n') {
-                throw new ProtobufDeserializationException("Expected double value");
-            }
-            if (isWordByte(peekByte())) {
-                throw new ProtobufDeserializationException("Expected double value");
-            }
-            value = Double.NaN;
-        } else {
-            value = streamDouble();
-        }
-        skipOptionalSeparator();
-        return negative ? -value : value;
-    }
-
-    /**
-     * Parses a double from the stream
-     *
-     * @return the parsed double
-     */
-    private double streamDouble() {
-        // TODO
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int readInt32Property() {
-        var negative = streamSign();
-        var magnitude = streamMagnitude();
-        skipOptionalSeparator();
-        return applySignAndCheckInt32(magnitude, negative);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int readSInt32Property() {
-        var negative = streamSign();
-        var magnitude = streamMagnitude();
-        skipOptionalSeparator();
-        return applySignAndCheckInt32(magnitude, negative);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int readSFixed32Property() {
-        var negative = streamSign();
-        var magnitude = streamMagnitude();
-        skipOptionalSeparator();
-        return applySignAndCheckInt32(magnitude, negative);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int readUInt32Property() {
-        var negative = streamSign();
-        var magnitude = streamMagnitude();
-        skipOptionalSeparator();
-        var value = checkUInt32(magnitude);
-        return negative ? -value : value;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int readFixed32Property() {
-        var negative = streamSign();
-        var magnitude = streamMagnitude();
-        skipOptionalSeparator();
-        var value = checkUInt32(magnitude);
-        return negative ? -value : value;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long readInt64Property() {
-        var negative = streamSign();
-        var magnitude = streamMagnitude();
-        skipOptionalSeparator();
-        return applySignAndCheckInt64(magnitude, negative);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long readSInt64Property() {
-        var negative = streamSign();
-        var magnitude = streamMagnitude();
-        skipOptionalSeparator();
-        return applySignAndCheckInt64(magnitude, negative);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long readSFixed64Property() {
-        var negative = streamSign();
-        var magnitude = streamMagnitude();
-        skipOptionalSeparator();
-        return applySignAndCheckInt64(magnitude, negative);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long readUInt64Property() {
-        var negative = streamSign();
-        var magnitude = streamMagnitude();
-        skipOptionalSeparator();
-        return negative ? -magnitude : magnitude;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public long readFixed64Property() {
-        var negative = streamSign();
-        var magnitude = streamMagnitude();
-        skipOptionalSeparator();
-        return negative ? -magnitude : magnitude;
+        return magnitude;
     }
 
     /**
@@ -846,55 +906,75 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
      *         valid boolean representation
      */
     @Override
-    public boolean readBoolProperty() {
+    public boolean readBoolField() throws ProtobufDeserializationException {
         var b = skipWhitespaceAndComments();
         boolean result;
-        if (b == 't' || b == 'T') {
-            // Match "t", "true", "True", or "TRUE" (case-insensitive after first byte)
+        if (b == 't') {
             readByte();
             if (isWordByte(peekByte())) {
-                if ((readByte() | 0x20) != 'r') {
-                        throw new ProtobufDeserializationException("Expected boolean value");
-                }
-                if ((readByte() | 0x20) != 'u') {
-                        throw new ProtobufDeserializationException("Expected boolean value");
-                }
-                if ((readByte() | 0x20) != 'e') {
-                        throw new ProtobufDeserializationException("Expected boolean value");
-                }
-                if (isWordByte(peekByte())) {
-                        throw new ProtobufDeserializationException("Expected boolean value");
-                }
+                expectByte('r');
+                expectByte('u');
+                expectByte('e');
+                rejectTrailingWordBytes();
             }
             result = true;
-        } else if (b == 'f' || b == 'F') {
-            // Match "f", "false", "False", or "FALSE" (case-insensitive after first byte)
+        } else if (b == 'T') {
             readByte();
             if (isWordByte(peekByte())) {
-                if ((readByte() | 0x20) != 'a') {
-                        throw new ProtobufDeserializationException("Expected boolean value");
-                }
-                if ((readByte() | 0x20) != 'l') {
-                        throw new ProtobufDeserializationException("Expected boolean value");
-                }
-                if ((readByte() | 0x20) != 's') {
-                        throw new ProtobufDeserializationException("Expected boolean value");
-                }
-                if ((readByte() | 0x20) != 'e') {
-                    throw new ProtobufDeserializationException("Expected boolean value");
-                }
-                if (isWordByte(peekByte())) {
-                    throw new ProtobufDeserializationException("Expected boolean value");
-                }
+                expectByte('r');
+                expectByte('u');
+                expectByte('e');
+                rejectTrailingWordBytes();
+            } else {
+                throw ProtobufDeserializationException.expectedValue("boolean", null);
+            }
+            result = true;
+        } else if (b == 'f') {
+            readByte();
+            if (isWordByte(peekByte())) {
+                expectByte('a');
+                expectByte('l');
+                expectByte('s');
+                expectByte('e');
+                rejectTrailingWordBytes();
+            }
+            result = false;
+        } else if (b == 'F') {
+            readByte();
+            if (isWordByte(peekByte())) {
+                expectByte('a');
+                expectByte('l');
+                expectByte('s');
+                expectByte('e');
+                rejectTrailingWordBytes();
+            } else {
+                throw ProtobufDeserializationException.expectedValue("boolean", null);
             }
             result = false;
         } else if (b >= '0' && b <= '9') {
-            result = streamMagnitude() != 0;
+            var value = streamMagnitude();
+            result = switch ((int) value) {
+                case 0 -> false;
+                case 1 -> true;
+                default -> throw ProtobufDeserializationException.expectedBooleanNumber(null);
+            };
         } else {
-            throw new ProtobufDeserializationException("Expected boolean value");
+            throw ProtobufDeserializationException.expectedValue("boolean", null);
         }
         skipOptionalSeparator();
         return result;
+    }
+
+    private void expectByte(int expected) throws ProtobufDeserializationException {
+        if (readByte() != expected) {
+            throw ProtobufDeserializationException.expectedValue("boolean", null);
+        }
+    }
+
+    private void rejectTrailingWordBytes() throws ProtobufDeserializationException {
+        if (isWordByte(peekByte())) {
+            throw ProtobufDeserializationException.expectedValue("boolean", null);
+        }
     }
 
     /**
@@ -906,8 +986,8 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
      * @throws ProtobufDeserializationException if the next token is not a string
      */
     @Override
-    public String readStringProperty() {
-        return new String(readBytesProperty(), StandardCharsets.UTF_8);
+    public String readStringField() throws ProtobufDeserializationException {
+        return new String(readBytesField(), StandardCharsets.UTF_8);
     }
 
     /**
@@ -919,33 +999,27 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
      * @throws ProtobufDeserializationException if the next token is not a string
      */
     @Override
-    public byte[] readBytesProperty() {
+    public byte[] readBytesField() throws ProtobufDeserializationException {
         var quote = skipWhitespaceAndComments();
         if (quote != DQUOTE && quote != SQUOTE) {
-            throw new ProtobufDeserializationException("Expected string value for bytes field");
+            throw ProtobufDeserializationException.expectedValue("bytes", null);
         }
 
-        // Save some allocations by rolling our own linked list
-        final class Node {
-            final byte[] value;
-            Node next;
-
-            Node(byte[] value) {
-                this.value = value;
-            }
-        }
         Node head = null, tail = null;
         var count = 0;
         var totalLength = 0;
 
-        int b;
+        var b = quote;
         do {
+            // Adjacent strings can use different quotes
+            quote = b;
             readByte();
 
             var endOfString = false;
+            var inputExhausted = false;
             while (!endOfString) {
                 if (bufferPosition >= bufferLimit && (finished || !refill())) {
-                    throw new ProtobufDeserializationException("Unterminated string");
+                    throw ProtobufDeserializationException.unterminatedString();
                 }
 
                 // First pass: scan buffer for closing quote, count decoded length
@@ -965,9 +1039,12 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
                         decodedLen++;
                         continue;
                     }
-                    // \UHHHHHHHH is the longest escape (10 source bytes)
-                    if (bufferLimit - scanPos < 10) {
+                    // \UHHHHHHHH is the longest escape (10 source bytes): refill unless the input has no more bytes
+                    if (bufferLimit - scanPos < 10 && !inputExhausted) {
                         break;
+                    }
+                    if (scanPos + 1 >= bufferLimit) {
+                        throw ProtobufDeserializationException.unterminatedString();
                     }
                     hasEscapes = true;
                     var esc = buffer[scanPos + 1] & 0xFF;
@@ -976,9 +1053,9 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
                         case 'a', 'b', 'f', 'n', 'r', 't', 'v', '\\', '\'', '"', '?' -> decodedLen++;
                         case 'x', 'X' -> {
                             decodedLen++;
-                            if (hexDigit(buffer[scanPos] & 0xFF) >= 0) {
+                            if (hexDigit(peekBuffer(scanPos)) >= 0) {
                                 scanPos++;
-                                if (hexDigit(buffer[scanPos] & 0xFF) >= 0) {
+                                if (hexDigit(peekBuffer(scanPos)) >= 0) {
                                     scanPos++;
                                 }
                             }
@@ -986,7 +1063,7 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
                         case 'u' -> {
                             var cp = 0;
                             for (var d = 0; d < 4; d++) {
-                                var digit = hexDigit(buffer[scanPos] & 0xFF);
+                                var digit = hexDigit(peekBuffer(scanPos));
                                 if (digit < 0) break;
                                 cp = (cp << 4) | digit;
                                 scanPos++;
@@ -996,7 +1073,7 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
                         case 'U' -> {
                             var cp = 0;
                             for (var d = 0; d < 8; d++) {
-                                var digit = hexDigit(buffer[scanPos] & 0xFF);
+                                var digit = hexDigit(peekBuffer(scanPos));
                                 if (digit < 0) break;
                                 cp = (cp << 4) | digit;
                                 scanPos++;
@@ -1006,9 +1083,9 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
                         default -> {
                             if (esc >= '0' && esc <= '7') {
                                 decodedLen++;
-                                if ((buffer[scanPos] & 0xFF) >= '0' && (buffer[scanPos] & 0xFF) <= '7') {
+                                if (peekBuffer(scanPos) >= '0' && peekBuffer(scanPos) <= '7') {
                                     scanPos++;
-                                    if ((buffer[scanPos] & 0xFF) >= '0' && (buffer[scanPos] & 0xFF) <= '7') {
+                                    if (peekBuffer(scanPos) >= '0' && peekBuffer(scanPos) <= '7') {
                                         scanPos++;
                                     }
                                 }
@@ -1052,7 +1129,7 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
                     // Escape straddles buffer boundary: compact remaining
                     // bytes to front and refill so the scan can resolve it
                     if (!compactAndRefill(scanPos)) {
-                        throw new ProtobufDeserializationException("Unterminated string");
+                        inputExhausted = true;
                     }
                 }
             }
@@ -1069,7 +1146,7 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
         } else {
             var result = new byte[totalLength];
             var offset = 0;
-            while (head != tail) {
+            while (head != null) {
                 System.arraycopy(head.value, 0, result, offset, head.value.length);
                 offset += head.value.length;
                 head = head.next;
@@ -1079,9 +1156,19 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
     }
 
     /**
+     * Returns the byte of the buffer at the given index, if it holds one.
+     *
+     * @param index the index
+     * @return the byte (0-255), or {@code -1} if the index is not before the limit of the buffer
+     */
+    private int peekBuffer(int index) {
+        return index < bufferLimit ? buffer[index] & 0xFF : -1;
+    }
+
+    /**
      * Decodes escape sequences from a source byte range into a pre-allocated
      * destination array. The destination must be sized to exactly the decoded
-     * length as computed by the first-pass scan in {@link #readBytesProperty()}.
+     * length as computed by the first-pass scan in {@link #readBytesField()}.
      *
      * @param src   the source buffer
      * @param start the start offset in the source (inclusive)
@@ -1253,5 +1340,38 @@ public final class ProtobufTextStreamReader extends ProtobufTextReader {
             dst[pos++] = (byte) (0x80 | (codePoint & 0x3F));
         }
         return pos;
+    }
+
+    private final static class Node {
+        final byte[] value;
+        Node next;
+
+        /**
+         * Merges a linked list of byte array nodes into a single string.
+         *
+         * @param head the first node in the chain
+         * @param totalLength the total byte length across all nodes
+         * @return the merged string
+         */
+        private static String join(Node head, int totalLength) {
+            if(head == null) {
+                return "";
+            } else if(head.value.length == totalLength) {
+                return new String(head.value, StandardCharsets.UTF_8);
+            } else {
+                var result = new byte[totalLength];
+                var offset = 0;
+                while (head != null) {
+                    System.arraycopy(head.value, 0, result, offset, head.value.length);
+                    offset += head.value.length;
+                    head = head.next;
+                }
+                return new String(result, StandardCharsets.UTF_8);
+            }
+        }
+
+        Node(byte[] value) {
+            this.value = value;
+        }
     }
 }

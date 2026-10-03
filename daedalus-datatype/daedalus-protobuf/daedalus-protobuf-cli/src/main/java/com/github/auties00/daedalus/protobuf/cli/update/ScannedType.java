@@ -21,7 +21,7 @@ import java.util.Set;
  *                 or {@code null} if no explicit name was specified
  * @param javaPackage the Java package of this type, or empty string if in the default package
  * @param simpleTypeName the simple name of the Java type
- * @param existingFieldIndexes the set of {@code @ProtobufProperty} indexes already present
+ * @param existingFieldIndexes the set of protobuf field indexes already present
  * @param existingFieldsByIndex a map from field index to the field/method name in the Java source
  * @param existingEnumConstantIndexes the set of {@code @ProtobufEnum.Constant} indexes already present
  */
@@ -33,9 +33,9 @@ public record ScannedType(
         String protoFqn,
         String javaPackage,
         String simpleTypeName,
-        Set<Long> existingFieldIndexes,
-        Map<Long, String> existingFieldsByIndex,
-        Set<Long> existingEnumConstantIndexes
+        Set<Integer> existingFieldIndexes,
+        Map<Integer, String> existingFieldsByIndex,
+        Set<Integer> existingEnumConstantIndexes
 ) {
 
     /**

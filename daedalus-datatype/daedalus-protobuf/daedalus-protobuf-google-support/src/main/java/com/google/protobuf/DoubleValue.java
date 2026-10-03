@@ -1,5 +1,6 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
 /**
@@ -12,7 +13,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  *
  * <p>Protobuf type {@code com.google.protobuf.DoubleValue}
  */
-@ProtobufMessage
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
 public final class DoubleValue {
 
     /**
@@ -23,10 +24,23 @@ public final class DoubleValue {
     @ProtobufMessage.DoubleField(index = 1)
     double value;
 
+    /**
+     * Constructs a new {@code DoubleValue} with the specified field values.
+     *
+     * @param value the value of the {@code value} field
+     */
     DoubleValue(double value) {
         this.value = value;
     }
 
+    /**
+     * Returns the value of the {@code value} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code value} field
+     */
     public double value() {
         return value;
     }

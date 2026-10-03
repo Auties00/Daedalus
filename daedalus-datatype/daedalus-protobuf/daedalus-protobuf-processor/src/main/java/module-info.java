@@ -4,6 +4,7 @@ module com.github.auties00.daedalus.protobuf.processor {
     requires com.github.auties00.daedalus.protobuf.typesystem;
     requires com.palantir.javapoet;
     requires com.github.auties00.daedalus.typesystem;
+    requires java.desktop;
 
     provides com.github.auties00.daedalus.processor.DaedalusProcessorExtension
             with com.github.auties00.daedalus.protobuf.processor.ProtobufProcessorExtension;

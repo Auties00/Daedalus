@@ -4,6 +4,7 @@
         <groupId>com.github.auties00</groupId>
         <artifactId>daedalus</artifactId>
         <version>4.0.0</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -16,8 +17,8 @@
 
     <modules>
         <module>daedalus-protobuf-typesystem</module>
-        <module>daedalus-protobuf-compiler</module>
         <module>daedalus-protobuf-processor</module>
+        <module>daedalus-protobuf-compiler</module>
         <module>daedalus-protobuf-cli</module>
         <module>daedalus-protobuf-google-support</module>
     </modules>

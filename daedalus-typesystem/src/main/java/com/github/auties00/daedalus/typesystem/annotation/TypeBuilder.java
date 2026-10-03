@@ -58,11 +58,11 @@ public @interface TypeBuilder {
      * data format (e.g. {@code @ProtobufMessage}):
      *
      * <ul>
-     * <li>If the enclosing type <em>is</em> managed by a data format and the
-     *     name is empty (the default), the generated builder <em>replaces</em>
-     *     the default builder that the format would otherwise generate. If
-     *     non-empty, an additional builder with the given name is generated
-     *     alongside the default one.
+     * <li>If the enclosing type <em>is</em> managed by a data format that
+     *     always generates its own builder, such as {@code @ProtobufMessage},
+     *     the name must not be empty, because the builder of the format is
+     *     named {@code {EnclosingTypeName}Builder}. The builder with the given
+     *     name is generated alongside the one of the format.
      * <li>If the enclosing type is <em>not</em> managed by a data format and
      *     the name is empty (the default), the generated builder is named
      *     {@code {EnclosingTypeName}Builder}, following the same naming
@@ -132,7 +132,14 @@ public @interface TypeBuilder {
      * to the {@code List<String>} field. To support a {@code List<String>}
      * field, declare the mixin method directly for {@code List<T>}.
      *
+     * <p>The external class must be annotated with {@link TypeMixin}, and it
+     * must be in scope for the field: only the mixins visible to a field are
+     * scanned for annotated methods. A mixin is in scope either through its
+     * {@link TypeMixin#scope()}, or because it is explicitly referenced by the
+     * field.
+     *
      * <pre>{@code
+     * @TypeMixin(scope = TypeMixin.Scope.GLOBAL)
      * public final class ListMixin {
      *     @TypeBuilder.Mixin(builderMethodName = {"add", TypeBuilder.FIELD_NAME})
      *     public static <T> List<T> addElement(List<T> list, T value) {

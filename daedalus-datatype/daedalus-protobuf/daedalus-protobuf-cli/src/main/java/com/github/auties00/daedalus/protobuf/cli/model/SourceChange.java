@@ -1,7 +1,7 @@
 package com.github.auties00.daedalus.protobuf.cli.model;
 
 import java.nio.file.Path;
-import java.util.List;
+import java.util.SequencedCollection;
 
 /**
  * Represents a proposed modification to a Java source file.
@@ -20,7 +20,7 @@ public record SourceChange(
         String originalSource,
         String updatedSource,
         String description,
-        List<String> unifiedDiff
+        SequencedCollection<String> unifiedDiff
 ) {
 
     /**

@@ -1,13 +1,23 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufValueTypeReference;
+import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufUnresolvedTypeReference;
+import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufMapTypeReference;
 import com.google.protobuf.DescriptorProtos;
-import com.google.protobuf.FieldDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosFieldDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosFieldOptionsBuilder;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufBoolExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufEnumConstantExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufFloatingPointExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufLiteralExpression;
 import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufOptionExpression;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufInteger;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufEnumTypeReference;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufGroupTypeReference;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufMessageTypeReference;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufTypeReference;
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -86,12 +96,12 @@ public final class ProtobufFieldStatement
     private final SequencedMap<String, ProtobufOptionExpression> options;
 
     /**
-     * Constructs a new field statement at the specified line number.
+     * Constructs a new field statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param range the source range covering this statement
      */
-    public ProtobufFieldStatement(int line) {
-        super(line);
+    public ProtobufFieldStatement(ProtobufTreeSourceRange range) {
+        super(range);
         this.options = new LinkedHashMap<>();
     }
 
@@ -248,14 +258,52 @@ public final class ProtobufFieldStatement
         return hasType() && hasName() && hasIndex();
     }
 
+    /**
+     * Returns the type of the descriptor of a field of the given type.
+     *
+     * <p>A map field is described as a repeated message field whose message is the entry of
+     * the map, and a group as a field of type {@code TYPE_GROUP}.
+     *
+     * @param type the type of the field
+     * @return the type of the descriptor, or {@code null} if the type is not resolved
+     */
+    private static DescriptorProtos.FieldDescriptorProto.Type toDescriptorType(ProtobufTypeReference type) {
+        return switch (type) {
+            case ProtobufGroupTypeReference _ -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_GROUP;
+            case ProtobufMapTypeReference _ -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE;
+            case ProtobufUnresolvedTypeReference _ -> null;
+            case ProtobufValueTypeReference valueType -> switch (valueType.protobufType()) {
+                case MESSAGE -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_MESSAGE;
+                case ENUM -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_ENUM;
+                case FLOAT -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_FLOAT;
+                case DOUBLE -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_DOUBLE;
+                case BOOL -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_BOOL;
+                case STRING -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_STRING;
+                case BYTES -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_BYTES;
+                case INT32 -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT32;
+                case SINT32 -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_SINT32;
+                case UINT32 -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_UINT32;
+                case FIXED32 -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_FIXED32;
+                case SFIXED32 -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_SFIXED32;
+                case INT64 -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_INT64;
+                case SINT64 -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_SINT64;
+                case UINT64 -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_UINT64;
+                case FIXED64 -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_FIXED64;
+                case SFIXED64 -> DescriptorProtos.FieldDescriptorProto.Type.TYPE_SFIXED64;
+            };
+        };
+    }
+
     @Override
     public DescriptorProtos.FieldDescriptorProto toDescriptor() {
-        var builder = new FieldDescriptorProtoBuilder()
+        var builder = new DescriptorProtosFieldDescriptorProtoBuilder()
                 .name(name())
                 .number(hasIndex() ? (int) index().value() : 0);
         if (type() != null) {
-            var protoType = type().protobufType();
-            builder.type(DescriptorProtos.FieldDescriptorProto.Type.values()[protoType.ordinal()]);
+            var descriptorType = toDescriptorType(type());
+            if (descriptorType != null) {
+                builder.type(descriptorType);
+            }
             if (type() instanceof ProtobufMessageTypeReference
                     || type() instanceof ProtobufEnumTypeReference
                     || type() instanceof ProtobufGroupTypeReference) {
@@ -269,7 +317,182 @@ public final class ProtobufFieldStatement
                 case OPTIONAL, NONE -> DescriptorProtos.FieldDescriptorProto.Label.LABEL_OPTIONAL;
             });
         }
+
+        if (parent() instanceof ProtobufExtendStatement extend && extend.hasDeclaration()) {
+            builder.extendee(extend.declaration().name());
+        }
+
+        if (parent() instanceof ProtobufOneofStatement oneof && oneof.parent() instanceof ProtobufMessageStatement message) {
+            var oneofIndex = 0;
+            for (var sibling : message.children()) {
+                if (sibling == oneof) {
+                    builder.oneofIndex(oneofIndex);
+                    break;
+                }
+                if (sibling instanceof ProtobufOneofStatement) {
+                    oneofIndex++;
+                }
+            }
+        }
+
+        for (var option : options.values()) {
+            if (option.name().segments().size() != 1 || option.name().segments().getFirst().isExtension()) {
+                continue;
+            }
+            switch (option.name().segments().getFirst().name()) {
+                case "default" -> {
+                    var defaultValueExpression = option.value();
+                    var defaultValue = switch (defaultValueExpression) {
+                        case ProtobufLiteralExpression literal -> literal.value();
+                        case ProtobufBoolExpression bool -> Boolean.toString(bool.value());
+                        case ProtobufIntegerExpression integer -> Long.toString(integer.value().value());
+                        case ProtobufFloatingPointExpression floating -> floating.value().toString();
+                        case ProtobufEnumConstantExpression enumConstant -> enumConstant.name();
+                        default -> defaultValueExpression.toString();
+                    };
+                    builder.defaultValue(defaultValue);
+                }
+                case "json_name" -> {
+                    if (option.value() instanceof ProtobufLiteralExpression(var jsonName)) {
+                        builder.jsonName(jsonName);
+                    }
+                }
+                default -> {}
+            }
+        }
+
+        if (modifier() == ProtobufModifier.OPTIONAL && parent().document().version() == ProtobufVersion.PROTOBUF_3) {
+            builder.proto3Optional(true);
+        }
+
+        var fieldOptions = buildFieldOptions();
+        if (fieldOptions != null) {
+            builder.options(fieldOptions);
+        }
+
         return builder.build();
+    }
+
+    private DescriptorProtosFieldOptionsBuilder buildFieldOptions() {
+        if (options.isEmpty()) {
+            return null;
+        }
+        var builder = new DescriptorProtosFieldOptionsBuilder();
+        for (var option : options.values()) {
+            if (option.name().segments().size() != 1) {
+                continue;
+            }
+            var segment = option.name().segments().getFirst();
+            if (segment.isExtension()) {
+                continue;
+            }
+            var value = option.value();
+            switch (segment.name()) {
+                case "ctype" -> {
+                    if (value instanceof ProtobufEnumConstantExpression(var ctypeName)) {
+                        try {
+                            builder.ctype(DescriptorProtos.FieldOptions.CType.valueOf(ctypeName));
+                        } catch (IllegalArgumentException ignored) {
+                            // Unknown ctype literal
+                        }
+                    }
+                }
+                case "packed" -> {
+                    if (value instanceof ProtobufBoolExpression(var packed)) {
+                        builder.packed(packed);
+                    }
+                }
+                case "deprecated" -> {
+                    if (value instanceof ProtobufBoolExpression(var deprecated)) {
+                        builder.deprecated(deprecated);
+                    }
+                }
+                case "lazy" -> {
+                    if (value instanceof ProtobufBoolExpression(var lazy)) {
+                        builder.lazy(lazy);
+                    }
+                }
+                case "unverified_lazy" -> {
+                    if (value instanceof ProtobufBoolExpression(var unverifiedLazy)) {
+                        builder.unverifiedLazy(unverifiedLazy);
+                    }
+                }
+                case "jstype" -> {
+                    if (value instanceof ProtobufEnumConstantExpression(var jsTypeName)) {
+                        try {
+                            builder.jstype(DescriptorProtos.FieldOptions.JSType.valueOf(jsTypeName));
+                        } catch (IllegalArgumentException ignored) {
+                            // Unknown jstype literal
+                        }
+                    }
+                }
+                case "weak" -> {
+                    if (value instanceof ProtobufBoolExpression(var weak)) {
+                        builder.weak(weak);
+                    }
+                }
+                case "debug_redact" -> {
+                    if (value instanceof ProtobufBoolExpression(var debugRedact)) {
+                        builder.debugRedact(debugRedact);
+                    }
+                }
+                case "retention" -> {
+                    if (value instanceof ProtobufEnumConstantExpression(var retentionName)) {
+                        try {
+                            builder.retention(DescriptorProtos.FieldOptions.OptionRetention.valueOf(retentionName));
+                        } catch (IllegalArgumentException ignored) {
+                            // Unknown retention literal
+                        }
+                    }
+                }
+                case "targets" -> {
+                    // The AST represents each [targets = VALUE] entry as a separate single value;
+                    // repeated specification via a list literal is not yet modeled by the expression
+                    // tree, so only the single value form is supported here.
+                    if (value instanceof ProtobufEnumConstantExpression(var targetName)) {
+                        try {
+                            List<DescriptorProtos.FieldOptions.OptionTargetType> targetList = new ArrayList<>();
+                            targetList.add(DescriptorProtos.FieldOptions.OptionTargetType.valueOf(targetName));
+                            builder.targets(targetList);
+                        } catch (IllegalArgumentException ignored) {
+                            // Unknown target type literal
+                        }
+                    }
+                }
+                case "edition_defaults" -> {
+                    // Requires building a typed EditionDefault aggregate from a ProtobufJsonExpression
+                    // with enum-aware edition values, which the option AST does not currently model.
+                }
+                case "features" -> {
+                    // Aggregate-form `option features = { ... }` is not modeled by the AST. The
+                    // dotted form `[features.field_presence = EXPLICIT]` is multi-segment and is
+                    // handled by ProtobufTreeFeatures.buildExplicitFeatureSet below.
+                }
+                case "feature_support" -> {
+                    // Requires constructing a typed FeatureSupport from nested aggregate option values,
+                    // which the option AST does not currently model with enough type information.
+                }
+                case "uninterpreted_option" -> {
+                    // Uninterpreted options are produced by protoc for options whose definitions are
+                    // unknown at parse time and cannot be reconstructed from the resolved AST here.
+                }
+                case "default", "json_name" -> {
+                    // Already handled as their own descriptor fields
+                }
+                default -> {
+                    // Unknown or unsupported field option
+                }
+            }
+        }
+        var features = ProtobufTreeFeatures.featureSet(this);
+        if (features != null) {
+            builder.features(features);
+        }
+        var unknownExtensions = ProtobufTreeFeatures.collectUnknownExtensions(this);
+        if (!unknownExtensions.isEmpty()) {
+            builder.unknownFields(unknownExtensions);
+        }
+        return builder;
     }
 
     @Override

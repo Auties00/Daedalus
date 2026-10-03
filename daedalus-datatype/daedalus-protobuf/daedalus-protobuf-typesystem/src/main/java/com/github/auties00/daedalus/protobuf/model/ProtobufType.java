@@ -1,12 +1,16 @@
 package com.github.auties00.daedalus.protobuf.model;
 
+import java.util.Optional;
+
 /**
- * Enumeration representing all supported Protocol Buffer field types.
- * <p>
- * This enum defines the complete set of Protocol Buffer types as specified in the Protocol Buffer Language Guide.
- * Each type maintains information about its serialized representation, deserialized form,
- * and whether it supports packed encoding.
- * </p>
+ * A type of the values of a Protocol Buffers field, such as {@code int32}, {@code string} or a
+ * message.
+ *
+ * <p>This enum lists the types that a single value can have: the scalar types, {@code string},
+ * {@code bytes}, enums and messages. It does not describe the shape of a field: a repeated field
+ * holds values of one of these types, a map field holds keys and values of two of them, a oneof
+ * holds one of several fields, and a group is a message field whose message is delimited by
+ * start and end tags instead of being preceded by its length.
  *
  * <h2>Packed Encoding:</h2>
  * <p>
@@ -17,11 +21,6 @@ package com.github.auties00.daedalus.protobuf.model;
  * @see <a href="https://developers.google.com/protocol-buffers/docs/proto3#scalar">Protocol Buffer Scalar Types</a>
  */
 public enum ProtobufType {
-    /**
-     * Represents an unknown or unrecognized type.
-     */
-    UNKNOWN(false, false, false, false),
-
     /**
      * Protocol Buffer message type.
      * Messages are types that can contain multiple fields and nested structures.
@@ -35,25 +34,6 @@ public enum ProtobufType {
      * The first enum value must be zero for proto3 compatibility.
      */
     ENUM(true, false, false, true),
-
-    /**
-     * Protocol Buffer group type (deprecated).
-     * Groups are a legacy feature from proto2 that should not be used in new code.
-     * They are similar to messages but use different wire encoding.
-     * <p>
-     * <strong>Deprecated:</strong> Groups are deprecated in Protocol Buffers and should not be used.
-     * This type is only maintained for backward compatibility with legacy proto2 files.
-     * Use nested messages instead.
-     * </p>
-     */
-    GROUP(false, false, false, true),
-
-    /**
-     * Protocol Buffer map type.
-     * Maps represent key-value pairs and are implemented as repeated message fields
-     * with special semantics for key uniqueness.
-     */
-    MAP(false, false, false, false),
 
     /**
      * 32-bit floating point number.
@@ -189,16 +169,18 @@ public enum ProtobufType {
     }
 
     /**
-     * Resolves a Protocol Primitive Buffer type by name.
-     * <p>
-     * The lookup is case-sensitive and returns {@link #UNKNOWN} for unrecognized names.
-     * </p>
+     * Returns the scalar type, {@code string} or {@code bytes}, with the given name in a
+     * {@code .proto} file.
      *
-     * @param name the type name to resolve (case-insensitive), may be null
-     * @return the corresponding primitive ProtobufType, or {@link #UNKNOWN} if the name is null or unrecognized
+     * <p>The lookup is case sensitive, like the names of the types in a {@code .proto} file.
+     *
+     * @param name the name of the type, which may be {@code null}
+     * @return the type with the given name, or an empty optional if the name is {@code null} or
+     *         does not name a scalar type, {@code string} or {@code bytes}, like the name of a
+     *         message or of an enum
      */
-    public static ProtobufType ofPrimitive(String name) {
-        return switch (name) {
+    public static Optional<ProtobufType> ofPrimitive(String name) {
+        return Optional.ofNullable(switch (name) {
             case "string" -> STRING;
             case "bytes" -> BYTES;
             case "bool" -> BOOL;
@@ -214,8 +196,8 @@ public enum ProtobufType {
             case "fixed64" -> FIXED64;
             case "sfixed32" -> SFIXED32;
             case "sfixed64" -> SFIXED64;
-            case null, default -> UNKNOWN;
-        };
+            case null, default -> null;
+        });
     }
 
     /**

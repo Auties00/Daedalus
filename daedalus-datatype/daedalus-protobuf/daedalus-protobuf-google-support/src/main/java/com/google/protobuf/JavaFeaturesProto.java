@@ -4,7 +4,23 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufReservedRange;
 
+import java.util.Optional;
+
+/**
+ * Holder of the Daedalus models declared by {@code google/protobuf/java_features.proto}.
+ *
+ * <p>These models represent the Java specific feature set carried by the
+ * {@code (pb.java)} extension of {@link DescriptorProtos.FeatureSet}.
+ *
+ * <p>The models mirror the {@code proto2} definitions of the official protobuf
+ * distribution field by field, including field numbers, wire types, field
+ * presence and repeated field encodings. This class only scopes the nested
+ * types and cannot be instantiated.
+ */
 public final class JavaFeaturesProto {
+    /**
+     * Prevents the instantiation of this holder class.
+     */
     private JavaFeaturesProto() {}
 
     /**
@@ -89,7 +105,7 @@ public final class JavaFeaturesProto {
          * <p><code>bool legacy_closed_enum = 1;</code>
          */
         @ProtobufMessage.BoolField(index = 1)
-        boolean legacyClosedEnum;
+        Boolean legacyClosedEnum;
 
         /**
          * <p><code>Utf8Validation utf8_validation = 2;</code>
@@ -104,7 +120,7 @@ public final class JavaFeaturesProto {
          * <p><code>bool large_enum = 3;</code>
          */
         @ProtobufMessage.BoolField(index = 3)
-        boolean largeEnum;
+        Boolean largeEnum;
 
         /**
          * Whether to use the old default outer class name scheme, or the new feature
@@ -117,7 +133,7 @@ public final class JavaFeaturesProto {
          * <p><code>bool use_old_outer_classname_default = 4;</code>
          */
         @ProtobufMessage.BoolField(index = 4)
-        boolean useOldOuterClassnameDefault;
+        Boolean useOldOuterClassnameDefault;
 
         /**
          * Whether to nest the generated class in the generated file class. This is
@@ -128,11 +144,25 @@ public final class JavaFeaturesProto {
         @ProtobufMessage.EnumField(index = 5)
         JavaFeaturesProto.JavaFeatures.NestInFileClassFeature.NestInFileClass nestInFileClass;
 
+        /**
+         * Constructs a new {@code JavaFeatures} with the specified field values.
+         *
+         * @param legacyClosedEnum the value of the {@code legacy_closed_enum} field, or {@code null} if the
+         *                         field is not set
+         * @param utf8Validation the value of the {@code utf8_validation} field, or {@code null} if the
+         *                       field is not set
+         * @param largeEnum the value of the {@code large_enum} field, or {@code null} if the
+         *                  field is not set
+         * @param useOldOuterClassnameDefault the value of the {@code use_old_outer_classname_default} field, or {@code null} if the
+         *                                    field is not set
+         * @param nestInFileClass the value of the {@code nest_in_file_class} field, or {@code null} if the
+         *                        field is not set
+         */
         JavaFeatures(
-                boolean legacyClosedEnum,
+                Boolean legacyClosedEnum,
                 JavaFeaturesProto.JavaFeatures.Utf8Validation utf8Validation,
-                boolean largeEnum,
-                boolean useOldOuterClassnameDefault,
+                Boolean largeEnum,
+                Boolean useOldOuterClassnameDefault,
                 JavaFeaturesProto.JavaFeatures.NestInFileClassFeature.NestInFileClass nestInFileClass
         ) {
             this.legacyClosedEnum = legacyClosedEnum;
@@ -142,24 +172,54 @@ public final class JavaFeaturesProto {
             this.nestInFileClass = nestInFileClass;
         }
 
-        public boolean legacyClosedEnum() {
-            return legacyClosedEnum;
+        /**
+         * Returns the value of the {@code legacy_closed_enum} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code legacy_closed_enum}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> legacyClosedEnum() {
+            return Optional.ofNullable(legacyClosedEnum);
         }
 
-        public JavaFeaturesProto.JavaFeatures.Utf8Validation utf8Validation() {
-            return utf8Validation;
+        /**
+         * Returns the value of the {@code utf8_validation} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code utf8_validation}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<JavaFeaturesProto.JavaFeatures.Utf8Validation> utf8Validation() {
+            return Optional.ofNullable(utf8Validation);
         }
 
-        public boolean largeEnum() {
-            return largeEnum;
+        /**
+         * Returns the value of the {@code large_enum} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code large_enum}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> largeEnum() {
+            return Optional.ofNullable(largeEnum);
         }
 
-        public boolean useOldOuterClassnameDefault() {
-            return useOldOuterClassnameDefault;
+        /**
+         * Returns the value of the {@code use_old_outer_classname_default} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code use_old_outer_classname_default}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> useOldOuterClassnameDefault() {
+            return Optional.ofNullable(useOldOuterClassnameDefault);
         }
 
-        public JavaFeaturesProto.JavaFeatures.NestInFileClassFeature.NestInFileClass nestInFileClass() {
-            return nestInFileClass;
+        /**
+         * Returns the value of the {@code nest_in_file_class} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code nest_in_file_class}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<JavaFeaturesProto.JavaFeatures.NestInFileClassFeature.NestInFileClass> nestInFileClass() {
+            return Optional.ofNullable(nestInFileClass);
         }
     }
 }

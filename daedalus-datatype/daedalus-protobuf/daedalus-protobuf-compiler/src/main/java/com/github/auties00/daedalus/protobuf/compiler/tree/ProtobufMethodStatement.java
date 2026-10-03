@@ -1,7 +1,10 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
 import com.google.protobuf.DescriptorProtos;
-import com.google.protobuf.MethodDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosMethodDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosMethodOptionsBuilder;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufBoolExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufEnumConstantExpression;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufTypeReference;
 
 import java.util.Objects;
@@ -73,12 +76,13 @@ public final class ProtobufMethodStatement
     private Type outputType;
 
     /**
-     * Constructs a new method statement at the specified line number.
+     * Constructs a new method statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param document the enclosing document
+     * @param range the source range covering this statement
      */
-    public ProtobufMethodStatement(int line) {
-        super(line);
+    public ProtobufMethodStatement(ProtobufDocumentTree document, ProtobufTreeSourceRange range) {
+        super(document, range);
     }
 
     /**
@@ -175,7 +179,7 @@ public final class ProtobufMethodStatement
 
     @Override
     public DescriptorProtos.MethodDescriptorProto toDescriptor() {
-        var builder = new MethodDescriptorProtoBuilder()
+        var builder = new DescriptorProtosMethodDescriptorProtoBuilder()
                 .name(name());
         if (inputType() != null) {
             builder.inputType(inputType().value().name());
@@ -185,7 +189,63 @@ public final class ProtobufMethodStatement
             builder.outputType(outputType().value().name());
             builder.serverStreaming(outputType().isStream());
         }
+        var methodOptions = buildMethodOptions();
+        if (methodOptions != null) {
+            builder.options(methodOptions);
+        }
         return builder.build();
+    }
+
+    private DescriptorProtosMethodOptionsBuilder buildMethodOptions() {
+        var optionStatements = getDirectChildrenByType(ProtobufOptionStatement.class).toList();
+        if (optionStatements.isEmpty()) {
+            return null;
+        }
+        var builder = new DescriptorProtosMethodOptionsBuilder();
+        var applied = false;
+        for (var option : optionStatements) {
+            if (!option.hasName() || !option.hasValue() || option.name().segments().size() != 1) {
+                continue;
+            }
+            var segment = option.name().segments().getFirst();
+            if (segment.isExtension()) {
+                continue;
+            }
+            var value = option.value();
+            switch (segment.name()) {
+                case "deprecated" -> {
+                    if (value instanceof ProtobufBoolExpression(var deprecated)) {
+                        builder.deprecated(deprecated);
+                        applied = true;
+                    }
+                }
+                case "idempotency_level" -> {
+                    if (value instanceof ProtobufEnumConstantExpression(var idempotencyLevel)) {
+                        try {
+                            builder.idempotencyLevel(DescriptorProtos.MethodOptions.IdempotencyLevel.valueOf(idempotencyLevel));
+                            applied = true;
+                        } catch (IllegalArgumentException ignored) {
+                            // Unknown idempotency_level literal
+                        }
+                    }
+                }
+                default -> {
+                    // Unknown or unsupported method option. The uninterpreted_option field is not
+                    // derivable from the AST; features is handled below from multi segment options.
+                }
+            }
+        }
+        var features = ProtobufTreeFeatures.featureSet(this);
+        if (features != null) {
+            builder.features(features);
+            applied = true;
+        }
+        var unknownExtensions = ProtobufTreeFeatures.collectUnknownExtensions(this);
+        if (!unknownExtensions.isEmpty()) {
+            builder.unknownFields(unknownExtensions);
+            applied = true;
+        }
+        return applied ? builder : null;
     }
 
     @Override

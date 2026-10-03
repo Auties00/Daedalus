@@ -2,51 +2,74 @@ package com.github.auties00.daedalus.protobuf.io.writer.text;
 
 import com.github.auties00.daedalus.protobuf.io.writer.ProtobufTextWriter;
 
+/**
+ * A text writer that writes the text into a {@link StringBuilder}, which grows as needed.
+ */
 public final class ProtobufTextCharSequenceWriter extends ProtobufTextWriter<String> {
-    private final char[] output;
-    private int position;
+    /**
+     * The text that was written.
+     */
+    private final StringBuilder output;
 
+    /**
+     * Constructs a new writer whose text has the given initial capacity.
+     *
+     * @param initialCapacity the initial capacity of the text
+     * @throws NegativeArraySizeException if {@code initialCapacity} is negative
+     */
     public ProtobufTextCharSequenceWriter(int initialCapacity) {
-        this.output = new char[initialCapacity];
+        this.output = new StringBuilder(initialCapacity);
     }
 
-    @Override public void writeStartObject() { throw new UnsupportedOperationException(); }
-    @Override public void writeStartObjectProperty(String fieldName) { throw new UnsupportedOperationException(); }
-    @Override public void writeStartObjectElement() { throw new UnsupportedOperationException(); }
-    @Override public void writeEndObject() { throw new UnsupportedOperationException(); }
-    @Override public void writeStartRepeatedProperty(String fieldName) { throw new UnsupportedOperationException(); }
-    @Override public void writeEndRepeatedProperty() { throw new UnsupportedOperationException(); }
-    @Override public void writeFloatProperty(String fieldName, float value) { throw new UnsupportedOperationException(); }
-    @Override public void writeDoubleProperty(String fieldName, double value) { throw new UnsupportedOperationException(); }
-    @Override public void writeBoolProperty(String fieldName, boolean value) { throw new UnsupportedOperationException(); }
-    @Override public void writeInt32Property(String fieldName, int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeUInt32Property(String fieldName, int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSInt32Property(String fieldName, int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeFixed32Property(String fieldName, int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSFixed32Property(String fieldName, int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeInt64Property(String fieldName, long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeUInt64Property(String fieldName, long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSInt64Property(String fieldName, long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeFixed64Property(String fieldName, long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSFixed64Property(String fieldName, long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeStringProperty(String fieldName, String value) { throw new UnsupportedOperationException(); }
-    @Override public void writeBytesProperty(String fieldName, byte[] value) { throw new UnsupportedOperationException(); }
-    @Override public void writeFloatElement(float value) { throw new UnsupportedOperationException(); }
-    @Override public void writeDoubleElement(double value) { throw new UnsupportedOperationException(); }
-    @Override public void writeBoolElement(boolean value) { throw new UnsupportedOperationException(); }
-    @Override public void writeInt32Element(int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeUInt32Element(int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSInt32Element(int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeFixed32Element(int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSFixed32Element(int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeInt64Element(long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeUInt64Element(long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSInt64Element(long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeFixed64Element(long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSFixed64Element(long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeStringElement(String value) { throw new UnsupportedOperationException(); }
-    @Override public void writeBytesElement(byte[] value) { throw new UnsupportedOperationException(); }
-    @Override public void writeNullElement() { throw new UnsupportedOperationException(); }
-    @Override public String toOutput() { throw new UnsupportedOperationException(); }
-    @Override public void close() {}
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeAscii(char value) {
+        output.append(value);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeAscii(String value) {
+        output.append(value);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeAscii(byte[] value, int offset, int length) {
+        for (var i = offset; i < offset + length; i++) {
+            output.append((char) value[i]);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    protected void writeUnicode(String value, int start, int end) {
+        output.append(value, start, end);
+    }
+
+    /**
+     * Returns the text that was written.
+     *
+     * @return the text
+     */
+    @Override
+    public String toOutput() {
+        return output.toString();
+    }
+
+    /**
+     * Does nothing, as a {@code StringBuilder} needs no closing.
+     */
+    @Override
+    public void close() {
+
+    }
 }

@@ -1,5 +1,6 @@
 package com.github.auties00.daedalus.protobuf.cli.command;
 
+import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
 import com.github.auties00.daedalus.protobuf.cli.config.ConfigLoader;
 import com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig;
 import com.github.auties00.daedalus.protobuf.cli.update.UpdateEngine;
@@ -102,6 +103,9 @@ public final class UpdateCommand implements Runnable {
             }
         } catch (IOException e) {
             System.err.println("Update failed: " + e.getMessage());
+        } catch (ProtobufParserException e) {
+            System.err.println("Update failed:");
+            System.err.println(e.getMessage());
         }
     }
 

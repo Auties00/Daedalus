@@ -78,12 +78,12 @@ public final class ProtobufReservedStatement
     private final List<ProtobufReservedExpression> expressions;
 
     /**
-     * Constructs a new reserved statement at the specified line number.
+     * Constructs a new reserved statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param range the source range covering this statement
      */
-    public ProtobufReservedStatement(int line) {
-        super(line);
+    public ProtobufReservedStatement(ProtobufTreeSourceRange range) {
+        super(range);
         this.expressions = new ArrayList<>();
     }
 

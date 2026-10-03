@@ -71,4 +71,15 @@ public enum ProtobufFieldPresence {
     public static Optional<ProtobufFieldPresence> of(String token) {
         return Optional.ofNullable(VALUES.get(token));
     }
+
+    public ProtobufFieldPresence resolve(ProtobufVersion version) {
+        if (this != VERSION_DEFAULT) {
+            return this;
+        } else {
+            return switch (version) {
+                case PROTOBUF_2, EDITION_2023, EDITION_2024 -> EXPLICIT;
+                case PROTOBUF_3 -> IMPLICIT;
+            };
+        }
+    }
 }

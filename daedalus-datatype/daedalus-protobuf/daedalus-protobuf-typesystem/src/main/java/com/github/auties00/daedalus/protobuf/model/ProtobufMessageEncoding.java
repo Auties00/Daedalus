@@ -67,4 +67,14 @@ public enum ProtobufMessageEncoding {
     public static Optional<ProtobufMessageEncoding> of(String token) {
         return Optional.ofNullable(VALUES.get(token));
     }
+
+    public ProtobufMessageEncoding resolve(ProtobufVersion version) {
+        if (this != VERSION_DEFAULT) {
+            return this;
+        } else {
+            return switch (version) {
+                case PROTOBUF_2, PROTOBUF_3, EDITION_2023, EDITION_2024 -> LENGTH_PREFIXED;
+            };
+        }
+    }
 }

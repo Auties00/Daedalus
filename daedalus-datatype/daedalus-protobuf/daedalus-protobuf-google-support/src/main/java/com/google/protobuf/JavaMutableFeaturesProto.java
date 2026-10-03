@@ -4,7 +4,23 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufReservedRange;
 
+import java.util.Optional;
+
+/**
+ * Holder of the Daedalus models declared by {@code google/protobuf/java_mutable_features.proto}.
+ *
+ * <p>These models represent the Java mutable feature set carried by the
+ * {@code (pb.java_mutable)} extension of {@link DescriptorProtos.FeatureSet}.
+ *
+ * <p>The models mirror the {@code proto2} definitions of the official protobuf
+ * distribution field by field, including field numbers, wire types, field
+ * presence and repeated field encodings. This class only scopes the nested
+ * types and cannot be instantiated.
+ */
 public final class JavaMutableFeaturesProto {
+    /**
+     * Prevents the instantiation of this holder class.
+     */
     private JavaMutableFeaturesProto() {}
 
     /**
@@ -61,14 +77,26 @@ public final class JavaMutableFeaturesProto {
         @ProtobufMessage.EnumField(index = 6)
         JavaMutableFeaturesProto.JavaMutableFeatures.NestInFileClassFeature.NestInFileClass nestInFileClass;
 
+        /**
+         * Constructs a new {@code JavaMutableFeatures} with the specified field values.
+         *
+         * @param nestInFileClass the value of the {@code nest_in_file_class} field, or {@code null} if the
+         *                        field is not set
+         */
         JavaMutableFeatures(
                 JavaMutableFeaturesProto.JavaMutableFeatures.NestInFileClassFeature.NestInFileClass nestInFileClass
         ) {
             this.nestInFileClass = nestInFileClass;
         }
 
-        public JavaMutableFeaturesProto.JavaMutableFeatures.NestInFileClassFeature.NestInFileClass nestInFileClass() {
-            return nestInFileClass;
+        /**
+         * Returns the value of the {@code nest_in_file_class} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code nest_in_file_class}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<JavaMutableFeaturesProto.JavaMutableFeatures.NestInFileClassFeature.NestInFileClass> nestInFileClass() {
+            return Optional.ofNullable(nestInFileClass);
         }
     }
 }

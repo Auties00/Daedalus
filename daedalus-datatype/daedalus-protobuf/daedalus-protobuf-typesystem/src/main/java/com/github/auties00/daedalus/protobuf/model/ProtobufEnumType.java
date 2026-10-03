@@ -27,14 +27,20 @@ public enum ProtobufEnumType {
 
     /**
      * Open enum: unknown values are preserved during deserialization.
-     * The first enum value must have index 0.
+     * The first enum value must have index 0, as it is the default value of
+     * a field with implicit presence.
      * This is the proto3 default behaviour.
+     *
+     * <p>A Java enum cannot hold a value that has no constant, so an unknown value
+     * is assigned the default value supplied to the field, if any, and is kept in
+     * the unknown fields of the message otherwise.
      */
     OPEN("OPEN"),
 
     /**
-     * Closed enum: unknown values are rejected during deserialization and
-     * treated as unknown fields. This is the proto2 default behaviour.
+     * Closed enum: unknown values are not assigned to the field during
+     * deserialization, and are kept in the unknown fields of the message
+     * instead, if it has any. This is the proto2 default behaviour.
      */
     CLOSED("CLOSED");
 
@@ -65,5 +71,16 @@ public enum ProtobufEnumType {
      */
     public static Optional<ProtobufEnumType> of(String token) {
         return Optional.ofNullable(VALUES.get(token));
+    }
+
+    public ProtobufEnumType resolve(ProtobufVersion version) {
+        if (this != VERSION_DEFAULT) {
+            return this;
+        } else {
+            return switch (version) {
+                case PROTOBUF_2 -> CLOSED;
+                case PROTOBUF_3, EDITION_2023, EDITION_2024 -> OPEN;
+            };
+        }
     }
 }

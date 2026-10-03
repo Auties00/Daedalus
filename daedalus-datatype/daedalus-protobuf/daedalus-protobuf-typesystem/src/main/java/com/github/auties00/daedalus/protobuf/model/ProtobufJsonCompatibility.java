@@ -67,4 +67,15 @@ public enum ProtobufJsonCompatibility {
     public static Optional<ProtobufJsonCompatibility> of(String token) {
         return Optional.ofNullable(VALUES.get(token));
     }
+
+    public ProtobufJsonCompatibility resolve(ProtobufVersion version) {
+        if (this != VERSION_DEFAULT) {
+            return this;
+        } else {
+            return switch (version) {
+                case PROTOBUF_2 -> DISABLED;
+                case PROTOBUF_3, EDITION_2023, EDITION_2024 -> ENABLED;
+            };
+        }
+    }
 }

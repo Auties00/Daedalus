@@ -1,11 +1,11 @@
 package com.github.auties00.daedalus.protobuf.cli.tui.onboarding;
 
+import com.github.auties00.daedalus.cli.tui.StatusBar;
 import com.williamcallahan.tui4j.compat.bubbletea.*;
 import com.github.auties00.daedalus.protobuf.cli.model.EnumConstantMode;
 import com.github.auties00.daedalus.protobuf.cli.model.EnumForm;
 import com.github.auties00.daedalus.protobuf.cli.model.TypeForm;
 import com.github.auties00.daedalus.cli.tui.Theme;
-import com.github.auties00.daedalus.cli.tui.shared.StatusBar;
 
 /**
  * The final onboarding step showing a configuration summary for confirmation.

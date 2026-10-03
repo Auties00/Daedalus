@@ -1,5 +1,6 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 
 /**
@@ -7,7 +8,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
  *
  * <p>Protobuf enum {@code com.google.protobuf.Syntax}
  */
-@ProtobufEnum
+@ProtobufEnum(version = ProtobufVersion.PROTOBUF_3)
 public enum Syntax {
     /**
      * Syntax {@code proto2}.

@@ -18,7 +18,7 @@ import java.util.Objects;
  *
  * @param declaration the enum declaration statement, must not be null
  */
-public record ProtobufEnumTypeReference(ProtobufEnumStatement declaration) implements ProtobufObjectTypeReference {
+public record ProtobufEnumTypeReference(ProtobufEnumStatement declaration) implements ProtobufObjectTypeReference, ProtobufValueTypeReference {
     public ProtobufEnumTypeReference {
         Objects.requireNonNull(declaration, "declaration cannot be null");
     }

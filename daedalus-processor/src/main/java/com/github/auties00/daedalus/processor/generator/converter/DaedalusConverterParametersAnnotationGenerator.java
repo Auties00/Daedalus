@@ -1,10 +1,13 @@
 package com.github.auties00.daedalus.processor.generator.converter;
 
+import com.github.auties00.daedalus.processor.diagnostic.DaedalusConverterErrors;
 import com.github.auties00.daedalus.processor.generator.DaedalusClassGenerator;
+import com.github.auties00.daedalus.processor.manager.DaedalusConverterParametersManager;
 import com.github.auties00.daedalus.processor.manager.DaedalusLogManager;
 import com.github.auties00.daedalus.processor.manager.DaedalusTypeManager;
 import com.github.auties00.daedalus.typesystem.annotation.TypeDeserializer;
 import com.github.auties00.daedalus.typesystem.annotation.TypeSerializer;
+import com.github.auties00.daedalus.typesystem.annotation.TypeSize;
 import com.palantir.javapoet.*;
 
 import javax.annotation.processing.Filer;
@@ -19,135 +22,109 @@ import java.lang.annotation.*;
 import java.util.*;
 
 /**
- * A generator that creates companion parameter annotations for serializers and
- * deserializers that declare additional parameters beyond the mandatory first one.
+ * A generator that creates companion parameter annotations for converters that declare
+ * additional parameters beyond the mandatory one.
  *
- * <p>When a method annotated with {@code @TypeSerializer} or {@code @TypeDeserializer}
- * has additional parameters, the processor generates an annotation named
- * {@code {EnclosingTypeName}Parameters} with one method per additional parameter.
- * This annotation can then be applied to fields or record components to supply
- * the parameter values at the use site.
+ * <p>When a method annotated with {@code @TypeSerializer}, {@code @TypeDeserializer} or
+ * {@code @TypeSize} has additional parameters whose arguments are not injected by a data
+ * format, as described by {@link DaedalusConverterParametersManager}, the processor
+ * generates an annotation named {@code {EnclosingTypeName}Parameters} with one method per
+ * such parameter. This annotation can then be applied to fields or record components to
+ * supply the parameter values at the use site.
  *
- * <p>The additional parameter types must be annotation-legal: primitives, {@code String},
- * {@code Class}, enums, annotations, or one-dimensional arrays thereof.
+ * <p>The additional parameter types must be legal annotation element types whose values
+ * can be written as Java expressions: primitives, {@code String}, {@code Class}, enums, or
+ * one dimensional arrays thereof. Every converter of a type that declares additional
+ * parameters must declare the same ones, in the same order, as they are supplied by the
+ * same annotation.
  */
 public final class DaedalusConverterParametersAnnotationGenerator extends DaedalusClassGenerator {
 
     private final DaedalusTypeManager types;
+    private final DaedalusConverterParametersManager parameters;
     private final DaedalusLogManager messages;
-    private final Set<TypeMirror> supportedIOTypes;
 
     /**
      * Constructs a new parameters annotation generator.
      *
      * @param filer the filer for creating source files
      * @param types the common type utilities
+     * @param parameters the manager of the additional parameters of converters
      * @param messages the compiler diagnostics utility
-     * @param supportedIOTypes the aggregated I/O types supplied by all extensions,
-     *        used to exclude framework-injected parameters (readers/writers) from
-     *        companion parameter annotations
      */
-    public DaedalusConverterParametersAnnotationGenerator(Filer filer, DaedalusTypeManager types, DaedalusLogManager messages, Set<TypeMirror> supportedIOTypes) {
+    public DaedalusConverterParametersAnnotationGenerator(Filer filer, DaedalusTypeManager types, DaedalusConverterParametersManager parameters, DaedalusLogManager messages) {
         super(filer);
         this.types = types;
+        this.parameters = parameters;
         this.messages = messages;
-        this.supportedIOTypes = supportedIOTypes;
     }
 
     /**
-     * Scans the round environment for serializers and deserializers with additional
-     * parameters and generates companion annotations for each.
+     * Scans the round environment for converters with additional parameters and
+     * generates a companion annotation for each type that declares them.
+     *
+     * <p>The first converter of a type that declares additional parameters defines the
+     * elements of the annotation. Every other converter of the same type that declares
+     * additional parameters is validated against it.
      *
      * @param roundEnv the current annotation processing round environment
      */
     public void generate(RoundEnvironment roundEnv) {
-        Set<String> generated = new HashSet<>();
+        var converters = new LinkedHashSet<Element>();
+        converters.addAll(roundEnv.getElementsAnnotatedWith(TypeSerializer.class));
+        converters.addAll(roundEnv.getElementsAnnotatedWith(TypeDeserializer.class));
+        converters.addAll(roundEnv.getElementsAnnotatedWith(TypeSize.class));
 
-        for (var element : roundEnv.getElementsAnnotatedWith(TypeSerializer.class)) {
-            if (element instanceof ExecutableElement method) {
-                generateIfNeeded(method, generated);
+        var declarations = new LinkedHashMap<TypeElement, ExecutableElement>();
+        var invalid = new HashSet<TypeElement>();
+        for (var converter : converters) {
+            if (!(converter instanceof ExecutableElement method)) {
+                continue;
+            }
+
+            var annotatedParameters = parameters.getAnnotatedParameters(method);
+            if (annotatedParameters.isEmpty()) {
+                continue;
+            }
+
+            var owner = types.getEnclosingTypeElement(method.getEnclosingElement());
+            if (!validateAnnotationTypes(annotatedParameters)) {
+                invalid.add(owner);
+                continue;
+            }
+
+            var declaration = declarations.putIfAbsent(owner, method);
+            if (declaration != null && !isSameSignature(annotatedParameters, parameters.getAnnotatedParameters(declaration))) {
+                messages.printError(DaedalusConverterErrors.mismatchedParameters(method, annotatedParameters, declaration, parameters.getAnnotatedParameters(declaration), parameters.getAnnotation(method)), method);
+                invalid.add(owner);
             }
         }
 
-        for (var element : roundEnv.getElementsAnnotatedWith(TypeDeserializer.class)) {
-            if (element instanceof ExecutableElement method) {
-                generateIfNeeded(method, generated);
+        for (var entry : declarations.entrySet()) {
+            if (!invalid.contains(entry.getKey())) {
+                generateAnnotation(entry.getKey(), entry.getValue());
             }
         }
     }
 
     /**
-     * Generates a companion annotation for the given method if it has additional
-     * parameters and one has not already been generated for the enclosing type.
+     * Returns whether two lists of additional parameters have the same names and types,
+     * in the same order.
      *
-     * @param method the serializer or deserializer method
-     * @param generated the set of already-generated annotation names (to avoid duplicates)
+     * @param first the first list of parameters
+     * @param second the second list of parameters
+     * @return {@code true} if the lists match
      */
-    private void generateIfNeeded(ExecutableElement method, Set<String> generated) {
-        var inMixin = types.isMixin(method.getEnclosingElement().asType());
-        var mandatoryParamCount = inMixin ? 1 : (method.getKind() == ElementKind.CONSTRUCTOR ? 1 : 0);
-        var parameters = method.getParameters();
-        if (parameters.size() <= mandatoryParamCount) {
-            return;
+    private boolean isSameSignature(List<? extends VariableElement> first, List<? extends VariableElement> second) {
+        if (first.size() != second.size()) {
+            return false;
         }
 
-        var additionalParams = parameters.subList(mandatoryParamCount, parameters.size())
-                .stream()
-                .filter(param -> !isSupportedIOType(param.asType()))
-                .toList();
-        if (additionalParams.isEmpty()) {
-            return;
-        }
-
-        var enclosingType = types.getEnclosingTypeElement(method);
-        var packageElement = getPackageElement(enclosingType);
-        var annotationName = enclosingType.getSimpleName() + "Parameters";
-        var qualifiedName = packageElement.getQualifiedName() + "." + annotationName;
-        if (!generated.add(qualifiedName)) {
-            return;
-        }
-
-        if (!validateAnnotationTypes(method, additionalParams)) {
-            return;
-        }
-
-        try {
-            generateAnnotation(packageElement.getQualifiedName().toString(), annotationName, additionalParams);
-        } catch (IOException exception) {
-            messages.printError("Failed to generate companion annotation: " + exception.getMessage(), method);
-        }
-    }
-
-    /**
-     * Returns whether the given type is one of the supported I/O types supplied by an extension.
-     *
-     * @param type the parameter type to check
-     * @return {@code true} if the type is an I/O type and should be excluded from the companion annotation
-     */
-    private boolean isSupportedIOType(TypeMirror type) {
-        for (var ioType : supportedIOTypes) {
-            if (types.isSameType(type, ioType, true)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Validates that all additional parameter types are annotation-legal.
-     *
-     * @param method the method being validated (for error reporting)
-     * @param parameters the additional parameters to validate
-     * @return {@code true} if all types are valid
-     */
-    private boolean validateAnnotationTypes(ExecutableElement method, List<? extends VariableElement> parameters) {
-        for (var param : parameters) {
-            if (!isAnnotationLegalType(param.asType())) {
-                messages.printError(
-                        "Illegal parameter type: %s is not a valid annotation element type (must be a primitive, String, Class, enum, annotation, or array thereof)"
-                                .formatted(param.asType()),
-                        method
-                );
+        for (var index = 0; index < first.size(); index++) {
+            var firstParameter = first.get(index);
+            var secondParameter = second.get(index);
+            if (!firstParameter.getSimpleName().contentEquals(secondParameter.getSimpleName())
+                    || !types.isSameType(firstParameter.asType(), secondParameter.asType(), false)) {
                 return false;
             }
         }
@@ -155,10 +132,32 @@ public final class DaedalusConverterParametersAnnotationGenerator extends Daedal
     }
 
     /**
-     * Returns whether the given type is legal as an annotation element type.
+     * Validates that all additional parameter types are legal, reporting an error for
+     * each one that is not.
+     *
+     * @param parameters the additional parameters to validate
+     * @return {@code true} if all types are valid
+     */
+    private boolean validateAnnotationTypes(List<? extends VariableElement> parameters) {
+        var valid = true;
+        for (var param : parameters) {
+            if (!isAnnotationLegalType(param.asType())) {
+                messages.printError(DaedalusConverterErrors.illegalParameterType(param), param);
+                valid = false;
+            }
+        }
+        return valid;
+    }
+
+    /**
+     * Returns whether the given type is legal as an annotation element type and its
+     * values can be written as Java expressions.
+     *
+     * <p>Annotation types are legal annotation element types, but are rejected, as an
+     * annotation value cannot be passed to a method without reflection.
      *
      * @param type the type to check
-     * @return {@code true} if the type is annotation-legal
+     * @return {@code true} if the type is legal
      */
     private boolean isAnnotationLegalType(TypeMirror type) {
         return switch (type.getKind()) {
@@ -173,10 +172,10 @@ public final class DaedalusConverterParametersAnnotationGenerator extends Daedal
     }
 
     /**
-     * Returns whether the given declared type is annotation-legal.
+     * Returns whether the given declared type is legal.
      *
      * @param type the declared type to check
-     * @return {@code true} if it is String, Class, an enum, or an annotation
+     * @return {@code true} if it is {@code String}, {@code Class} or an enum
      */
     private boolean isDeclaredAnnotationLegalType(TypeMirror type) {
         if (types.isSameType(type, String.class)) {
@@ -187,23 +186,20 @@ public final class DaedalusConverterParametersAnnotationGenerator extends Daedal
             return true;
         }
 
-        if (type instanceof DeclaredType declaredType && declaredType.asElement() instanceof TypeElement element) {
-            return element.getKind() == ElementKind.ENUM || element.getKind() == ElementKind.ANNOTATION_TYPE;
-        }
-
-        return false;
+        return type instanceof DeclaredType declaredType
+                && declaredType.asElement() instanceof TypeElement element
+                && element.getKind() == ElementKind.ENUM;
     }
 
     /**
-     * Generates the companion annotation type.
+     * Generates the companion annotation of the given type, declaring one element for
+     * each annotated parameter of the given converter.
      *
-     * @param packageName the package for the generated annotation
-     * @param annotationName the simple name of the annotation
-     * @param parameters the additional parameters to declare as annotation methods
-     * @throws IOException if writing the source file fails
+     * @param owner the type that declares the converters
+     * @param declaration the converter whose annotated parameters define the elements
      */
-    private void generateAnnotation(String packageName, String annotationName, List<? extends VariableElement> parameters) throws IOException {
-        var annotationBuilder = TypeSpec.annotationBuilder(annotationName)
+    private void generateAnnotation(TypeElement owner, ExecutableElement declaration) {
+        var annotationBuilder = TypeSpec.annotationBuilder(parameters.getAnnotationSimpleName(owner))
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(AnnotationSpec.builder(Target.class)
                         .addMember("value", "{$T.FIELD, $T.RECORD_COMPONENT, $T.PARAMETER}",
@@ -213,32 +209,19 @@ public final class DaedalusConverterParametersAnnotationGenerator extends Daedal
                         .addMember("value", "$T.RUNTIME", RetentionPolicy.class)
                         .build());
 
-        for (var param : parameters) {
+        for (var param : parameters.getAnnotatedParameters(declaration)) {
             var methodBuilder = MethodSpec.methodBuilder(param.getSimpleName().toString())
                     .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
                     .returns(TypeName.get(param.asType()));
             annotationBuilder.addMethod(methodBuilder.build());
         }
 
-        var javaFile = JavaFile.builder(packageName, annotationBuilder.build())
+        var javaFile = JavaFile.builder(types.getPackageName(owner), annotationBuilder.build())
                 .build();
-        javaFile.writeTo(filer);
-    }
-
-    /**
-     * Returns the package element for the given type element.
-     *
-     * @param typeElement the type element
-     * @return the enclosing package element
-     */
-    private PackageElement getPackageElement(TypeElement typeElement) {
-        var enclosing = typeElement.getEnclosingElement();
-        while (enclosing != null) {
-            if (enclosing instanceof PackageElement packageElement) {
-                return packageElement;
-            }
-            enclosing = enclosing.getEnclosingElement();
+        try {
+            javaFile.writeTo(filer);
+        } catch (IOException exception) {
+            messages.printError(DaedalusConverterErrors.annotationGenerationFailed(parameters.getAnnotation(declaration), exception), declaration);
         }
-        throw new IllegalStateException("No package element found for " + typeElement.getQualifiedName());
     }
 }

@@ -20,15 +20,15 @@ public class ProtobufLexerTest {
     @Nested
     class RawTokenTests {
         @Test
-        void testNextRawToken_EOF_ThrowsException() {
+        void testNextRawToken_EOF_ReturnsNull() throws IOException {
             var tokenizer = new ProtobufLexer(new StringReader(""));
-            assertThrows(IOException.class, () -> tokenizer.nextRawToken(true));
+            assertNull(tokenizer.nextRawToken());
         }
 
         @Test
-        void testNextRawToken_EOF_NoThrow_ReturnsNull() throws IOException {
+        void testNextToken_EOF_ReturnsNull() throws IOException {
             var tokenizer = new ProtobufLexer(new StringReader(""));
-            assertNull(tokenizer.nextRawToken(false));
+            assertNull(tokenizer.nextToken());
         }
 
         @Test

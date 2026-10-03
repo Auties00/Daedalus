@@ -69,4 +69,15 @@ public enum ProtobufNamingStyle {
     public static Optional<ProtobufNamingStyle> of(String token) {
         return Optional.ofNullable(VALUES.get(token));
     }
+
+    public ProtobufNamingStyle resolve(ProtobufVersion version) {
+        if (this != VERSION_DEFAULT) {
+            return this;
+        } else {
+            return switch (version) {
+                case PROTOBUF_2, PROTOBUF_3, EDITION_2023 -> STYLE_LEGACY;
+                case EDITION_2024 -> STYLE2024;
+            };
+        }
+    }
 }

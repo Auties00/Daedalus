@@ -3,14 +3,33 @@ package com.google.protobuf;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufReservedRange;
-import com.github.auties00.daedalus.protobuf.model.ProtobufUnknownFieldsStore;
+import com.github.auties00.daedalus.protobuf.model.ProtobufFieldPresence;
+import com.github.auties00.daedalus.protobuf.model.ProtobufRepeatedFieldEncoding;
+import com.github.auties00.daedalus.protobuf.model.ProtobufUnknownFields;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
+import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.SequencedCollection;
 
+/**
+ * Holder of the Daedalus models declared by {@code google/protobuf/descriptor.proto}.
+ *
+ * <p>These models represent the descriptor messages and enums that describe
+ * {@code .proto} files, such as {@link DescriptorProtos.FileDescriptorProto}.
+ *
+ * <p>The models mirror the {@code proto2} definitions of the official protobuf
+ * distribution field by field, including field numbers, wire types, field
+ * presence and repeated field encodings. This class only scopes the nested
+ * types and cannot be instantiated.
+ */
 public final class DescriptorProtos {
+    /**
+     * Prevents the instantiation of this holder class.
+     */
     private DescriptorProtos() {}
 
     /**
@@ -136,12 +155,46 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 1)
         List<DescriptorProtos.FileDescriptorProto> file;
 
-        FileDescriptorSet(List<DescriptorProtos.FileDescriptorProto> file) {
+        /**
+         * The store for unknown wire-level fields preserved during deserialization.
+         *
+         * <p>This carries the values of extensions declared in the
+         * {@code 536000000} extension range, which the canonical descriptor model
+         * has no typed representation for. The codegen reads them on the way in
+         * and re-emits them on the way out.
+         */
+        @ProtobufMessage.UnknownFields
+        ProtobufUnknownFields unknownFields;
+
+        /**
+         * Constructs a new {@code FileDescriptorSet} with the specified field values.
+         *
+         * @param file the values of the repeated {@code file} field
+         * @param unknownFields the store of unknown fields preserved during deserialization
+         */
+        FileDescriptorSet(List<DescriptorProtos.FileDescriptorProto> file, ProtobufUnknownFields unknownFields) {
             this.file = file;
+            this.unknownFields = unknownFields;
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code file} field.
+         *
+         * @return an unmodifiable view of the values of the {@code file} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.FileDescriptorProto> file() {
             return Collections.unmodifiableSequencedCollection(file);
+        }
+
+        /**
+         * Returns the unknown fields preserved during deserialization.
+         *
+         * @return the store of unknown fields preserved during deserialization
+         */
+        public ProtobufUnknownFields unknownFields() {
+            return unknownFields;
         }
     }
 
@@ -271,6 +324,30 @@ public final class DescriptorProtos {
         @ProtobufMessage.StringField(index = 15)
         List<String> optionDependency;
 
+        /**
+         * Constructs a new {@code FileDescriptorProto} with the specified field values.
+         *
+         * @param name the value of the {@code name} field, or {@code null} if the
+         *             field is not set
+         * @param package_ the value of the {@code package} field, or {@code null} if the
+         *                 field is not set
+         * @param dependency the values of the repeated {@code dependency} field
+         * @param messageType the values of the repeated {@code message_type} field
+         * @param enumType the values of the repeated {@code enum_type} field
+         * @param service the values of the repeated {@code service} field
+         * @param extension the values of the repeated {@code extension} field
+         * @param options the value of the {@code options} field, or {@code null} if the
+         *                field is not set
+         * @param sourceCodeInfo the value of the {@code source_code_info} field, or {@code null} if the
+         *                       field is not set
+         * @param publicDependency the values of the repeated {@code public_dependency} field
+         * @param weakDependency the values of the repeated {@code weak_dependency} field
+         * @param syntax the value of the {@code syntax} field, or {@code null} if the
+         *               field is not set
+         * @param edition the value of the {@code edition} field, or {@code null} if the
+         *                field is not set
+         * @param optionDependency the values of the repeated {@code option_dependency} field
+         */
         FileDescriptorProto(
                 String name,
                 String package_,
@@ -303,58 +380,150 @@ public final class DescriptorProtos {
             this.optionDependency = optionDependency;
         }
 
-        public String name() {
-            return name;
+        /**
+         * Returns the value of the {@code name} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code name}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> name() {
+            return Optional.ofNullable(name);
         }
 
-        public String package_() {
-            return package_;
+        /**
+         * Returns the value of the {@code package} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code package}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> package_() {
+            return Optional.ofNullable(package_);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code dependency} field.
+         *
+         * @return an unmodifiable view of the values of the {@code dependency} field,
+         *         in encounter order
+         */
         public SequencedCollection<String> dependency() {
             return Collections.unmodifiableSequencedCollection(dependency);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code message_type} field.
+         *
+         * @return an unmodifiable view of the values of the {@code message_type} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.DescriptorProto> messageType() {
             return Collections.unmodifiableSequencedCollection(messageType);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code enum_type} field.
+         *
+         * @return an unmodifiable view of the values of the {@code enum_type} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.EnumDescriptorProto> enumType() {
             return Collections.unmodifiableSequencedCollection(enumType);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code service} field.
+         *
+         * @return an unmodifiable view of the values of the {@code service} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.ServiceDescriptorProto> service() {
             return Collections.unmodifiableSequencedCollection(service);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code extension} field.
+         *
+         * @return an unmodifiable view of the values of the {@code extension} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.FieldDescriptorProto> extension() {
             return Collections.unmodifiableSequencedCollection(extension);
         }
 
-        public DescriptorProtos.FileOptions options() {
-            return options;
+        /**
+         * Returns the value of the {@code options} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code options}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FileOptions> options() {
+            return Optional.ofNullable(options);
         }
 
-        public DescriptorProtos.SourceCodeInfo sourceCodeInfo() {
-            return sourceCodeInfo;
+        /**
+         * Returns the value of the {@code source_code_info} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code source_code_info}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.SourceCodeInfo> sourceCodeInfo() {
+            return Optional.ofNullable(sourceCodeInfo);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code public_dependency} field.
+         *
+         * @return an unmodifiable view of the values of the {@code public_dependency} field,
+         *         in encounter order
+         */
         public SequencedCollection<Integer> publicDependency() {
             return Collections.unmodifiableSequencedCollection(publicDependency);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code weak_dependency} field.
+         *
+         * @return an unmodifiable view of the values of the {@code weak_dependency} field,
+         *         in encounter order
+         */
         public SequencedCollection<Integer> weakDependency() {
             return Collections.unmodifiableSequencedCollection(weakDependency);
         }
 
-        public String syntax() {
-            return syntax;
+        /**
+         * Returns the value of the {@code syntax} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code syntax}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> syntax() {
+            return Optional.ofNullable(syntax);
         }
 
-        public DescriptorProtos.Edition edition() {
-            return edition;
+        /**
+         * Returns the value of the {@code edition} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code edition}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.Edition> edition() {
+            return Optional.ofNullable(edition);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code option_dependency} field.
+         *
+         * @return an unmodifiable view of the values of the {@code option_dependency} field,
+         *         in encounter order
+         */
         public SequencedCollection<String> optionDependency() {
             return Collections.unmodifiableSequencedCollection(optionDependency);
         }
@@ -380,7 +549,7 @@ public final class DescriptorProtos {
              * <p><code>int32 start = 1;</code>
              */
             @ProtobufMessage.Int32Field(index = 1)
-            int start;
+            Integer start;
 
             /**
              * Exclusive.
@@ -388,7 +557,7 @@ public final class DescriptorProtos {
              * <p><code>int32 end = 2;</code>
              */
             @ProtobufMessage.Int32Field(index = 2)
-            int end;
+            Integer end;
 
             /**
              * <p><code>ExtensionRangeOptions options = 3;</code>
@@ -396,22 +565,50 @@ public final class DescriptorProtos {
             @ProtobufMessage.MessageField(index = 3)
             DescriptorProtos.ExtensionRangeOptions options;
 
-            ExtensionRange(int start, int end, DescriptorProtos.ExtensionRangeOptions options) {
+            /**
+             * Constructs a new {@code ExtensionRange} with the specified field values.
+             *
+             * @param start the value of the {@code start} field, or {@code null} if the
+             *              field is not set
+             * @param end the value of the {@code end} field, or {@code null} if the
+             *            field is not set
+             * @param options the value of the {@code options} field, or {@code null} if the
+             *                field is not set
+             */
+            ExtensionRange(Integer start, Integer end, DescriptorProtos.ExtensionRangeOptions options) {
                 this.start = start;
                 this.end = end;
                 this.options = options;
             }
 
-            public int start() {
-                return start;
+            /**
+             * Returns the value of the {@code start} field, if present.
+             *
+             * @return an {@code OptionalInt} containing the value of the {@code start}
+             *         field, or an empty {@code OptionalInt} if the field is not set
+             */
+            public OptionalInt start() {
+                return start == null ? OptionalInt.empty() : OptionalInt.of(start);
             }
 
-            public int end() {
-                return end;
+            /**
+             * Returns the value of the {@code end} field, if present.
+             *
+             * @return an {@code OptionalInt} containing the value of the {@code end}
+             *         field, or an empty {@code OptionalInt} if the field is not set
+             */
+            public OptionalInt end() {
+                return end == null ? OptionalInt.empty() : OptionalInt.of(end);
             }
 
-            public DescriptorProtos.ExtensionRangeOptions options() {
-                return options;
+            /**
+             * Returns the value of the {@code options} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code options}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<DescriptorProtos.ExtensionRangeOptions> options() {
+                return Optional.ofNullable(options);
             }
         }
 
@@ -431,7 +628,7 @@ public final class DescriptorProtos {
              * <p><code>int32 start = 1;</code>
              */
             @ProtobufMessage.Int32Field(index = 1)
-            int start;
+            Integer start;
 
             /**
              * Exclusive.
@@ -439,19 +636,39 @@ public final class DescriptorProtos {
              * <p><code>int32 end = 2;</code>
              */
             @ProtobufMessage.Int32Field(index = 2)
-            int end;
+            Integer end;
 
-            ReservedRange(int start, int end) {
+            /**
+             * Constructs a new {@code ReservedRange} with the specified field values.
+             *
+             * @param start the value of the {@code start} field, or {@code null} if the
+             *              field is not set
+             * @param end the value of the {@code end} field, or {@code null} if the
+             *            field is not set
+             */
+            ReservedRange(Integer start, Integer end) {
                 this.start = start;
                 this.end = end;
             }
 
-            public int start() {
-                return start;
+            /**
+             * Returns the value of the {@code start} field, if present.
+             *
+             * @return an {@code OptionalInt} containing the value of the {@code start}
+             *         field, or an empty {@code OptionalInt} if the field is not set
+             */
+            public OptionalInt start() {
+                return start == null ? OptionalInt.empty() : OptionalInt.of(start);
             }
 
-            public int end() {
-                return end;
+            /**
+             * Returns the value of the {@code end} field, if present.
+             *
+             * @return an {@code OptionalInt} containing the value of the {@code end}
+             *         field, or an empty {@code OptionalInt} if the field is not set
+             */
+            public OptionalInt end() {
+                return end == null ? OptionalInt.empty() : OptionalInt.of(end);
             }
         }
 
@@ -526,6 +743,24 @@ public final class DescriptorProtos {
         @ProtobufMessage.EnumField(index = 11)
         DescriptorProtos.SymbolVisibility visibility;
 
+        /**
+         * Constructs a new {@code DescriptorProto} with the specified field values.
+         *
+         * @param name the value of the {@code name} field, or {@code null} if the
+         *             field is not set
+         * @param field the values of the repeated {@code field} field
+         * @param nestedType the values of the repeated {@code nested_type} field
+         * @param enumType the values of the repeated {@code enum_type} field
+         * @param extensionRange the values of the repeated {@code extension_range} field
+         * @param extension the values of the repeated {@code extension} field
+         * @param options the value of the {@code options} field, or {@code null} if the
+         *                field is not set
+         * @param oneofDecl the values of the repeated {@code oneof_decl} field
+         * @param reservedRange the values of the repeated {@code reserved_range} field
+         * @param reservedName the values of the repeated {@code reserved_name} field
+         * @param visibility the value of the {@code visibility} field, or {@code null} if the
+         *                   field is not set
+         */
         DescriptorProto(
                 String name,
                 List<DescriptorProtos.FieldDescriptorProto> field,
@@ -552,48 +787,122 @@ public final class DescriptorProtos {
             this.visibility = visibility;
         }
 
-        public String name() {
-            return name;
+        /**
+         * Returns the value of the {@code name} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code name}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> name() {
+            return Optional.ofNullable(name);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code field} field.
+         *
+         * @return an unmodifiable view of the values of the {@code field} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.FieldDescriptorProto> field() {
             return Collections.unmodifiableSequencedCollection(field);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code nested_type} field.
+         *
+         * @return an unmodifiable view of the values of the {@code nested_type} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.DescriptorProto> nestedType() {
             return Collections.unmodifiableSequencedCollection(nestedType);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code enum_type} field.
+         *
+         * @return an unmodifiable view of the values of the {@code enum_type} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.EnumDescriptorProto> enumType() {
             return Collections.unmodifiableSequencedCollection(enumType);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code extension_range} field.
+         *
+         * @return an unmodifiable view of the values of the {@code extension_range} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.DescriptorProto.ExtensionRange> extensionRange() {
             return Collections.unmodifiableSequencedCollection(extensionRange);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code extension} field.
+         *
+         * @return an unmodifiable view of the values of the {@code extension} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.FieldDescriptorProto> extension() {
             return Collections.unmodifiableSequencedCollection(extension);
         }
 
-        public DescriptorProtos.MessageOptions options() {
-            return options;
+        /**
+         * Returns the value of the {@code options} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code options}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.MessageOptions> options() {
+            return Optional.ofNullable(options);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code oneof_decl} field.
+         *
+         * @return an unmodifiable view of the values of the {@code oneof_decl} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.OneofDescriptorProto> oneofDecl() {
             return Collections.unmodifiableSequencedCollection(oneofDecl);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code reserved_range} field.
+         *
+         * @return an unmodifiable view of the values of the {@code reserved_range} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.DescriptorProto.ReservedRange> reservedRange() {
             return Collections.unmodifiableSequencedCollection(reservedRange);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code reserved_name} field.
+         *
+         * @return an unmodifiable view of the values of the {@code reserved_name} field,
+         *         in encounter order
+         */
         public SequencedCollection<String> reservedName() {
             return Collections.unmodifiableSequencedCollection(reservedName);
         }
 
-        public DescriptorProtos.SymbolVisibility visibility() {
-            return visibility;
+        /**
+         * Returns the value of the {@code visibility} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code visibility}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.SymbolVisibility> visibility() {
+            return Optional.ofNullable(visibility);
         }
     }
 
@@ -633,7 +942,7 @@ public final class DescriptorProtos {
              * <p><code>int32 number = 1;</code>
              */
             @ProtobufMessage.Int32Field(index = 1)
-            int number;
+            Integer number;
 
             /**
              * The fully-qualified name of the extension field. There must be a leading
@@ -662,7 +971,7 @@ public final class DescriptorProtos {
              * <p><code>bool reserved = 5;</code>
              */
             @ProtobufMessage.BoolField(index = 5)
-            boolean reserved;
+            Boolean reserved;
 
             /**
              * If true, indicates that the extension must be defined as repeated.
@@ -671,9 +980,23 @@ public final class DescriptorProtos {
              * <p><code>bool repeated = 6;</code>
              */
             @ProtobufMessage.BoolField(index = 6)
-            boolean repeated;
+            Boolean repeated;
 
-            Declaration(int number, String fullName, String type, boolean reserved, boolean repeated) {
+            /**
+             * Constructs a new {@code Declaration} with the specified field values.
+             *
+             * @param number the value of the {@code number} field, or {@code null} if the
+             *               field is not set
+             * @param fullName the value of the {@code full_name} field, or {@code null} if the
+             *                 field is not set
+             * @param type the value of the {@code type} field, or {@code null} if the
+             *             field is not set
+             * @param reserved the value of the {@code reserved} field, or {@code null} if the
+             *                 field is not set
+             * @param repeated the value of the {@code repeated} field, or {@code null} if the
+             *                 field is not set
+             */
+            Declaration(Integer number, String fullName, String type, Boolean reserved, Boolean repeated) {
                 this.number = number;
                 this.fullName = fullName;
                 this.type = type;
@@ -681,24 +1004,54 @@ public final class DescriptorProtos {
                 this.repeated = repeated;
             }
 
-            public int number() {
-                return number;
+            /**
+             * Returns the value of the {@code number} field, if present.
+             *
+             * @return an {@code OptionalInt} containing the value of the {@code number}
+             *         field, or an empty {@code OptionalInt} if the field is not set
+             */
+            public OptionalInt number() {
+                return number == null ? OptionalInt.empty() : OptionalInt.of(number);
             }
 
-            public String fullName() {
-                return fullName;
+            /**
+             * Returns the value of the {@code full_name} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code full_name}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<String> fullName() {
+                return Optional.ofNullable(fullName);
             }
 
-            public String type() {
-                return type;
+            /**
+             * Returns the value of the {@code type} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code type}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<String> type() {
+                return Optional.ofNullable(type);
             }
 
-            public boolean reserved() {
-                return reserved;
+            /**
+             * Returns the value of the {@code reserved} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code reserved}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<Boolean> reserved() {
+                return Optional.ofNullable(reserved);
             }
 
-            public boolean repeated() {
-                return repeated;
+            /**
+             * Returns the value of the {@code repeated} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code repeated}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<Boolean> repeated() {
+                return Optional.ofNullable(repeated);
             }
         }
 
@@ -747,39 +1100,85 @@ public final class DescriptorProtos {
          * the way out.
          */
         @ProtobufMessage.UnknownFields
-        ProtobufUnknownFieldsStore unknownFields;
+        ProtobufUnknownFields unknownFields;
 
+        /**
+         * Constructs a new {@code ExtensionRangeOptions} with the specified field values.
+         *
+         * @param declaration the values of the repeated {@code declaration} field
+         * @param verification the value of the {@code verification} field, or {@code null} if the
+         *                     field is not set
+         * @param features the value of the {@code features} field, or {@code null} if the
+         *                 field is not set
+         * @param uninterpretedOption the values of the repeated {@code uninterpreted_option} field
+         * @param unknownFields the store of unknown fields preserved during deserialization
+         */
         ExtensionRangeOptions(
                 List<DescriptorProtos.ExtensionRangeOptions.Declaration> declaration,
                 DescriptorProtos.ExtensionRangeOptions.VerificationState verification,
                 DescriptorProtos.FeatureSet features,
                 List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
-                ProtobufUnknownFieldsStore unknownFields
+                ProtobufUnknownFields unknownFields
         ) {
             this.declaration = declaration;
-            this.verification = Objects.requireNonNullElse(verification, DescriptorProtos.ExtensionRangeOptions.VerificationState.UNVERIFIED);
+            this.verification = verification;
             this.features = features;
             this.uninterpretedOption = uninterpretedOption;
             this.unknownFields = unknownFields;
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code declaration} field.
+         *
+         * @return an unmodifiable view of the values of the {@code declaration} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.ExtensionRangeOptions.Declaration> declaration() {
             return Collections.unmodifiableSequencedCollection(declaration);
         }
 
-        public DescriptorProtos.ExtensionRangeOptions.VerificationState verification() {
-            return verification;
+        /**
+         * Returns the value of the {@code verification} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code UNVERIFIED} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code verification}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.ExtensionRangeOptions.VerificationState> verification() {
+            return Optional.ofNullable(verification);
         }
 
-        public DescriptorProtos.FeatureSet features() {
-            return features;
+        /**
+         * Returns the value of the {@code features} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code features}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet> features() {
+            return Optional.ofNullable(features);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code uninterpreted_option} field.
+         *
+         * @return an unmodifiable view of the values of the {@code uninterpreted_option} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
         }
 
-        public ProtobufUnknownFieldsStore unknownFields() {
+        /**
+         * Returns the unknown fields preserved during deserialization.
+         *
+         * @return the store of unknown fields preserved during deserialization
+         */
+        public ProtobufUnknownFields unknownFields() {
             return unknownFields;
         }
     }
@@ -925,7 +1324,7 @@ public final class DescriptorProtos {
          * <p><code>int32 number = 3;</code>
          */
         @ProtobufMessage.Int32Field(index = 3)
-        int number;
+        Integer number;
 
         /**
          * <p><code>Label label = 4;</code>
@@ -940,7 +1339,7 @@ public final class DescriptorProtos {
          * <p><code>Type type = 5;</code>
          */
         @ProtobufMessage.EnumField(index = 5)
-        Type type;
+        DescriptorProtos.FieldDescriptorProto.Type type;
 
         /**
          * For message and enum types, this is the name of the type.  If the name
@@ -978,7 +1377,7 @@ public final class DescriptorProtos {
          * <p><code>int32 oneof_index = 9;</code>
          */
         @ProtobufMessage.Int32Field(index = 9)
-        int oneofIndex;
+        Integer oneofIndex;
 
         /**
          * JSON name of this field. The value is set by protocol compiler. If the
@@ -1017,20 +1416,46 @@ public final class DescriptorProtos {
          * <p><code>bool proto3_optional = 17;</code>
          */
         @ProtobufMessage.BoolField(index = 17)
-        boolean proto3Optional;
+        Boolean proto3Optional;
 
+        /**
+         * Constructs a new {@code FieldDescriptorProto} with the specified field values.
+         *
+         * @param name the value of the {@code name} field, or {@code null} if the
+         *             field is not set
+         * @param extendee the value of the {@code extendee} field, or {@code null} if the
+         *                 field is not set
+         * @param number the value of the {@code number} field, or {@code null} if the
+         *               field is not set
+         * @param label the value of the {@code label} field, or {@code null} if the
+         *              field is not set
+         * @param type the value of the {@code type} field, or {@code null} if the
+         *             field is not set
+         * @param typeName the value of the {@code type_name} field, or {@code null} if the
+         *                 field is not set
+         * @param defaultValue the value of the {@code default_value} field, or {@code null} if the
+         *                     field is not set
+         * @param options the value of the {@code options} field, or {@code null} if the
+         *                field is not set
+         * @param oneofIndex the value of the {@code oneof_index} field, or {@code null} if the
+         *                   field is not set
+         * @param jsonName the value of the {@code json_name} field, or {@code null} if the
+         *                 field is not set
+         * @param proto3Optional the value of the {@code proto3_optional} field, or {@code null} if the
+         *                       field is not set
+         */
         FieldDescriptorProto(
                 String name,
                 String extendee,
-                int number,
+                Integer number,
                 DescriptorProtos.FieldDescriptorProto.Label label,
-                Type type,
+                DescriptorProtos.FieldDescriptorProto.Type type,
                 String typeName,
                 String defaultValue,
                 DescriptorProtos.FieldOptions options,
-                int oneofIndex,
+                Integer oneofIndex,
                 String jsonName,
-                boolean proto3Optional
+                Boolean proto3Optional
         ) {
             this.name = name;
             this.extendee = extendee;
@@ -1045,48 +1470,114 @@ public final class DescriptorProtos {
             this.proto3Optional = proto3Optional;
         }
 
-        public String name() {
-            return name;
+        /**
+         * Returns the value of the {@code name} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code name}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> name() {
+            return Optional.ofNullable(name);
         }
 
-        public String extendee() {
-            return extendee;
+        /**
+         * Returns the value of the {@code extendee} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code extendee}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> extendee() {
+            return Optional.ofNullable(extendee);
         }
 
-        public int number() {
-            return number;
+        /**
+         * Returns the value of the {@code number} field, if present.
+         *
+         * @return an {@code OptionalInt} containing the value of the {@code number}
+         *         field, or an empty {@code OptionalInt} if the field is not set
+         */
+        public OptionalInt number() {
+            return number == null ? OptionalInt.empty() : OptionalInt.of(number);
         }
 
-        public DescriptorProtos.FieldDescriptorProto.Label label() {
-            return label;
+        /**
+         * Returns the value of the {@code label} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code label}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FieldDescriptorProto.Label> label() {
+            return Optional.ofNullable(label);
         }
 
-        public Type type() {
-            return type;
+        /**
+         * Returns the value of the {@code type} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code type}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FieldDescriptorProto.Type> type() {
+            return Optional.ofNullable(type);
         }
 
-        public String typeName() {
-            return typeName;
+        /**
+         * Returns the value of the {@code type_name} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code type_name}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> typeName() {
+            return Optional.ofNullable(typeName);
         }
 
-        public String defaultValue() {
-            return defaultValue;
+        /**
+         * Returns the value of the {@code default_value} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code default_value}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> defaultValue() {
+            return Optional.ofNullable(defaultValue);
         }
 
-        public DescriptorProtos.FieldOptions options() {
-            return options;
+        /**
+         * Returns the value of the {@code options} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code options}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FieldOptions> options() {
+            return Optional.ofNullable(options);
         }
 
-        public int oneofIndex() {
-            return oneofIndex;
+        /**
+         * Returns the value of the {@code oneof_index} field, if present.
+         *
+         * @return an {@code OptionalInt} containing the value of the {@code oneof_index}
+         *         field, or an empty {@code OptionalInt} if the field is not set
+         */
+        public OptionalInt oneofIndex() {
+            return oneofIndex == null ? OptionalInt.empty() : OptionalInt.of(oneofIndex);
         }
 
-        public String jsonName() {
-            return jsonName;
+        /**
+         * Returns the value of the {@code json_name} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code json_name}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> jsonName() {
+            return Optional.ofNullable(jsonName);
         }
 
-        public boolean proto3Optional() {
-            return proto3Optional;
+        /**
+         * Returns the value of the {@code proto3_optional} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code proto3_optional}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> proto3Optional() {
+            return Optional.ofNullable(proto3Optional);
         }
     }
 
@@ -1110,17 +1601,37 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 2)
         DescriptorProtos.OneofOptions options;
 
+        /**
+         * Constructs a new {@code OneofDescriptorProto} with the specified field values.
+         *
+         * @param name the value of the {@code name} field, or {@code null} if the
+         *             field is not set
+         * @param options the value of the {@code options} field, or {@code null} if the
+         *                field is not set
+         */
         OneofDescriptorProto(String name, DescriptorProtos.OneofOptions options) {
             this.name = name;
             this.options = options;
         }
 
-        public String name() {
-            return name;
+        /**
+         * Returns the value of the {@code name} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code name}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> name() {
+            return Optional.ofNullable(name);
         }
 
-        public DescriptorProtos.OneofOptions options() {
-            return options;
+        /**
+         * Returns the value of the {@code options} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code options}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.OneofOptions> options() {
+            return Optional.ofNullable(options);
         }
     }
 
@@ -1151,7 +1662,7 @@ public final class DescriptorProtos {
              * <p><code>int32 start = 1;</code>
              */
             @ProtobufMessage.Int32Field(index = 1)
-            int start;
+            Integer start;
 
             /**
              * Inclusive.
@@ -1159,19 +1670,39 @@ public final class DescriptorProtos {
              * <p><code>int32 end = 2;</code>
              */
             @ProtobufMessage.Int32Field(index = 2)
-            int end;
+            Integer end;
 
-            EnumReservedRange(int start, int end) {
+            /**
+             * Constructs a new {@code EnumReservedRange} with the specified field values.
+             *
+             * @param start the value of the {@code start} field, or {@code null} if the
+             *              field is not set
+             * @param end the value of the {@code end} field, or {@code null} if the
+             *            field is not set
+             */
+            EnumReservedRange(Integer start, Integer end) {
                 this.start = start;
                 this.end = end;
             }
 
-            public int start() {
-                return start;
+            /**
+             * Returns the value of the {@code start} field, if present.
+             *
+             * @return an {@code OptionalInt} containing the value of the {@code start}
+             *         field, or an empty {@code OptionalInt} if the field is not set
+             */
+            public OptionalInt start() {
+                return start == null ? OptionalInt.empty() : OptionalInt.of(start);
             }
 
-            public int end() {
-                return end;
+            /**
+             * Returns the value of the {@code end} field, if present.
+             *
+             * @return an {@code OptionalInt} containing the value of the {@code end}
+             *         field, or an empty {@code OptionalInt} if the field is not set
+             */
+            public OptionalInt end() {
+                return end == null ? OptionalInt.empty() : OptionalInt.of(end);
             }
         }
 
@@ -1220,6 +1751,19 @@ public final class DescriptorProtos {
         @ProtobufMessage.EnumField(index = 6)
         DescriptorProtos.SymbolVisibility visibility;
 
+        /**
+         * Constructs a new {@code EnumDescriptorProto} with the specified field values.
+         *
+         * @param name the value of the {@code name} field, or {@code null} if the
+         *             field is not set
+         * @param value the values of the repeated {@code value} field
+         * @param options the value of the {@code options} field, or {@code null} if the
+         *                field is not set
+         * @param reservedRange the values of the repeated {@code reserved_range} field
+         * @param reservedName the values of the repeated {@code reserved_name} field
+         * @param visibility the value of the {@code visibility} field, or {@code null} if the
+         *                   field is not set
+         */
         EnumDescriptorProto(
                 String name,
                 List<DescriptorProtos.EnumValueDescriptorProto> value,
@@ -1236,28 +1780,67 @@ public final class DescriptorProtos {
             this.visibility = visibility;
         }
 
-        public String name() {
-            return name;
+        /**
+         * Returns the value of the {@code name} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code name}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> name() {
+            return Optional.ofNullable(name);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code value} field.
+         *
+         * @return an unmodifiable view of the values of the {@code value} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.EnumValueDescriptorProto> value() {
             return Collections.unmodifiableSequencedCollection(value);
         }
 
-        public DescriptorProtos.EnumOptions options() {
-            return options;
+        /**
+         * Returns the value of the {@code options} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code options}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.EnumOptions> options() {
+            return Optional.ofNullable(options);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code reserved_range} field.
+         *
+         * @return an unmodifiable view of the values of the {@code reserved_range} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.EnumDescriptorProto.EnumReservedRange> reservedRange() {
             return Collections.unmodifiableSequencedCollection(reservedRange);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code reserved_name} field.
+         *
+         * @return an unmodifiable view of the values of the {@code reserved_name} field,
+         *         in encounter order
+         */
         public SequencedCollection<String> reservedName() {
             return Collections.unmodifiableSequencedCollection(reservedName);
         }
 
-        public DescriptorProtos.SymbolVisibility visibility() {
-            return visibility;
+        /**
+         * Returns the value of the {@code visibility} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code visibility}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.SymbolVisibility> visibility() {
+            return Optional.ofNullable(visibility);
         }
     }
 
@@ -1279,7 +1862,7 @@ public final class DescriptorProtos {
          * <p><code>int32 number = 2;</code>
          */
         @ProtobufMessage.Int32Field(index = 2)
-        int number;
+        Integer number;
 
         /**
          * <p><code>EnumValueOptions options = 3;</code>
@@ -1287,22 +1870,50 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 3)
         DescriptorProtos.EnumValueOptions options;
 
-        EnumValueDescriptorProto(String name, int number, DescriptorProtos.EnumValueOptions options) {
+        /**
+         * Constructs a new {@code EnumValueDescriptorProto} with the specified field values.
+         *
+         * @param name the value of the {@code name} field, or {@code null} if the
+         *             field is not set
+         * @param number the value of the {@code number} field, or {@code null} if the
+         *               field is not set
+         * @param options the value of the {@code options} field, or {@code null} if the
+         *                field is not set
+         */
+        EnumValueDescriptorProto(String name, Integer number, DescriptorProtos.EnumValueOptions options) {
             this.name = name;
             this.number = number;
             this.options = options;
         }
 
-        public String name() {
-            return name;
+        /**
+         * Returns the value of the {@code name} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code name}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> name() {
+            return Optional.ofNullable(name);
         }
 
-        public int number() {
-            return number;
+        /**
+         * Returns the value of the {@code number} field, if present.
+         *
+         * @return an {@code OptionalInt} containing the value of the {@code number}
+         *         field, or an empty {@code OptionalInt} if the field is not set
+         */
+        public OptionalInt number() {
+            return number == null ? OptionalInt.empty() : OptionalInt.of(number);
         }
 
-        public DescriptorProtos.EnumValueOptions options() {
-            return options;
+        /**
+         * Returns the value of the {@code options} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code options}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.EnumValueOptions> options() {
+            return Optional.ofNullable(options);
         }
     }
 
@@ -1332,6 +1943,15 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 3)
         DescriptorProtos.ServiceOptions options;
 
+        /**
+         * Constructs a new {@code ServiceDescriptorProto} with the specified field values.
+         *
+         * @param name the value of the {@code name} field, or {@code null} if the
+         *             field is not set
+         * @param method the values of the repeated {@code method} field
+         * @param options the value of the {@code options} field, or {@code null} if the
+         *                field is not set
+         */
         ServiceDescriptorProto(
                 String name,
                 List<DescriptorProtos.MethodDescriptorProto> method,
@@ -1342,16 +1962,35 @@ public final class DescriptorProtos {
             this.options = options;
         }
 
-        public String name() {
-            return name;
+        /**
+         * Returns the value of the {@code name} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code name}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> name() {
+            return Optional.ofNullable(name);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code method} field.
+         *
+         * @return an unmodifiable view of the values of the {@code method} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.MethodDescriptorProto> method() {
             return Collections.unmodifiableSequencedCollection(method);
         }
 
-        public DescriptorProtos.ServiceOptions options() {
-            return options;
+        /**
+         * Returns the value of the {@code options} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code options}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.ServiceOptions> options() {
+            return Optional.ofNullable(options);
         }
     }
 
@@ -1396,7 +2035,7 @@ public final class DescriptorProtos {
          * <p><code>bool client_streaming = 5;</code>
          */
         @ProtobufMessage.BoolField(index = 5)
-        boolean clientStreaming;
+        Boolean clientStreaming;
 
         /**
          * Identifies if server streams multiple server messages
@@ -1404,15 +2043,31 @@ public final class DescriptorProtos {
          * <p><code>bool server_streaming = 6;</code>
          */
         @ProtobufMessage.BoolField(index = 6)
-        boolean serverStreaming;
+        Boolean serverStreaming;
 
+        /**
+         * Constructs a new {@code MethodDescriptorProto} with the specified field values.
+         *
+         * @param name the value of the {@code name} field, or {@code null} if the
+         *             field is not set
+         * @param inputType the value of the {@code input_type} field, or {@code null} if the
+         *                  field is not set
+         * @param outputType the value of the {@code output_type} field, or {@code null} if the
+         *                   field is not set
+         * @param options the value of the {@code options} field, or {@code null} if the
+         *                field is not set
+         * @param clientStreaming the value of the {@code client_streaming} field, or {@code null} if the
+         *                        field is not set
+         * @param serverStreaming the value of the {@code server_streaming} field, or {@code null} if the
+         *                        field is not set
+         */
         MethodDescriptorProto(
                 String name,
                 String inputType,
                 String outputType,
                 DescriptorProtos.MethodOptions options,
-                boolean clientStreaming,
-                boolean serverStreaming
+                Boolean clientStreaming,
+                Boolean serverStreaming
         ) {
             this.name = name;
             this.inputType = inputType;
@@ -1422,28 +2077,72 @@ public final class DescriptorProtos {
             this.serverStreaming = serverStreaming;
         }
 
-        public String name() {
-            return name;
+        /**
+         * Returns the value of the {@code name} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code name}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> name() {
+            return Optional.ofNullable(name);
         }
 
-        public String inputType() {
-            return inputType;
+        /**
+         * Returns the value of the {@code input_type} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code input_type}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> inputType() {
+            return Optional.ofNullable(inputType);
         }
 
-        public String outputType() {
-            return outputType;
+        /**
+         * Returns the value of the {@code output_type} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code output_type}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> outputType() {
+            return Optional.ofNullable(outputType);
         }
 
-        public DescriptorProtos.MethodOptions options() {
-            return options;
+        /**
+         * Returns the value of the {@code options} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code options}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.MethodOptions> options() {
+            return Optional.ofNullable(options);
         }
 
-        public boolean clientStreaming() {
-            return clientStreaming;
+        /**
+         * Returns the value of the {@code client_streaming} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code client_streaming}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> clientStreaming() {
+            return Optional.ofNullable(clientStreaming);
         }
 
-        public boolean serverStreaming() {
-            return serverStreaming;
+        /**
+         * Returns the value of the {@code server_streaming} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code server_streaming}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> serverStreaming() {
+            return Optional.ofNullable(serverStreaming);
         }
     }
 
@@ -1521,7 +2220,7 @@ public final class DescriptorProtos {
          * <p><code>bool java_multiple_files = 10;</code>
          */
         @ProtobufMessage.BoolField(index = 10)
-        boolean javaMultipleFiles;
+        Boolean javaMultipleFiles;
 
         /**
          * Sets the Go package where structs generated from this .proto will be
@@ -1553,19 +2252,19 @@ public final class DescriptorProtos {
          * <p><code>bool cc_generic_services = 16;</code>
          */
         @ProtobufMessage.BoolField(index = 16)
-        boolean ccGenericServices;
+        Boolean ccGenericServices;
 
         /**
          * <p><code>bool java_generic_services = 17;</code>
          */
         @ProtobufMessage.BoolField(index = 17)
-        boolean javaGenericServices;
+        Boolean javaGenericServices;
 
         /**
          * <p><code>bool py_generic_services = 18;</code>
          */
         @ProtobufMessage.BoolField(index = 18)
-        boolean pyGenericServices;
+        Boolean pyGenericServices;
 
         /**
          * This option does nothing.
@@ -1574,7 +2273,7 @@ public final class DescriptorProtos {
          */
         @Deprecated
         @ProtobufMessage.BoolField(index = 20)
-        boolean javaGenerateEqualsAndHash;
+        Boolean javaGenerateEqualsAndHash;
 
         /**
          * Is this file deprecated?
@@ -1585,7 +2284,7 @@ public final class DescriptorProtos {
          * <p><code>bool deprecated = 23;</code>
          */
         @ProtobufMessage.BoolField(index = 23)
-        boolean deprecated;
+        Boolean deprecated;
 
         /**
          * A proto2 file can set this to true to opt in to UTF-8 checking for Java,
@@ -1602,7 +2301,7 @@ public final class DescriptorProtos {
          * <p><code>bool java_string_check_utf8 = 27;</code>
          */
         @ProtobufMessage.BoolField(index = 27)
-        boolean javaStringCheckUtf8;
+        Boolean javaStringCheckUtf8;
 
         /**
          * Enables the use of arenas for the proto messages in this file. This applies
@@ -1612,7 +2311,7 @@ public final class DescriptorProtos {
          */
         // proto default: true
         @ProtobufMessage.BoolField(index = 31)
-        boolean ccEnableArenas;
+        Boolean ccEnableArenas;
 
         /**
          * Sets the objective c class prefix which is prepended to all objective c
@@ -1710,21 +2409,67 @@ public final class DescriptorProtos {
          * the way out.
          */
         @ProtobufMessage.UnknownFields
-        ProtobufUnknownFieldsStore unknownFields;
+        ProtobufUnknownFields unknownFields;
 
+        /**
+         * Constructs a new {@code FileOptions} with the specified field values.
+         *
+         * @param javaPackage the value of the {@code java_package} field, or {@code null} if the
+         *                    field is not set
+         * @param javaOuterClassname the value of the {@code java_outer_classname} field, or {@code null} if the
+         *                           field is not set
+         * @param optimizeFor the value of the {@code optimize_for} field, or {@code null} if the
+         *                    field is not set
+         * @param javaMultipleFiles the value of the {@code java_multiple_files} field, or {@code null} if the
+         *                          field is not set
+         * @param goPackage the value of the {@code go_package} field, or {@code null} if the
+         *                  field is not set
+         * @param ccGenericServices the value of the {@code cc_generic_services} field, or {@code null} if the
+         *                          field is not set
+         * @param javaGenericServices the value of the {@code java_generic_services} field, or {@code null} if the
+         *                            field is not set
+         * @param pyGenericServices the value of the {@code py_generic_services} field, or {@code null} if the
+         *                          field is not set
+         * @param javaGenerateEqualsAndHash the value of the {@code java_generate_equals_and_hash} field, or {@code null} if the
+         *                                  field is not set
+         * @param deprecated the value of the {@code deprecated} field, or {@code null} if the
+         *                   field is not set
+         * @param javaStringCheckUtf8 the value of the {@code java_string_check_utf8} field, or {@code null} if the
+         *                            field is not set
+         * @param ccEnableArenas the value of the {@code cc_enable_arenas} field, or {@code null} if the
+         *                       field is not set
+         * @param objcClassPrefix the value of the {@code objc_class_prefix} field, or {@code null} if the
+         *                        field is not set
+         * @param csharpNamespace the value of the {@code csharp_namespace} field, or {@code null} if the
+         *                        field is not set
+         * @param swiftPrefix the value of the {@code swift_prefix} field, or {@code null} if the
+         *                    field is not set
+         * @param phpClassPrefix the value of the {@code php_class_prefix} field, or {@code null} if the
+         *                       field is not set
+         * @param phpNamespace the value of the {@code php_namespace} field, or {@code null} if the
+         *                     field is not set
+         * @param phpMetadataNamespace the value of the {@code php_metadata_namespace} field, or {@code null} if the
+         *                             field is not set
+         * @param rubyPackage the value of the {@code ruby_package} field, or {@code null} if the
+         *                    field is not set
+         * @param features the value of the {@code features} field, or {@code null} if the
+         *                 field is not set
+         * @param uninterpretedOption the values of the repeated {@code uninterpreted_option} field
+         * @param unknownFields the store of unknown fields preserved during deserialization
+         */
         FileOptions(
                 String javaPackage,
                 String javaOuterClassname,
                 DescriptorProtos.FileOptions.OptimizeMode optimizeFor,
-                boolean javaMultipleFiles,
+                Boolean javaMultipleFiles,
                 String goPackage,
-                boolean ccGenericServices,
-                boolean javaGenericServices,
-                boolean pyGenericServices,
-                boolean javaGenerateEqualsAndHash,
-                boolean deprecated,
-                boolean javaStringCheckUtf8,
-                boolean ccEnableArenas,
+                Boolean ccGenericServices,
+                Boolean javaGenericServices,
+                Boolean pyGenericServices,
+                Boolean javaGenerateEqualsAndHash,
+                Boolean deprecated,
+                Boolean javaStringCheckUtf8,
+                Boolean ccEnableArenas,
                 String objcClassPrefix,
                 String csharpNamespace,
                 String swiftPrefix,
@@ -1734,11 +2479,11 @@ public final class DescriptorProtos {
                 String rubyPackage,
                 DescriptorProtos.FeatureSet features,
                 List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
-                ProtobufUnknownFieldsStore unknownFields
+                ProtobufUnknownFields unknownFields
         ) {
             this.javaPackage = javaPackage;
             this.javaOuterClassname = javaOuterClassname;
-            this.optimizeFor = Objects.requireNonNullElse(optimizeFor, DescriptorProtos.FileOptions.OptimizeMode.SPEED);
+            this.optimizeFor = optimizeFor;
             this.javaMultipleFiles = javaMultipleFiles;
             this.goPackage = goPackage;
             this.ccGenericServices = ccGenericServices;
@@ -1760,92 +2505,257 @@ public final class DescriptorProtos {
             this.unknownFields = unknownFields;
         }
 
-        public String javaPackage() {
-            return javaPackage;
+        /**
+         * Returns the value of the {@code java_package} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code java_package}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> javaPackage() {
+            return Optional.ofNullable(javaPackage);
         }
 
-        public String javaOuterClassname() {
-            return javaOuterClassname;
+        /**
+         * Returns the value of the {@code java_outer_classname} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code java_outer_classname}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> javaOuterClassname() {
+            return Optional.ofNullable(javaOuterClassname);
         }
 
-        public DescriptorProtos.FileOptions.OptimizeMode optimizeFor() {
-            return optimizeFor;
+        /**
+         * Returns the value of the {@code optimize_for} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code SPEED} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code optimize_for}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FileOptions.OptimizeMode> optimizeFor() {
+            return Optional.ofNullable(optimizeFor);
         }
 
-        public boolean javaMultipleFiles() {
-            return javaMultipleFiles;
+        /**
+         * Returns the value of the {@code java_multiple_files} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code java_multiple_files}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> javaMultipleFiles() {
+            return Optional.ofNullable(javaMultipleFiles);
         }
 
-        public String goPackage() {
-            return goPackage;
+        /**
+         * Returns the value of the {@code go_package} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code go_package}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> goPackage() {
+            return Optional.ofNullable(goPackage);
         }
 
-        public boolean ccGenericServices() {
-            return ccGenericServices;
+        /**
+         * Returns the value of the {@code cc_generic_services} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code cc_generic_services}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> ccGenericServices() {
+            return Optional.ofNullable(ccGenericServices);
         }
 
-        public boolean javaGenericServices() {
-            return javaGenericServices;
+        /**
+         * Returns the value of the {@code java_generic_services} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code java_generic_services}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> javaGenericServices() {
+            return Optional.ofNullable(javaGenericServices);
         }
 
-        public boolean pyGenericServices() {
-            return pyGenericServices;
+        /**
+         * Returns the value of the {@code py_generic_services} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code py_generic_services}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> pyGenericServices() {
+            return Optional.ofNullable(pyGenericServices);
         }
 
+        /**
+         * Returns the value of the {@code java_generate_equals_and_hash} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code java_generate_equals_and_hash}
+         *         field, or an empty {@code Optional} if the field is not set
+         * @deprecated The {@code .proto} declaration marks this field as deprecated.
+         */
         @Deprecated
-        public boolean javaGenerateEqualsAndHash() {
-            return javaGenerateEqualsAndHash;
+        public Optional<Boolean> javaGenerateEqualsAndHash() {
+            return Optional.ofNullable(javaGenerateEqualsAndHash);
         }
 
-        public boolean deprecated() {
-            return deprecated;
+        /**
+         * Returns the value of the {@code deprecated} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code deprecated}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> deprecated() {
+            return Optional.ofNullable(deprecated);
         }
 
-        public boolean javaStringCheckUtf8() {
-            return javaStringCheckUtf8;
+        /**
+         * Returns the value of the {@code java_string_check_utf8} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code java_string_check_utf8}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> javaStringCheckUtf8() {
+            return Optional.ofNullable(javaStringCheckUtf8);
         }
 
-        public boolean ccEnableArenas() {
-            return ccEnableArenas;
+        /**
+         * Returns the value of the {@code cc_enable_arenas} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code true} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code cc_enable_arenas}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> ccEnableArenas() {
+            return Optional.ofNullable(ccEnableArenas);
         }
 
-        public String objcClassPrefix() {
-            return objcClassPrefix;
+        /**
+         * Returns the value of the {@code objc_class_prefix} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code objc_class_prefix}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> objcClassPrefix() {
+            return Optional.ofNullable(objcClassPrefix);
         }
 
-        public String csharpNamespace() {
-            return csharpNamespace;
+        /**
+         * Returns the value of the {@code csharp_namespace} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code csharp_namespace}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> csharpNamespace() {
+            return Optional.ofNullable(csharpNamespace);
         }
 
-        public String swiftPrefix() {
-            return swiftPrefix;
+        /**
+         * Returns the value of the {@code swift_prefix} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code swift_prefix}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> swiftPrefix() {
+            return Optional.ofNullable(swiftPrefix);
         }
 
-        public String phpClassPrefix() {
-            return phpClassPrefix;
+        /**
+         * Returns the value of the {@code php_class_prefix} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code php_class_prefix}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> phpClassPrefix() {
+            return Optional.ofNullable(phpClassPrefix);
         }
 
-        public String phpNamespace() {
-            return phpNamespace;
+        /**
+         * Returns the value of the {@code php_namespace} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code php_namespace}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> phpNamespace() {
+            return Optional.ofNullable(phpNamespace);
         }
 
-        public String phpMetadataNamespace() {
-            return phpMetadataNamespace;
+        /**
+         * Returns the value of the {@code php_metadata_namespace} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code php_metadata_namespace}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> phpMetadataNamespace() {
+            return Optional.ofNullable(phpMetadataNamespace);
         }
 
-        public String rubyPackage() {
-            return rubyPackage;
+        /**
+         * Returns the value of the {@code ruby_package} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code ruby_package}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> rubyPackage() {
+            return Optional.ofNullable(rubyPackage);
         }
 
-        public DescriptorProtos.FeatureSet features() {
-            return features;
+        /**
+         * Returns the value of the {@code features} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code features}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet> features() {
+            return Optional.ofNullable(features);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code uninterpreted_option} field.
+         *
+         * @return an unmodifiable view of the values of the {@code uninterpreted_option} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
         }
 
-        public ProtobufUnknownFieldsStore unknownFields() {
+        /**
+         * Returns the unknown fields preserved during deserialization.
+         *
+         * @return the store of unknown fields preserved during deserialization
+         */
+        public ProtobufUnknownFields unknownFields() {
             return unknownFields;
         }
     }
@@ -1884,7 +2794,7 @@ public final class DescriptorProtos {
          * <p><code>bool message_set_wire_format = 1;</code>
          */
         @ProtobufMessage.BoolField(index = 1)
-        boolean messageSetWireFormat;
+        Boolean messageSetWireFormat;
 
         /**
          * Disables the generation of the standard "descriptor()" accessor, which can
@@ -1894,7 +2804,7 @@ public final class DescriptorProtos {
          * <p><code>bool no_standard_descriptor_accessor = 2;</code>
          */
         @ProtobufMessage.BoolField(index = 2)
-        boolean noStandardDescriptorAccessor;
+        Boolean noStandardDescriptorAccessor;
 
         /**
          * Is this message deprecated?
@@ -1905,7 +2815,7 @@ public final class DescriptorProtos {
          * <p><code>bool deprecated = 3;</code>
          */
         @ProtobufMessage.BoolField(index = 3)
-        boolean deprecated;
+        Boolean deprecated;
 
         /**
          * Whether the message is an automatically generated map entry type for the
@@ -1940,7 +2850,7 @@ public final class DescriptorProtos {
          * <p><code>bool map_entry = 7;</code>
          */
         @ProtobufMessage.BoolField(index = 7)
-        boolean mapEntry;
+        Boolean mapEntry;
 
         /**
          * Enable the legacy handling of JSON field name conflicts.  This lowercases
@@ -1958,7 +2868,7 @@ public final class DescriptorProtos {
          */
         @Deprecated
         @ProtobufMessage.BoolField(index = 11)
-        boolean deprecatedLegacyJsonFieldConflicts;
+        Boolean deprecatedLegacyJsonFieldConflicts;
 
         /**
          * Any features defined in the specific edition.
@@ -1988,17 +2898,35 @@ public final class DescriptorProtos {
          * the way out.
          */
         @ProtobufMessage.UnknownFields
-        ProtobufUnknownFieldsStore unknownFields;
+        ProtobufUnknownFields unknownFields;
 
+        /**
+         * Constructs a new {@code MessageOptions} with the specified field values.
+         *
+         * @param messageSetWireFormat the value of the {@code message_set_wire_format} field, or {@code null} if the
+         *                             field is not set
+         * @param noStandardDescriptorAccessor the value of the {@code no_standard_descriptor_accessor} field, or {@code null} if the
+         *                                     field is not set
+         * @param deprecated the value of the {@code deprecated} field, or {@code null} if the
+         *                   field is not set
+         * @param mapEntry the value of the {@code map_entry} field, or {@code null} if the
+         *                 field is not set
+         * @param deprecatedLegacyJsonFieldConflicts the value of the {@code deprecated_legacy_json_field_conflicts} field, or {@code null} if the
+         *                                           field is not set
+         * @param features the value of the {@code features} field, or {@code null} if the
+         *                 field is not set
+         * @param uninterpretedOption the values of the repeated {@code uninterpreted_option} field
+         * @param unknownFields the store of unknown fields preserved during deserialization
+         */
         MessageOptions(
-                boolean messageSetWireFormat,
-                boolean noStandardDescriptorAccessor,
-                boolean deprecated,
-                boolean mapEntry,
-                boolean deprecatedLegacyJsonFieldConflicts,
+                Boolean messageSetWireFormat,
+                Boolean noStandardDescriptorAccessor,
+                Boolean deprecated,
+                Boolean mapEntry,
+                Boolean deprecatedLegacyJsonFieldConflicts,
                 DescriptorProtos.FeatureSet features,
                 List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
-                ProtobufUnknownFieldsStore unknownFields
+                ProtobufUnknownFields unknownFields
         ) {
             this.messageSetWireFormat = messageSetWireFormat;
             this.noStandardDescriptorAccessor = noStandardDescriptorAccessor;
@@ -2010,36 +2938,97 @@ public final class DescriptorProtos {
             this.unknownFields = unknownFields;
         }
 
-        public boolean messageSetWireFormat() {
-            return messageSetWireFormat;
+        /**
+         * Returns the value of the {@code message_set_wire_format} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code message_set_wire_format}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> messageSetWireFormat() {
+            return Optional.ofNullable(messageSetWireFormat);
         }
 
-        public boolean noStandardDescriptorAccessor() {
-            return noStandardDescriptorAccessor;
+        /**
+         * Returns the value of the {@code no_standard_descriptor_accessor} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code no_standard_descriptor_accessor}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> noStandardDescriptorAccessor() {
+            return Optional.ofNullable(noStandardDescriptorAccessor);
         }
 
-        public boolean deprecated() {
-            return deprecated;
+        /**
+         * Returns the value of the {@code deprecated} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code deprecated}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> deprecated() {
+            return Optional.ofNullable(deprecated);
         }
 
-        public boolean mapEntry() {
-            return mapEntry;
+        /**
+         * Returns the value of the {@code map_entry} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code map_entry}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> mapEntry() {
+            return Optional.ofNullable(mapEntry);
         }
 
+        /**
+         * Returns the value of the {@code deprecated_legacy_json_field_conflicts} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code deprecated_legacy_json_field_conflicts}
+         *         field, or an empty {@code Optional} if the field is not set
+         * @deprecated The {@code .proto} declaration marks this field as deprecated.
+         */
         @Deprecated
-        public boolean deprecatedLegacyJsonFieldConflicts() {
-            return deprecatedLegacyJsonFieldConflicts;
+        public Optional<Boolean> deprecatedLegacyJsonFieldConflicts() {
+            return Optional.ofNullable(deprecatedLegacyJsonFieldConflicts);
         }
 
-        public DescriptorProtos.FeatureSet features() {
-            return features;
+        /**
+         * Returns the value of the {@code features} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code features}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet> features() {
+            return Optional.ofNullable(features);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code uninterpreted_option} field.
+         *
+         * @return an unmodifiable view of the values of the {@code uninterpreted_option} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
         }
 
-        public ProtobufUnknownFieldsStore unknownFields() {
+        /**
+         * Returns the unknown fields preserved during deserialization.
+         *
+         * @return the store of unknown fields preserved during deserialization
+         */
+        public ProtobufUnknownFields unknownFields() {
             return unknownFields;
         }
     }
@@ -2178,17 +3167,37 @@ public final class DescriptorProtos {
             @ProtobufMessage.EnumField(index = 3)
             DescriptorProtos.Edition edition;
 
+            /**
+             * Constructs a new {@code EditionDefault} with the specified field values.
+             *
+             * @param value the value of the {@code value} field, or {@code null} if the
+             *              field is not set
+             * @param edition the value of the {@code edition} field, or {@code null} if the
+             *                field is not set
+             */
             EditionDefault(String value, DescriptorProtos.Edition edition) {
                 this.value = value;
                 this.edition = edition;
             }
 
-            public String value() {
-                return value;
+            /**
+             * Returns the value of the {@code value} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code value}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<String> value() {
+                return Optional.ofNullable(value);
             }
 
-            public DescriptorProtos.Edition edition() {
-                return edition;
+            /**
+             * Returns the value of the {@code edition} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code edition}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<DescriptorProtos.Edition> edition() {
+                return Optional.ofNullable(edition);
             }
         }
 
@@ -2247,6 +3256,20 @@ public final class DescriptorProtos {
             @ProtobufMessage.StringField(index = 5)
             String removalError;
 
+            /**
+             * Constructs a new {@code FeatureSupport} with the specified field values.
+             *
+             * @param editionIntroduced the value of the {@code edition_introduced} field, or {@code null} if the
+             *                          field is not set
+             * @param editionDeprecated the value of the {@code edition_deprecated} field, or {@code null} if the
+             *                          field is not set
+             * @param deprecationWarning the value of the {@code deprecation_warning} field, or {@code null} if the
+             *                           field is not set
+             * @param editionRemoved the value of the {@code edition_removed} field, or {@code null} if the
+             *                       field is not set
+             * @param removalError the value of the {@code removal_error} field, or {@code null} if the
+             *                     field is not set
+             */
             FeatureSupport(
                     DescriptorProtos.Edition editionIntroduced,
                     DescriptorProtos.Edition editionDeprecated,
@@ -2261,24 +3284,54 @@ public final class DescriptorProtos {
                 this.removalError = removalError;
             }
 
-            public DescriptorProtos.Edition editionIntroduced() {
-                return editionIntroduced;
+            /**
+             * Returns the value of the {@code edition_introduced} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code edition_introduced}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<DescriptorProtos.Edition> editionIntroduced() {
+                return Optional.ofNullable(editionIntroduced);
             }
 
-            public DescriptorProtos.Edition editionDeprecated() {
-                return editionDeprecated;
+            /**
+             * Returns the value of the {@code edition_deprecated} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code edition_deprecated}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<DescriptorProtos.Edition> editionDeprecated() {
+                return Optional.ofNullable(editionDeprecated);
             }
 
-            public String deprecationWarning() {
-                return deprecationWarning;
+            /**
+             * Returns the value of the {@code deprecation_warning} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code deprecation_warning}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<String> deprecationWarning() {
+                return Optional.ofNullable(deprecationWarning);
             }
 
-            public DescriptorProtos.Edition editionRemoved() {
-                return editionRemoved;
+            /**
+             * Returns the value of the {@code edition_removed} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code edition_removed}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<DescriptorProtos.Edition> editionRemoved() {
+                return Optional.ofNullable(editionRemoved);
             }
 
-            public String removalError() {
-                return removalError;
+            /**
+             * Returns the value of the {@code removal_error} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code removal_error}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<String> removalError() {
+                return Optional.ofNullable(removalError);
             }
         }
 
@@ -2308,7 +3361,7 @@ public final class DescriptorProtos {
          * <p><code>bool packed = 2;</code>
          */
         @ProtobufMessage.BoolField(index = 2)
-        boolean packed;
+        Boolean packed;
 
         /**
          * Is this field deprecated?
@@ -2319,7 +3372,7 @@ public final class DescriptorProtos {
          * <p><code>bool deprecated = 3;</code>
          */
         @ProtobufMessage.BoolField(index = 3)
-        boolean deprecated;
+        Boolean deprecated;
 
         /**
          * Should this field be parsed lazily?  Lazy applies only to message-type
@@ -2348,7 +3401,7 @@ public final class DescriptorProtos {
          * <p><code>bool lazy = 5;</code>
          */
         @ProtobufMessage.BoolField(index = 5)
-        boolean lazy;
+        Boolean lazy;
 
         /**
          * The jstype option determines the JavaScript type used for values of the
@@ -2376,7 +3429,7 @@ public final class DescriptorProtos {
          */
         @Deprecated
         @ProtobufMessage.BoolField(index = 10)
-        boolean weak;
+        Boolean weak;
 
         /**
          * unverified_lazy does no correctness checks on the byte stream. This should
@@ -2386,7 +3439,7 @@ public final class DescriptorProtos {
          * <p><code>bool unverified_lazy = 15;</code>
          */
         @ProtobufMessage.BoolField(index = 15)
-        boolean unverifiedLazy;
+        Boolean unverifiedLazy;
 
         /**
          * Indicate that the field value should not be printed out when using debug
@@ -2395,7 +3448,7 @@ public final class DescriptorProtos {
          * <p><code>bool debug_redact = 16;</code>
          */
         @ProtobufMessage.BoolField(index = 16)
-        boolean debugRedact;
+        Boolean debugRedact;
 
         /**
          * <p><code>OptionRetention retention = 17;</code>
@@ -2449,30 +3502,60 @@ public final class DescriptorProtos {
          * the way out.
          */
         @ProtobufMessage.UnknownFields
-        ProtobufUnknownFieldsStore unknownFields;
+        ProtobufUnknownFields unknownFields;
 
+        /**
+         * Constructs a new {@code FieldOptions} with the specified field values.
+         *
+         * @param ctype the value of the {@code ctype} field, or {@code null} if the
+         *              field is not set
+         * @param packed the value of the {@code packed} field, or {@code null} if the
+         *               field is not set
+         * @param deprecated the value of the {@code deprecated} field, or {@code null} if the
+         *                   field is not set
+         * @param lazy the value of the {@code lazy} field, or {@code null} if the
+         *             field is not set
+         * @param jstype the value of the {@code jstype} field, or {@code null} if the
+         *               field is not set
+         * @param weak the value of the {@code weak} field, or {@code null} if the
+         *             field is not set
+         * @param unverifiedLazy the value of the {@code unverified_lazy} field, or {@code null} if the
+         *                       field is not set
+         * @param debugRedact the value of the {@code debug_redact} field, or {@code null} if the
+         *                    field is not set
+         * @param retention the value of the {@code retention} field, or {@code null} if the
+         *                  field is not set
+         * @param targets the values of the repeated {@code targets} field
+         * @param editionDefaults the values of the repeated {@code edition_defaults} field
+         * @param features the value of the {@code features} field, or {@code null} if the
+         *                 field is not set
+         * @param featureSupport the value of the {@code feature_support} field, or {@code null} if the
+         *                       field is not set
+         * @param uninterpretedOption the values of the repeated {@code uninterpreted_option} field
+         * @param unknownFields the store of unknown fields preserved during deserialization
+         */
         FieldOptions(
                 DescriptorProtos.FieldOptions.CType ctype,
-                boolean packed,
-                boolean deprecated,
-                boolean lazy,
+                Boolean packed,
+                Boolean deprecated,
+                Boolean lazy,
                 DescriptorProtos.FieldOptions.JSType jstype,
-                boolean weak,
-                boolean unverifiedLazy,
-                boolean debugRedact,
+                Boolean weak,
+                Boolean unverifiedLazy,
+                Boolean debugRedact,
                 DescriptorProtos.FieldOptions.OptionRetention retention,
                 List<DescriptorProtos.FieldOptions.OptionTargetType> targets,
                 List<DescriptorProtos.FieldOptions.EditionDefault> editionDefaults,
                 DescriptorProtos.FeatureSet features,
                 DescriptorProtos.FieldOptions.FeatureSupport featureSupport,
                 List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
-                ProtobufUnknownFieldsStore unknownFields
+                ProtobufUnknownFields unknownFields
         ) {
-            this.ctype = Objects.requireNonNullElse(ctype, DescriptorProtos.FieldOptions.CType.STRING);
+            this.ctype = ctype;
             this.packed = packed;
             this.deprecated = deprecated;
             this.lazy = lazy;
-            this.jstype = Objects.requireNonNullElse(jstype, DescriptorProtos.FieldOptions.JSType.JS_NORMAL);
+            this.jstype = jstype;
             this.weak = weak;
             this.unverifiedLazy = unverifiedLazy;
             this.debugRedact = debugRedact;
@@ -2485,64 +3568,185 @@ public final class DescriptorProtos {
             this.unknownFields = unknownFields;
         }
 
-        public DescriptorProtos.FieldOptions.CType ctype() {
-            return ctype;
+        /**
+         * Returns the value of the {@code ctype} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code STRING} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code ctype}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FieldOptions.CType> ctype() {
+            return Optional.ofNullable(ctype);
         }
 
-        public boolean packed() {
-            return packed;
+        /**
+         * Returns the value of the {@code packed} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code packed}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> packed() {
+            return Optional.ofNullable(packed);
         }
 
-        public boolean deprecated() {
-            return deprecated;
+        /**
+         * Returns the value of the {@code deprecated} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code deprecated}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> deprecated() {
+            return Optional.ofNullable(deprecated);
         }
 
-        public boolean lazy() {
-            return lazy;
+        /**
+         * Returns the value of the {@code lazy} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code lazy}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> lazy() {
+            return Optional.ofNullable(lazy);
         }
 
-        public DescriptorProtos.FieldOptions.JSType jstype() {
-            return jstype;
+        /**
+         * Returns the value of the {@code jstype} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code JS_NORMAL} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code jstype}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FieldOptions.JSType> jstype() {
+            return Optional.ofNullable(jstype);
         }
 
+        /**
+         * Returns the value of the {@code weak} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code weak}
+         *         field, or an empty {@code Optional} if the field is not set
+         * @deprecated The {@code .proto} declaration marks this field as deprecated.
+         */
         @Deprecated
-        public boolean weak() {
-            return weak;
+        public Optional<Boolean> weak() {
+            return Optional.ofNullable(weak);
         }
 
-        public boolean unverifiedLazy() {
-            return unverifiedLazy;
+        /**
+         * Returns the value of the {@code unverified_lazy} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code unverified_lazy}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> unverifiedLazy() {
+            return Optional.ofNullable(unverifiedLazy);
         }
 
-        public boolean debugRedact() {
-            return debugRedact;
+        /**
+         * Returns the value of the {@code debug_redact} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code debug_redact}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> debugRedact() {
+            return Optional.ofNullable(debugRedact);
         }
 
-        public DescriptorProtos.FieldOptions.OptionRetention retention() {
-            return retention;
+        /**
+         * Returns the value of the {@code retention} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code retention}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FieldOptions.OptionRetention> retention() {
+            return Optional.ofNullable(retention);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code targets} field.
+         *
+         * @return an unmodifiable view of the values of the {@code targets} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.FieldOptions.OptionTargetType> targets() {
             return Collections.unmodifiableSequencedCollection(targets);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code edition_defaults} field.
+         *
+         * @return an unmodifiable view of the values of the {@code edition_defaults} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.FieldOptions.EditionDefault> editionDefaults() {
             return Collections.unmodifiableSequencedCollection(editionDefaults);
         }
 
-        public DescriptorProtos.FeatureSet features() {
-            return features;
+        /**
+         * Returns the value of the {@code features} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code features}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet> features() {
+            return Optional.ofNullable(features);
         }
 
-        public DescriptorProtos.FieldOptions.FeatureSupport featureSupport() {
-            return featureSupport;
+        /**
+         * Returns the value of the {@code feature_support} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code feature_support}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FieldOptions.FeatureSupport> featureSupport() {
+            return Optional.ofNullable(featureSupport);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code uninterpreted_option} field.
+         *
+         * @return an unmodifiable view of the values of the {@code uninterpreted_option} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
         }
 
-        public ProtobufUnknownFieldsStore unknownFields() {
+        /**
+         * Returns the unknown fields preserved during deserialization.
+         *
+         * @return the store of unknown fields preserved during deserialization
+         */
+        public ProtobufUnknownFields unknownFields() {
             return unknownFields;
         }
     }
@@ -2582,27 +3786,53 @@ public final class DescriptorProtos {
          * the way out.
          */
         @ProtobufMessage.UnknownFields
-        ProtobufUnknownFieldsStore unknownFields;
+        ProtobufUnknownFields unknownFields;
 
+        /**
+         * Constructs a new {@code OneofOptions} with the specified field values.
+         *
+         * @param features the value of the {@code features} field, or {@code null} if the
+         *                 field is not set
+         * @param uninterpretedOption the values of the repeated {@code uninterpreted_option} field
+         * @param unknownFields the store of unknown fields preserved during deserialization
+         */
         OneofOptions(
                 DescriptorProtos.FeatureSet features,
                 List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
-                ProtobufUnknownFieldsStore unknownFields
+                ProtobufUnknownFields unknownFields
         ) {
             this.features = features;
             this.uninterpretedOption = uninterpretedOption;
             this.unknownFields = unknownFields;
         }
 
-        public DescriptorProtos.FeatureSet features() {
-            return features;
+        /**
+         * Returns the value of the {@code features} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code features}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet> features() {
+            return Optional.ofNullable(features);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code uninterpreted_option} field.
+         *
+         * @return an unmodifiable view of the values of the {@code uninterpreted_option} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
         }
 
-        public ProtobufUnknownFieldsStore unknownFields() {
+        /**
+         * Returns the unknown fields preserved during deserialization.
+         *
+         * @return the store of unknown fields preserved during deserialization
+         */
+        public ProtobufUnknownFields unknownFields() {
             return unknownFields;
         }
     }
@@ -2621,7 +3851,7 @@ public final class DescriptorProtos {
          * <p><code>bool allow_alias = 2;</code>
          */
         @ProtobufMessage.BoolField(index = 2)
-        boolean allowAlias;
+        Boolean allowAlias;
 
         /**
          * Is this enum deprecated?
@@ -2632,7 +3862,7 @@ public final class DescriptorProtos {
          * <p><code>bool deprecated = 3;</code>
          */
         @ProtobufMessage.BoolField(index = 3)
-        boolean deprecated;
+        Boolean deprecated;
 
         /**
          * Enable the legacy handling of JSON field name conflicts.  This lowercases
@@ -2646,7 +3876,7 @@ public final class DescriptorProtos {
          */
         @Deprecated
         @ProtobufMessage.BoolField(index = 6)
-        boolean deprecatedLegacyJsonFieldConflicts;
+        Boolean deprecatedLegacyJsonFieldConflicts;
 
         /**
          * Any features defined in the specific edition.
@@ -2676,15 +3906,29 @@ public final class DescriptorProtos {
          * the way out.
          */
         @ProtobufMessage.UnknownFields
-        ProtobufUnknownFieldsStore unknownFields;
+        ProtobufUnknownFields unknownFields;
 
+        /**
+         * Constructs a new {@code EnumOptions} with the specified field values.
+         *
+         * @param allowAlias the value of the {@code allow_alias} field, or {@code null} if the
+         *                   field is not set
+         * @param deprecated the value of the {@code deprecated} field, or {@code null} if the
+         *                   field is not set
+         * @param deprecatedLegacyJsonFieldConflicts the value of the {@code deprecated_legacy_json_field_conflicts} field, or {@code null} if the
+         *                                           field is not set
+         * @param features the value of the {@code features} field, or {@code null} if the
+         *                 field is not set
+         * @param uninterpretedOption the values of the repeated {@code uninterpreted_option} field
+         * @param unknownFields the store of unknown fields preserved during deserialization
+         */
         EnumOptions(
-                boolean allowAlias,
-                boolean deprecated,
-                boolean deprecatedLegacyJsonFieldConflicts,
+                Boolean allowAlias,
+                Boolean deprecated,
+                Boolean deprecatedLegacyJsonFieldConflicts,
                 DescriptorProtos.FeatureSet features,
                 List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
-                ProtobufUnknownFieldsStore unknownFields
+                ProtobufUnknownFields unknownFields
         ) {
             this.allowAlias = allowAlias;
             this.deprecated = deprecated;
@@ -2694,28 +3938,69 @@ public final class DescriptorProtos {
             this.unknownFields = unknownFields;
         }
 
-        public boolean allowAlias() {
-            return allowAlias;
+        /**
+         * Returns the value of the {@code allow_alias} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code allow_alias}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> allowAlias() {
+            return Optional.ofNullable(allowAlias);
         }
 
-        public boolean deprecated() {
-            return deprecated;
+        /**
+         * Returns the value of the {@code deprecated} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code deprecated}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> deprecated() {
+            return Optional.ofNullable(deprecated);
         }
 
+        /**
+         * Returns the value of the {@code deprecated_legacy_json_field_conflicts} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code deprecated_legacy_json_field_conflicts}
+         *         field, or an empty {@code Optional} if the field is not set
+         * @deprecated The {@code .proto} declaration marks this field as deprecated.
+         */
         @Deprecated
-        public boolean deprecatedLegacyJsonFieldConflicts() {
-            return deprecatedLegacyJsonFieldConflicts;
+        public Optional<Boolean> deprecatedLegacyJsonFieldConflicts() {
+            return Optional.ofNullable(deprecatedLegacyJsonFieldConflicts);
         }
 
-        public DescriptorProtos.FeatureSet features() {
-            return features;
+        /**
+         * Returns the value of the {@code features} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code features}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet> features() {
+            return Optional.ofNullable(features);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code uninterpreted_option} field.
+         *
+         * @return an unmodifiable view of the values of the {@code uninterpreted_option} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
         }
 
-        public ProtobufUnknownFieldsStore unknownFields() {
+        /**
+         * Returns the unknown fields preserved during deserialization.
+         *
+         * @return the store of unknown fields preserved during deserialization
+         */
+        public ProtobufUnknownFields unknownFields() {
             return unknownFields;
         }
     }
@@ -2736,7 +4021,7 @@ public final class DescriptorProtos {
          * <p><code>bool deprecated = 1;</code>
          */
         @ProtobufMessage.BoolField(index = 1)
-        boolean deprecated;
+        Boolean deprecated;
 
         /**
          * Any features defined in the specific edition.
@@ -2757,7 +4042,7 @@ public final class DescriptorProtos {
          * <p><code>bool debug_redact = 3;</code>
          */
         @ProtobufMessage.BoolField(index = 3)
-        boolean debugRedact;
+        Boolean debugRedact;
 
         /**
          * Information about the support window of a feature value.
@@ -2784,15 +4069,29 @@ public final class DescriptorProtos {
          * the way out.
          */
         @ProtobufMessage.UnknownFields
-        ProtobufUnknownFieldsStore unknownFields;
+        ProtobufUnknownFields unknownFields;
 
+        /**
+         * Constructs a new {@code EnumValueOptions} with the specified field values.
+         *
+         * @param deprecated the value of the {@code deprecated} field, or {@code null} if the
+         *                   field is not set
+         * @param features the value of the {@code features} field, or {@code null} if the
+         *                 field is not set
+         * @param debugRedact the value of the {@code debug_redact} field, or {@code null} if the
+         *                    field is not set
+         * @param featureSupport the value of the {@code feature_support} field, or {@code null} if the
+         *                       field is not set
+         * @param uninterpretedOption the values of the repeated {@code uninterpreted_option} field
+         * @param unknownFields the store of unknown fields preserved during deserialization
+         */
         EnumValueOptions(
-                boolean deprecated,
+                Boolean deprecated,
                 DescriptorProtos.FeatureSet features,
-                boolean debugRedact,
+                Boolean debugRedact,
                 DescriptorProtos.FieldOptions.FeatureSupport featureSupport,
                 List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
-                ProtobufUnknownFieldsStore unknownFields
+                ProtobufUnknownFields unknownFields
         ) {
             this.deprecated = deprecated;
             this.features = features;
@@ -2802,27 +4101,71 @@ public final class DescriptorProtos {
             this.unknownFields = unknownFields;
         }
 
-        public boolean deprecated() {
-            return deprecated;
+        /**
+         * Returns the value of the {@code deprecated} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code deprecated}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> deprecated() {
+            return Optional.ofNullable(deprecated);
         }
 
-        public DescriptorProtos.FeatureSet features() {
-            return features;
+        /**
+         * Returns the value of the {@code features} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code features}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet> features() {
+            return Optional.ofNullable(features);
         }
 
-        public boolean debugRedact() {
-            return debugRedact;
+        /**
+         * Returns the value of the {@code debug_redact} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code debug_redact}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> debugRedact() {
+            return Optional.ofNullable(debugRedact);
         }
 
-        public DescriptorProtos.FieldOptions.FeatureSupport featureSupport() {
-            return featureSupport;
+        /**
+         * Returns the value of the {@code feature_support} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code feature_support}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FieldOptions.FeatureSupport> featureSupport() {
+            return Optional.ofNullable(featureSupport);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code uninterpreted_option} field.
+         *
+         * @return an unmodifiable view of the values of the {@code uninterpreted_option} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
         }
 
-        public ProtobufUnknownFieldsStore unknownFields() {
+        /**
+         * Returns the unknown fields preserved during deserialization.
+         *
+         * @return the store of unknown fields preserved during deserialization
+         */
+        public ProtobufUnknownFields unknownFields() {
             return unknownFields;
         }
     }
@@ -2843,7 +4186,7 @@ public final class DescriptorProtos {
          * <p><code>bool deprecated = 33;</code>
          */
         @ProtobufMessage.BoolField(index = 33)
-        boolean deprecated;
+        Boolean deprecated;
 
         /**
          * Any features defined in the specific edition.
@@ -2873,13 +4216,23 @@ public final class DescriptorProtos {
          * the way out.
          */
         @ProtobufMessage.UnknownFields
-        ProtobufUnknownFieldsStore unknownFields;
+        ProtobufUnknownFields unknownFields;
 
+        /**
+         * Constructs a new {@code ServiceOptions} with the specified field values.
+         *
+         * @param deprecated the value of the {@code deprecated} field, or {@code null} if the
+         *                   field is not set
+         * @param features the value of the {@code features} field, or {@code null} if the
+         *                 field is not set
+         * @param uninterpretedOption the values of the repeated {@code uninterpreted_option} field
+         * @param unknownFields the store of unknown fields preserved during deserialization
+         */
         ServiceOptions(
-                boolean deprecated,
+                Boolean deprecated,
                 DescriptorProtos.FeatureSet features,
                 List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
-                ProtobufUnknownFieldsStore unknownFields
+                ProtobufUnknownFields unknownFields
         ) {
             this.deprecated = deprecated;
             this.features = features;
@@ -2887,19 +4240,47 @@ public final class DescriptorProtos {
             this.unknownFields = unknownFields;
         }
 
-        public boolean deprecated() {
-            return deprecated;
+        /**
+         * Returns the value of the {@code deprecated} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code deprecated}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> deprecated() {
+            return Optional.ofNullable(deprecated);
         }
 
-        public DescriptorProtos.FeatureSet features() {
-            return features;
+        /**
+         * Returns the value of the {@code features} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code features}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet> features() {
+            return Optional.ofNullable(features);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code uninterpreted_option} field.
+         *
+         * @return an unmodifiable view of the values of the {@code uninterpreted_option} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
         }
 
-        public ProtobufUnknownFieldsStore unknownFields() {
+        /**
+         * Returns the unknown fields preserved during deserialization.
+         *
+         * @return the store of unknown fields preserved during deserialization
+         */
+        public ProtobufUnknownFields unknownFields() {
             return unknownFields;
         }
     }
@@ -2945,7 +4326,7 @@ public final class DescriptorProtos {
          * <p><code>bool deprecated = 33;</code>
          */
         @ProtobufMessage.BoolField(index = 33)
-        boolean deprecated;
+        Boolean deprecated;
 
         /**
          * <p><code>IdempotencyLevel idempotency_level = 34;</code>
@@ -2981,39 +4362,89 @@ public final class DescriptorProtos {
          * the way out.
          */
         @ProtobufMessage.UnknownFields
-        ProtobufUnknownFieldsStore unknownFields;
+        ProtobufUnknownFields unknownFields;
 
+        /**
+         * Constructs a new {@code MethodOptions} with the specified field values.
+         *
+         * @param deprecated the value of the {@code deprecated} field, or {@code null} if the
+         *                   field is not set
+         * @param idempotencyLevel the value of the {@code idempotency_level} field, or {@code null} if the
+         *                         field is not set
+         * @param features the value of the {@code features} field, or {@code null} if the
+         *                 field is not set
+         * @param uninterpretedOption the values of the repeated {@code uninterpreted_option} field
+         * @param unknownFields the store of unknown fields preserved during deserialization
+         */
         MethodOptions(
-                boolean deprecated,
+                Boolean deprecated,
                 DescriptorProtos.MethodOptions.IdempotencyLevel idempotencyLevel,
                 DescriptorProtos.FeatureSet features,
                 List<DescriptorProtos.UninterpretedOption> uninterpretedOption,
-                ProtobufUnknownFieldsStore unknownFields
+                ProtobufUnknownFields unknownFields
         ) {
             this.deprecated = deprecated;
-            this.idempotencyLevel = Objects.requireNonNullElse(idempotencyLevel, DescriptorProtos.MethodOptions.IdempotencyLevel.IDEMPOTENCY_UNKNOWN);
+            this.idempotencyLevel = idempotencyLevel;
             this.features = features;
             this.uninterpretedOption = uninterpretedOption;
             this.unknownFields = unknownFields;
         }
 
-        public boolean deprecated() {
-            return deprecated;
+        /**
+         * Returns the value of the {@code deprecated} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code false} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code deprecated}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> deprecated() {
+            return Optional.ofNullable(deprecated);
         }
 
-        public DescriptorProtos.MethodOptions.IdempotencyLevel idempotencyLevel() {
-            return idempotencyLevel;
+        /**
+         * Returns the value of the {@code idempotency_level} field, if present.
+         *
+         * <p>The {@code .proto} declaration assigns a default value of
+         * {@code IDEMPOTENCY_UNKNOWN} to this field, which applies when the returned value
+         * is empty.
+         *
+         * @return an {@code Optional} containing the value of the {@code idempotency_level}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.MethodOptions.IdempotencyLevel> idempotencyLevel() {
+            return Optional.ofNullable(idempotencyLevel);
         }
 
-        public DescriptorProtos.FeatureSet features() {
-            return features;
+        /**
+         * Returns the value of the {@code features} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code features}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet> features() {
+            return Optional.ofNullable(features);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code uninterpreted_option} field.
+         *
+         * @return an unmodifiable view of the values of the {@code uninterpreted_option} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.UninterpretedOption> uninterpretedOption() {
             return Collections.unmodifiableSequencedCollection(uninterpretedOption);
         }
 
-        public ProtobufUnknownFieldsStore unknownFields() {
+        /**
+         * Returns the unknown fields preserved during deserialization.
+         *
+         * @return the store of unknown fields preserved during deserialization
+         */
+        public ProtobufUnknownFields unknownFields() {
             return unknownFields;
         }
     }
@@ -3046,26 +4477,50 @@ public final class DescriptorProtos {
             /**
              * <p><code>required string name_part = 1;</code>
              */
-            @ProtobufMessage.StringField(index = 1)
+            @ProtobufMessage.StringField(index = 1, fieldPresence = ProtobufFieldPresence.LEGACY_REQUIRED)
             String namePart;
 
             /**
              * <p><code>required bool is_extension = 2;</code>
              */
-            @ProtobufMessage.BoolField(index = 2)
-            boolean isExtension;
+            @ProtobufMessage.BoolField(index = 2, fieldPresence = ProtobufFieldPresence.LEGACY_REQUIRED)
+            Boolean isExtension;
 
-            NamePart(String namePart, boolean isExtension) {
+            /**
+             * Constructs a new {@code NamePart} with the specified field values.
+             *
+             * @param namePart the value of the required {@code name_part} field
+             * @param isExtension the value of the required {@code is_extension} field
+             */
+            NamePart(String namePart, Boolean isExtension) {
                 this.namePart = namePart;
                 this.isExtension = isExtension;
             }
 
-            public String namePart() {
-                return namePart;
+            /**
+             * Returns the value of the required {@code name_part} field, if present.
+             *
+             * <p>A required field may not be set by a message that is built or decoded
+             * partially.
+             *
+             * @return an {@code Optional} containing the value of the {@code name_part}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<String> namePart() {
+                return Optional.ofNullable(namePart);
             }
 
-            public boolean isExtension() {
-                return isExtension;
+            /**
+             * Returns the value of the required {@code is_extension} field, if present.
+             *
+             * <p>A required field may not be set by a message that is built or decoded
+             * partially.
+             *
+             * @return an {@code Optional} containing the value of the {@code is_extension}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<Boolean> isExtension() {
+                return Optional.ofNullable(isExtension);
             }
         }
 
@@ -3088,19 +4543,19 @@ public final class DescriptorProtos {
          * <p><code>uint64 positive_int_value = 4;</code>
          */
         @ProtobufMessage.Uint64Field(index = 4)
-        long positiveIntValue;
+        Long positiveIntValue;
 
         /**
          * <p><code>int64 negative_int_value = 5;</code>
          */
         @ProtobufMessage.Int64Field(index = 5)
-        long negativeIntValue;
+        Long negativeIntValue;
 
         /**
          * <p><code>double double_value = 6;</code>
          */
         @ProtobufMessage.DoubleField(index = 6)
-        double doubleValue;
+        Double doubleValue;
 
         /**
          * <p><code>bytes string_value = 7;</code>
@@ -3114,12 +4569,29 @@ public final class DescriptorProtos {
         @ProtobufMessage.StringField(index = 8)
         String aggregateValue;
 
+        /**
+         * Constructs a new {@code UninterpretedOption} with the specified field values.
+         *
+         * @param name the values of the repeated {@code name} field
+         * @param identifierValue the value of the {@code identifier_value} field, or {@code null} if the
+         *                        field is not set
+         * @param positiveIntValue the value of the {@code positive_int_value} field, or {@code null} if the
+         *                         field is not set
+         * @param negativeIntValue the value of the {@code negative_int_value} field, or {@code null} if the
+         *                         field is not set
+         * @param doubleValue the value of the {@code double_value} field, or {@code null} if the
+         *                    field is not set
+         * @param stringValue the value of the {@code string_value} field, or {@code null} if the
+         *                    field is not set
+         * @param aggregateValue the value of the {@code aggregate_value} field, or {@code null} if the
+         *                       field is not set
+         */
         UninterpretedOption(
                 List<DescriptorProtos.UninterpretedOption.NamePart> name,
                 String identifierValue,
-                long positiveIntValue,
-                long negativeIntValue,
-                double doubleValue,
+                Long positiveIntValue,
+                Long negativeIntValue,
+                Double doubleValue,
                 byte[] stringValue,
                 String aggregateValue
         ) {
@@ -3132,32 +4604,76 @@ public final class DescriptorProtos {
             this.aggregateValue = aggregateValue;
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code name} field.
+         *
+         * @return an unmodifiable view of the values of the {@code name} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.UninterpretedOption.NamePart> name() {
             return Collections.unmodifiableSequencedCollection(name);
         }
 
-        public String identifierValue() {
-            return identifierValue;
+        /**
+         * Returns the value of the {@code identifier_value} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code identifier_value}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> identifierValue() {
+            return Optional.ofNullable(identifierValue);
         }
 
-        public long positiveIntValue() {
-            return positiveIntValue;
+        /**
+         * Returns the value of the {@code positive_int_value} field, if present.
+         *
+         * @return an {@code OptionalLong} containing the value of the {@code positive_int_value}
+         *         field, or an empty {@code OptionalLong} if the field is not set
+         */
+        public OptionalLong positiveIntValue() {
+            return positiveIntValue == null ? OptionalLong.empty() : OptionalLong.of(positiveIntValue);
         }
 
-        public long negativeIntValue() {
-            return negativeIntValue;
+        /**
+         * Returns the value of the {@code negative_int_value} field, if present.
+         *
+         * @return an {@code OptionalLong} containing the value of the {@code negative_int_value}
+         *         field, or an empty {@code OptionalLong} if the field is not set
+         */
+        public OptionalLong negativeIntValue() {
+            return negativeIntValue == null ? OptionalLong.empty() : OptionalLong.of(negativeIntValue);
         }
 
-        public double doubleValue() {
-            return doubleValue;
+        /**
+         * Returns the value of the {@code double_value} field, if present.
+         *
+         * @return an {@code OptionalDouble} containing the value of the {@code double_value}
+         *         field, or an empty {@code OptionalDouble} if the field is not set
+         */
+        public OptionalDouble doubleValue() {
+            return doubleValue == null ? OptionalDouble.empty() : OptionalDouble.of(doubleValue);
         }
 
-        public byte[] stringValue() {
-            return stringValue;
+        /**
+         * Returns a copy of the value of the {@code string_value} field, if present.
+         *
+         * @return an {@code Optional} containing a copy of the value of the
+         *         {@code string_value} field, or an empty {@code Optional} if the field is
+         *         not set
+         */
+        public Optional<byte[]> stringValue() {
+            return stringValue == null ? Optional.empty() : Optional.of(stringValue.clone());
         }
 
-        public String aggregateValue() {
-            return aggregateValue;
+        /**
+         * Returns the value of the {@code aggregate_value} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code aggregate_value}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> aggregateValue() {
+            return Optional.ofNullable(aggregateValue);
         }
     }
 
@@ -3349,7 +4865,7 @@ public final class DescriptorProtos {
          * <p><code>Utf8Validation utf8_validation = 4;</code>
          */
         @ProtobufMessage.EnumField(index = 4)
-        JavaFeaturesProto.JavaFeatures.Utf8Validation utf8Validation;
+        DescriptorProtos.FeatureSet.Utf8Validation utf8Validation;
 
         /**
          * <p><code>MessageEncoding message_encoding = 5;</code>
@@ -3368,6 +4884,15 @@ public final class DescriptorProtos {
          */
         @ProtobufMessage.EnumField(index = 7)
         DescriptorProtos.FeatureSet.EnforceNamingStyle enforceNamingStyle;
+
+        /**
+         * The default visibility of the messages and enums declared in a file
+         * that do not use the {@code export} or {@code local} keywords.
+         *
+         * <p><code>VisibilityFeature.DefaultSymbolVisibility default_symbol_visibility = 8;</code>
+         */
+        @ProtobufMessage.EnumField(index = 8)
+        DescriptorProtos.FeatureSet.VisibilityFeature.DefaultSymbolVisibility defaultSymbolVisibility;
 
         /**
          * C++ specific feature extension declared by {@code cpp_features.proto}.
@@ -3401,18 +4926,61 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 9989)
         JavaMutableFeaturesProto.JavaMutableFeatures javaMutableFeatures;
 
+        /**
+         * The store for unknown wire-level fields preserved during deserialization.
+         *
+         * <p>This carries the values of the feature extensions declared in the
+         * {@code 1000 to 9994}, {@code 9995 to 9999} and {@code 10000} extension
+         * ranges that the canonical descriptor model has no typed representation
+         * for, such as {@code pb.python} or {@code pb.proto1}. The codegen reads
+         * them on the way in and re-emits them on the way out.
+         */
+        @ProtobufMessage.UnknownFields
+        ProtobufUnknownFields unknownFields;
+
+        /**
+         * Constructs a new {@code FeatureSet} with the specified field values.
+         *
+         * @param fieldPresence the value of the {@code field_presence} field, or {@code null} if the
+         *                      field is not set
+         * @param enumType the value of the {@code enum_type} field, or {@code null} if the
+         *                 field is not set
+         * @param repeatedFieldEncoding the value of the {@code repeated_field_encoding} field, or {@code null} if the
+         *                              field is not set
+         * @param utf8Validation the value of the {@code utf8_validation} field, or {@code null} if the
+         *                       field is not set
+         * @param messageEncoding the value of the {@code message_encoding} field, or {@code null} if the
+         *                        field is not set
+         * @param jsonFormat the value of the {@code json_format} field, or {@code null} if the
+         *                   field is not set
+         * @param enforceNamingStyle the value of the {@code enforce_naming_style} field, or {@code null} if the
+         *                           field is not set
+         * @param defaultSymbolVisibility the value of the {@code default_symbol_visibility} field, or {@code null} if the
+         *                                field is not set
+         * @param cppFeatures the value of the {@code (pb.cpp)} field, or {@code null} if the
+         *                    field is not set
+         * @param javaFeatures the value of the {@code (pb.java)} field, or {@code null} if the
+         *                     field is not set
+         * @param goFeatures the value of the {@code (pb.go)} field, or {@code null} if the
+         *                   field is not set
+         * @param javaMutableFeatures the value of the {@code (pb.java_mutable)} field, or {@code null} if the
+         *                            field is not set
+         * @param unknownFields the store of unknown fields preserved during deserialization
+         */
         FeatureSet(
                 DescriptorProtos.FeatureSet.FieldPresence fieldPresence,
                 DescriptorProtos.FeatureSet.EnumType enumType,
                 DescriptorProtos.FeatureSet.RepeatedFieldEncoding repeatedFieldEncoding,
-                JavaFeaturesProto.JavaFeatures.Utf8Validation utf8Validation,
+                DescriptorProtos.FeatureSet.Utf8Validation utf8Validation,
                 DescriptorProtos.FeatureSet.MessageEncoding messageEncoding,
                 DescriptorProtos.FeatureSet.JsonFormat jsonFormat,
                 DescriptorProtos.FeatureSet.EnforceNamingStyle enforceNamingStyle,
+                DescriptorProtos.FeatureSet.VisibilityFeature.DefaultSymbolVisibility defaultSymbolVisibility,
                 CppFeaturesProto.CppFeatures cppFeatures,
                 JavaFeaturesProto.JavaFeatures javaFeatures,
                 GoFeaturesProto.GoFeatures goFeatures,
-                JavaMutableFeaturesProto.JavaMutableFeatures javaMutableFeatures
+                JavaMutableFeaturesProto.JavaMutableFeatures javaMutableFeatures,
+                ProtobufUnknownFields unknownFields
         ) {
             this.fieldPresence = fieldPresence;
             this.enumType = enumType;
@@ -3421,54 +4989,141 @@ public final class DescriptorProtos {
             this.messageEncoding = messageEncoding;
             this.jsonFormat = jsonFormat;
             this.enforceNamingStyle = enforceNamingStyle;
+            this.defaultSymbolVisibility = defaultSymbolVisibility;
             this.cppFeatures = cppFeatures;
             this.javaFeatures = javaFeatures;
             this.goFeatures = goFeatures;
             this.javaMutableFeatures = javaMutableFeatures;
+            this.unknownFields = unknownFields;
         }
 
-        public DescriptorProtos.FeatureSet.FieldPresence fieldPresence() {
-            return fieldPresence;
+        /**
+         * Returns the value of the {@code field_presence} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code field_presence}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet.FieldPresence> fieldPresence() {
+            return Optional.ofNullable(fieldPresence);
         }
 
-        public DescriptorProtos.FeatureSet.EnumType enumType() {
-            return enumType;
+        /**
+         * Returns the value of the {@code enum_type} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code enum_type}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet.EnumType> enumType() {
+            return Optional.ofNullable(enumType);
         }
 
-        public DescriptorProtos.FeatureSet.RepeatedFieldEncoding repeatedFieldEncoding() {
-            return repeatedFieldEncoding;
+        /**
+         * Returns the value of the {@code repeated_field_encoding} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code repeated_field_encoding}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet.RepeatedFieldEncoding> repeatedFieldEncoding() {
+            return Optional.ofNullable(repeatedFieldEncoding);
         }
 
-        public JavaFeaturesProto.JavaFeatures.Utf8Validation utf8Validation() {
-            return utf8Validation;
+        /**
+         * Returns the value of the {@code utf8_validation} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code utf8_validation}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet.Utf8Validation> utf8Validation() {
+            return Optional.ofNullable(utf8Validation);
         }
 
-        public DescriptorProtos.FeatureSet.MessageEncoding messageEncoding() {
-            return messageEncoding;
+        /**
+         * Returns the value of the {@code message_encoding} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code message_encoding}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet.MessageEncoding> messageEncoding() {
+            return Optional.ofNullable(messageEncoding);
         }
 
-        public DescriptorProtos.FeatureSet.JsonFormat jsonFormat() {
-            return jsonFormat;
+        /**
+         * Returns the value of the {@code json_format} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code json_format}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet.JsonFormat> jsonFormat() {
+            return Optional.ofNullable(jsonFormat);
         }
 
-        public DescriptorProtos.FeatureSet.EnforceNamingStyle enforceNamingStyle() {
-            return enforceNamingStyle;
+        /**
+         * Returns the value of the {@code enforce_naming_style} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code enforce_naming_style}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet.EnforceNamingStyle> enforceNamingStyle() {
+            return Optional.ofNullable(enforceNamingStyle);
         }
 
-        public CppFeaturesProto.CppFeatures cppFeatures() {
-            return cppFeatures;
+        /**
+         * Returns the value of the {@code default_symbol_visibility} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code default_symbol_visibility}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.FeatureSet.VisibilityFeature.DefaultSymbolVisibility> defaultSymbolVisibility() {
+            return Optional.ofNullable(defaultSymbolVisibility);
         }
 
-        public JavaFeaturesProto.JavaFeatures javaFeatures() {
-            return javaFeatures;
+        /**
+         * Returns the value of the {@code (pb.cpp)} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code (pb.cpp)}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<CppFeaturesProto.CppFeatures> cppFeatures() {
+            return Optional.ofNullable(cppFeatures);
         }
 
-        public GoFeaturesProto.GoFeatures goFeatures() {
-            return goFeatures;
+        /**
+         * Returns the value of the {@code (pb.java)} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code (pb.java)}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<JavaFeaturesProto.JavaFeatures> javaFeatures() {
+            return Optional.ofNullable(javaFeatures);
         }
 
-        public JavaMutableFeaturesProto.JavaMutableFeatures javaMutableFeatures() {
-            return javaMutableFeatures;
+        /**
+         * Returns the value of the {@code (pb.go)} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code (pb.go)}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<GoFeaturesProto.GoFeatures> goFeatures() {
+            return Optional.ofNullable(goFeatures);
+        }
+
+        /**
+         * Returns the value of the {@code (pb.java_mutable)} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code (pb.java_mutable)}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<JavaMutableFeaturesProto.JavaMutableFeatures> javaMutableFeatures() {
+            return Optional.ofNullable(javaMutableFeatures);
+        }
+
+        /**
+         * Returns the unknown fields preserved during deserialization.
+         *
+         * @return the store of unknown fields preserved during deserialization
+         */
+        public ProtobufUnknownFields unknownFields() {
+            return unknownFields;
         }
     }
 
@@ -3516,6 +5171,16 @@ public final class DescriptorProtos {
             @ProtobufMessage.MessageField(index = 5)
             DescriptorProtos.FeatureSet fixedFeatures;
 
+            /**
+             * Constructs a new {@code FeatureSetEditionDefault} with the specified field values.
+             *
+             * @param edition the value of the {@code edition} field, or {@code null} if the
+             *                field is not set
+             * @param overridableFeatures the value of the {@code overridable_features} field, or {@code null} if the
+             *                            field is not set
+             * @param fixedFeatures the value of the {@code fixed_features} field, or {@code null} if the
+             *                      field is not set
+             */
             FeatureSetEditionDefault(
                     DescriptorProtos.Edition edition,
                     DescriptorProtos.FeatureSet overridableFeatures,
@@ -3526,16 +5191,34 @@ public final class DescriptorProtos {
                 this.fixedFeatures = fixedFeatures;
             }
 
-            public DescriptorProtos.Edition edition() {
-                return edition;
+            /**
+             * Returns the value of the {@code edition} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code edition}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<DescriptorProtos.Edition> edition() {
+                return Optional.ofNullable(edition);
             }
 
-            public DescriptorProtos.FeatureSet overridableFeatures() {
-                return overridableFeatures;
+            /**
+             * Returns the value of the {@code overridable_features} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code overridable_features}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<DescriptorProtos.FeatureSet> overridableFeatures() {
+                return Optional.ofNullable(overridableFeatures);
             }
 
-            public DescriptorProtos.FeatureSet fixedFeatures() {
-                return fixedFeatures;
+            /**
+             * Returns the value of the {@code fixed_features} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code fixed_features}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<DescriptorProtos.FeatureSet> fixedFeatures() {
+                return Optional.ofNullable(fixedFeatures);
             }
         }
 
@@ -3563,6 +5246,15 @@ public final class DescriptorProtos {
         @ProtobufMessage.EnumField(index = 5)
         DescriptorProtos.Edition maximumEdition;
 
+        /**
+         * Constructs a new {@code FeatureSetDefaults} with the specified field values.
+         *
+         * @param defaults the values of the repeated {@code defaults} field
+         * @param minimumEdition the value of the {@code minimum_edition} field, or {@code null} if the
+         *                       field is not set
+         * @param maximumEdition the value of the {@code maximum_edition} field, or {@code null} if the
+         *                       field is not set
+         */
         FeatureSetDefaults(
                 List<DescriptorProtos.FeatureSetDefaults.FeatureSetEditionDefault> defaults,
                 DescriptorProtos.Edition minimumEdition,
@@ -3573,16 +5265,35 @@ public final class DescriptorProtos {
             this.maximumEdition = maximumEdition;
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code defaults} field.
+         *
+         * @return an unmodifiable view of the values of the {@code defaults} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.FeatureSetDefaults.FeatureSetEditionDefault> defaults() {
             return Collections.unmodifiableSequencedCollection(defaults);
         }
 
-        public DescriptorProtos.Edition minimumEdition() {
-            return minimumEdition;
+        /**
+         * Returns the value of the {@code minimum_edition} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code minimum_edition}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.Edition> minimumEdition() {
+            return Optional.ofNullable(minimumEdition);
         }
 
-        public DescriptorProtos.Edition maximumEdition() {
-            return maximumEdition;
+        /**
+         * Returns the value of the {@code maximum_edition} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code maximum_edition}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<DescriptorProtos.Edition> maximumEdition() {
+            return Optional.ofNullable(maximumEdition);
         }
     }
 
@@ -3650,9 +5361,9 @@ public final class DescriptorProtos {
              * <p>this path refers to the whole field declaration (from the beginning
              * of the label to the terminating semicolon).
              *
-             * <p><code>repeated int32 path = 1;</code>
+             * <p><code>repeated int32 path = 1 [packed = true];</code>
              */
-            @ProtobufMessage.Int32Field(index = 1)
+            @ProtobufMessage.Int32Field(index = 1, repeatedFieldEncoding = ProtobufRepeatedFieldEncoding.PACKED)
             List<Integer> path;
 
             /**
@@ -3662,9 +5373,9 @@ public final class DescriptorProtos {
              * and column numbers are zero-based -- typically you will want to add
              * 1 to each before displaying to a user.
              *
-             * <p><code>repeated int32 span = 2;</code>
+             * <p><code>repeated int32 span = 2 [packed = true];</code>
              */
-            @ProtobufMessage.Int32Field(index = 2)
+            @ProtobufMessage.Int32Field(index = 2, repeatedFieldEncoding = ProtobufRepeatedFieldEncoding.PACKED)
             List<Integer> span;
 
             /**
@@ -3732,6 +5443,17 @@ public final class DescriptorProtos {
             @ProtobufMessage.StringField(index = 6)
             List<String> leadingDetachedComments;
 
+            /**
+             * Constructs a new {@code Location} with the specified field values.
+             *
+             * @param path the values of the repeated {@code path} field
+             * @param span the values of the repeated {@code span} field
+             * @param leadingComments the value of the {@code leading_comments} field, or {@code null} if the
+             *                        field is not set
+             * @param trailingComments the value of the {@code trailing_comments} field, or {@code null} if the
+             *                         field is not set
+             * @param leadingDetachedComments the values of the repeated {@code leading_detached_comments} field
+             */
             Location(
                     List<Integer> path,
                     List<Integer> span,
@@ -3746,22 +5468,55 @@ public final class DescriptorProtos {
                 this.leadingDetachedComments = leadingDetachedComments;
             }
 
+            /**
+             * Returns an unmodifiable view of the values of the repeated
+             * {@code path} field.
+             *
+             * @return an unmodifiable view of the values of the {@code path} field,
+             *         in encounter order
+             */
             public SequencedCollection<Integer> path() {
                 return Collections.unmodifiableSequencedCollection(path);
             }
 
+            /**
+             * Returns an unmodifiable view of the values of the repeated
+             * {@code span} field.
+             *
+             * @return an unmodifiable view of the values of the {@code span} field,
+             *         in encounter order
+             */
             public SequencedCollection<Integer> span() {
                 return Collections.unmodifiableSequencedCollection(span);
             }
 
-            public String leadingComments() {
-                return leadingComments;
+            /**
+             * Returns the value of the {@code leading_comments} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code leading_comments}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<String> leadingComments() {
+                return Optional.ofNullable(leadingComments);
             }
 
-            public String trailingComments() {
-                return trailingComments;
+            /**
+             * Returns the value of the {@code trailing_comments} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code trailing_comments}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<String> trailingComments() {
+                return Optional.ofNullable(trailingComments);
             }
 
+            /**
+             * Returns an unmodifiable view of the values of the repeated
+             * {@code leading_detached_comments} field.
+             *
+             * @return an unmodifiable view of the values of the {@code leading_detached_comments} field,
+             *         in encounter order
+             */
             public SequencedCollection<String> leadingDetachedComments() {
                 return Collections.unmodifiableSequencedCollection(leadingDetachedComments);
             }
@@ -3847,12 +5602,46 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 1)
         List<DescriptorProtos.SourceCodeInfo.Location> location;
 
-        SourceCodeInfo(List<DescriptorProtos.SourceCodeInfo.Location> location) {
+        /**
+         * The store for unknown wire-level fields preserved during deserialization.
+         *
+         * <p>This carries the values of extensions declared in the
+         * {@code 536000000} extension range, which the canonical descriptor model
+         * has no typed representation for. The codegen reads them on the way in
+         * and re-emits them on the way out.
+         */
+        @ProtobufMessage.UnknownFields
+        ProtobufUnknownFields unknownFields;
+
+        /**
+         * Constructs a new {@code SourceCodeInfo} with the specified field values.
+         *
+         * @param location the values of the repeated {@code location} field
+         * @param unknownFields the store of unknown fields preserved during deserialization
+         */
+        SourceCodeInfo(List<DescriptorProtos.SourceCodeInfo.Location> location, ProtobufUnknownFields unknownFields) {
             this.location = location;
+            this.unknownFields = unknownFields;
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code location} field.
+         *
+         * @return an unmodifiable view of the values of the {@code location} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.SourceCodeInfo.Location> location() {
             return Collections.unmodifiableSequencedCollection(location);
+        }
+
+        /**
+         * Returns the unknown fields preserved during deserialization.
+         *
+         * @return the store of unknown fields preserved during deserialization
+         */
+        public ProtobufUnknownFields unknownFields() {
+            return unknownFields;
         }
     }
 
@@ -3903,9 +5692,9 @@ public final class DescriptorProtos {
              * Identifies the element in the original source .proto file. This field
              * is formatted the same as SourceCodeInfo.Location.path.
              *
-             * <p><code>repeated int32 path = 1;</code>
+             * <p><code>repeated int32 path = 1 [packed = true];</code>
              */
-            @ProtobufMessage.Int32Field(index = 1)
+            @ProtobufMessage.Int32Field(index = 1, repeatedFieldEncoding = ProtobufRepeatedFieldEncoding.PACKED)
             List<Integer> path;
 
             /**
@@ -3923,7 +5712,7 @@ public final class DescriptorProtos {
              * <p><code>int32 begin = 3;</code>
              */
             @ProtobufMessage.Int32Field(index = 3)
-            int begin;
+            Integer begin;
 
             /**
              * Identifies the ending offset in bytes in the generated code that
@@ -3933,7 +5722,7 @@ public final class DescriptorProtos {
              * <p><code>int32 end = 4;</code>
              */
             @ProtobufMessage.Int32Field(index = 4)
-            int end;
+            Integer end;
 
             /**
              * <p><code>Semantic semantic = 5;</code>
@@ -3941,11 +5730,24 @@ public final class DescriptorProtos {
             @ProtobufMessage.EnumField(index = 5)
             DescriptorProtos.GeneratedCodeInfo.Annotation.Semantic semantic;
 
+            /**
+             * Constructs a new {@code Annotation} with the specified field values.
+             *
+             * @param path the values of the repeated {@code path} field
+             * @param sourceFile the value of the {@code source_file} field, or {@code null} if the
+             *                   field is not set
+             * @param begin the value of the {@code begin} field, or {@code null} if the
+             *              field is not set
+             * @param end the value of the {@code end} field, or {@code null} if the
+             *            field is not set
+             * @param semantic the value of the {@code semantic} field, or {@code null} if the
+             *                 field is not set
+             */
             Annotation(
                     List<Integer> path,
                     String sourceFile,
-                    int begin,
-                    int end,
+                    Integer begin,
+                    Integer end,
                     DescriptorProtos.GeneratedCodeInfo.Annotation.Semantic semantic
             ) {
                 this.path = path;
@@ -3955,24 +5757,55 @@ public final class DescriptorProtos {
                 this.semantic = semantic;
             }
 
+            /**
+             * Returns an unmodifiable view of the values of the repeated
+             * {@code path} field.
+             *
+             * @return an unmodifiable view of the values of the {@code path} field,
+             *         in encounter order
+             */
             public SequencedCollection<Integer> path() {
                 return Collections.unmodifiableSequencedCollection(path);
             }
 
-            public String sourceFile() {
-                return sourceFile;
+            /**
+             * Returns the value of the {@code source_file} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code source_file}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<String> sourceFile() {
+                return Optional.ofNullable(sourceFile);
             }
 
-            public int begin() {
-                return begin;
+            /**
+             * Returns the value of the {@code begin} field, if present.
+             *
+             * @return an {@code OptionalInt} containing the value of the {@code begin}
+             *         field, or an empty {@code OptionalInt} if the field is not set
+             */
+            public OptionalInt begin() {
+                return begin == null ? OptionalInt.empty() : OptionalInt.of(begin);
             }
 
-            public int end() {
-                return end;
+            /**
+             * Returns the value of the {@code end} field, if present.
+             *
+             * @return an {@code OptionalInt} containing the value of the {@code end}
+             *         field, or an empty {@code OptionalInt} if the field is not set
+             */
+            public OptionalInt end() {
+                return end == null ? OptionalInt.empty() : OptionalInt.of(end);
             }
 
-            public DescriptorProtos.GeneratedCodeInfo.Annotation.Semantic semantic() {
-                return semantic;
+            /**
+             * Returns the value of the {@code semantic} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code semantic}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<DescriptorProtos.GeneratedCodeInfo.Annotation.Semantic> semantic() {
+                return Optional.ofNullable(semantic);
             }
         }
 
@@ -3985,10 +5818,22 @@ public final class DescriptorProtos {
         @ProtobufMessage.MessageField(index = 1)
         List<DescriptorProtos.GeneratedCodeInfo.Annotation> annotation;
 
+        /**
+         * Constructs a new {@code GeneratedCodeInfo} with the specified field values.
+         *
+         * @param annotation the values of the repeated {@code annotation} field
+         */
         GeneratedCodeInfo(List<DescriptorProtos.GeneratedCodeInfo.Annotation> annotation) {
             this.annotation = annotation;
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code annotation} field.
+         *
+         * @return an unmodifiable view of the values of the {@code annotation} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.GeneratedCodeInfo.Annotation> annotation() {
             return Collections.unmodifiableSequencedCollection(annotation);
         }

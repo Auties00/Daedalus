@@ -51,7 +51,7 @@ public final class DaedalusBuilderMixinManager {
             }
 
             var fieldType = field.type().descriptorElementType();
-            var mixins = field.type().mixins();
+            var mixins = field.type().mixins().all();
             for (var mixin : mixins) {
                 for (var enclosed : mixin.getEnclosedElements()) {
                     if (!(enclosed instanceof ExecutableElement method)) {
@@ -141,6 +141,9 @@ public final class DaedalusBuilderMixinManager {
         var methodBuilder = MethodSpec.methodBuilder(methodName)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(returnType);
+        for (var thrownType : method.getThrownTypes()) {
+            methodBuilder.addException(TypeName.get(thrownType));
+        }
 
         var parameters = method.getParameters();
         var bindings = types.inferTypeBindings(method, List.of(fieldType));

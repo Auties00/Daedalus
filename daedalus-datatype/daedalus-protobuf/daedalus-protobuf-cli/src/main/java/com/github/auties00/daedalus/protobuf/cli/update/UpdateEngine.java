@@ -1,5 +1,6 @@
 package com.github.auties00.daedalus.protobuf.cli.update;
 
+import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
 import com.github.auties00.daedalus.protobuf.compiler.ProtobufParser;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufDocumentTree;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufEnumStatement;
@@ -34,6 +35,12 @@ public final class UpdateEngine {
     private final NamingStrategy naming;
 
     /**
+     * The property generator used to collect the fields of a message, including the
+     * members of its {@code oneof} declarations.
+     */
+    private final PropertyGenerator propertyGenerator;
+
+    /**
      * Constructs an update engine with the given configuration.
      *
      * @param config the schema configuration
@@ -42,12 +49,12 @@ public final class UpdateEngine {
         this.config = config;
         this.naming = new NamingStrategy();
         var typeMapper = new TypeMapper(config, naming);
-        var propertyGenerator = new PropertyGenerator(typeMapper, naming);
+        this.propertyGenerator = new PropertyGenerator(typeMapper, naming);
         var extractor = new AnnotationExtractor();
 
         this.scanner = new JavaSourceScanner(extractor);
         this.matcher = new TypeMatcher();
-        this.conflictResolver = new ConflictResolver(naming);
+        this.conflictResolver = new ConflictResolver(propertyGenerator, naming);
         this.patcher = new SourcePatcher(propertyGenerator, naming);
         this.diffCalculator = new DiffCalculator();
     }
@@ -58,8 +65,9 @@ public final class UpdateEngine {
      *
      * @return the update plan with proposed changes, conflicts, and unmatched types
      * @throws IOException if proto files or Java sources cannot be read
+     * @throws ProtobufParserException if the proto files contain lexical, syntax or semantic errors
      */
-    public UpdatePlan computeUpdatePlan() throws IOException {
+    public UpdatePlan computeUpdatePlan() throws IOException, ProtobufParserException {
         var protoDir = Path.of(config.protoDir());
         if (!Files.exists(protoDir)) {
             throw new IOException("Proto directory does not exist: " + protoDir);
@@ -220,10 +228,10 @@ public final class UpdateEngine {
         plan.addUpdate(bestMatch, sourceChange, conflicts);
     }
 
-    private Set<Long> collectFieldIndexes(ProtobufMessageStatement message) {
-        var indexes = new LinkedHashSet<Long>();
-        message.getDirectChildrenByType(ProtobufFieldStatement.class).forEach(field ->
-                indexes.add(field.index().value().longValueExact())
+    private Set<Integer> collectFieldIndexes(ProtobufMessageStatement message) {
+        var indexes = new LinkedHashSet<Integer>();
+        propertyGenerator.collectFields(message).forEach(field ->
+                indexes.add((int) field.index().value())
         );
         return indexes;
     }

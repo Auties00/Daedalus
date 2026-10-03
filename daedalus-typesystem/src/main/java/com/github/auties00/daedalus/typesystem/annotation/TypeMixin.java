@@ -12,9 +12,14 @@ import java.lang.annotation.Target;
  *
  * <p>A mixin class is typically {@code final} with a private constructor and
  * contains only {@code static} methods annotated with {@link TypeSerializer},
- * {@link TypeDeserializer}, and/or {@link TypeDefaultValue}. Built-in mixins
- * for common Java types are provided under the
- * {@link com.github.auties00.daedalus.typesystem.adapter} package.
+ * {@link TypeDeserializer}, {@link TypeSize} and/or {@link TypeDefaultValue}. The
+ * methods annotated with {@link TypeSerializer}, {@link TypeDeserializer} or
+ * {@link TypeSize} can also be instance methods, which are invoked on the instance of
+ * the mixin provided by its member annotated with {@link Instance} or {@link Factory}.
+ * Built-in global mixins
+ * for the value types of the JDK standard library are provided by the
+ * {@code com.github.auties00.daedalus.typesystem.jdk.support} package, and its
+ * subpackages, of the {@code daedalus-typesystem-jdk-support} module.
  *
  * <h2>Usage Example:</h2>
  * <pre>{@code
@@ -90,6 +95,68 @@ public @interface TypeMixin {
          * This is the least restrictive scope.
          */
         GLOBAL
+    }
+
+    /**
+     * A static field or a static method annotated {@code @TypeMixin.Instance} is one that
+     * provides the instance of its enclosing mixin on which the instance methods of the
+     * mixin annotated with {@link TypeSerializer}, {@link TypeDeserializer} or
+     * {@link TypeSize} are invoked.
+     *
+     * <p>The generated code reads the field, or invokes the method, every time it invokes
+     * one of those instance methods, so the field or the method must always provide the
+     * same instance: the developer guarantees it, as it is not checked. A method must take
+     * no parameters. The type of the field, or the return type of the method, must be
+     * assignable to the mixin.
+     *
+     * <p>A mixin that declares at least one non-static converter must have exactly one
+     * member annotated with either {@code @TypeMixin.Instance} or {@link Factory}, and a
+     * mixin whose converters are all static needs neither. For example:
+     *
+     * <pre>{@code
+     * @TypeMixin
+     * public final class URIMixin {
+     *     @TypeMixin.Instance
+     *     public static final URIMixin INSTANCE = new URIMixin();
+     *
+     *     @TypeSerializer
+     *     public String toNullable(URI value) {
+     *         return value == null ? null : value.toString();
+     *     }
+     * }
+     * }</pre>
+     *
+     * @see Factory
+     */
+    @Target({ElementType.FIELD, ElementType.METHOD})
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Instance {
+
+    }
+
+    /**
+     * A constructor or a static method annotated {@code @TypeMixin.Factory} is one that
+     * creates the instance of its enclosing mixin on which the instance methods of the
+     * mixin annotated with {@link TypeSerializer}, {@link TypeDeserializer} or
+     * {@link TypeSize} are invoked.
+     *
+     * <p>The constructor or the method is invoked once, the first time one of those
+     * instance methods is invoked: the processor generates a holder class named
+     * {@code {MixinName}InstanceHolder}, in the package of the mixin, whose static field
+     * {@code INSTANCE} keeps the created instance. The constructor or the method must take
+     * no parameters, must not be private, and the return type of the method must be
+     * assignable to the mixin. A constructor cannot belong to an abstract class.
+     *
+     * <p>A mixin that declares at least one non-static converter must have exactly one
+     * member annotated with either {@link Instance} or {@code @TypeMixin.Factory}, and a
+     * mixin whose converters are all static needs neither.
+     *
+     * @see Instance
+     */
+    @Target({ElementType.CONSTRUCTOR, ElementType.METHOD})
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface Factory {
+
     }
 
     /**

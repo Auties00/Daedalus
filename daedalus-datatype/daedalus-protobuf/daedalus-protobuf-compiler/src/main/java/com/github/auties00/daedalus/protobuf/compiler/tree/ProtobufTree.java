@@ -43,13 +43,17 @@ import java.util.stream.Stream;
  * @see ProtobufExpression
  */
 public sealed interface ProtobufTree
-        permits ProtobufDocumentTree, ProtobufOptionDefinition, ProtobufStatement, ProtobufTree.WithBody, ProtobufTree.WithDescriptor, ProtobufTree.WithIndex, ProtobufTree.WithModifier, ProtobufTree.WithName, ProtobufTree.WithOptions, ProtobufTree.WithType {
+        permits ProtobufDocumentTree, ProtobufOptionDefinition, ProtobufStatement, ProtobufTree.WithBody, ProtobufTree.WithComments, ProtobufTree.WithDescriptor, ProtobufTree.WithIndex, ProtobufTree.WithModifier, ProtobufTree.WithName, ProtobufTree.WithOptions, ProtobufTree.WithType {
     /**
-     * Returns the line number in the source file where this tree node was parsed.
+     * Returns the source range that covers this tree node, from the start of its first token
+     * (inclusive) to the position immediately after its last token (exclusive).
      *
-     * @return the line number (starting from 1)
+     * <p>Both endpoints carry 1-indexed line and column values; synthetic nodes that have no
+     * associated source location return {@link ProtobufTreeSourceRange#UNKNOWN}.
+     *
+     * @return the source range covering this node
      */
-    int line();
+    ProtobufTreeSourceRange range();
 
     /**
      * Indicates whether this tree node has been fully attributed during semantic analysis.
@@ -75,6 +79,35 @@ public sealed interface ProtobufTree
      * @return true if this node has a parent, false if it's the root node
      */
     boolean hasParent();
+
+    /**
+     * Capability interface for tree nodes that can have comments attached.
+     * <p>
+     * Both statements and the document itself can carry comments captured by the lexer:
+     * leading, trailing, and detached leading comments are categorized following
+     * {@code protoc}'s {@code Tokenizer::NextWithComments} algorithm.
+     * </p>
+     */
+    sealed interface WithComments
+            extends ProtobufTree
+            permits ProtobufDocumentTree, ProtobufStatement {
+        /**
+         * Returns the comments attached to this tree node, in source order.
+         *
+         * @return an unmodifiable sequenced collection of comments
+         */
+        SequencedCollection<ProtobufCommentStatement> comments();
+
+        /**
+         * Appends a comment to this tree node.
+         *
+         * <p>The parser uses this method to attach leading, trailing, and detached comments
+         * captured by the lexer to the node they belong to.
+         *
+         * @param comment the comment to append
+         */
+        void addComment(ProtobufCommentStatement comment);
+    }
 
     /**
      * Capability interface for tree nodes that have a field number/index.
@@ -286,6 +319,17 @@ public sealed interface ProtobufTree
             extends ProtobufTree
             permits ProtobufDocumentTree, ProtobufEnumStatement, ProtobufExtendStatement, ProtobufGroupStatement, ProtobufMessageStatement, ProtobufMethodStatement, ProtobufOneofStatement, ProtobufServiceStatement, ProtobufStatementWithBodyImpl {
         /**
+         * Returns the {@link ProtobufDocumentTree} that encloses this container.
+         *
+         * <p>For the document itself this returns {@code this}. For every other container the
+         * value is fixed at construction time by the parser, which threads the enclosing document
+         * through every nested constructor.
+         *
+         * @return the enclosing document
+         */
+        ProtobufDocumentTree document();
+
+        /**
          * Returns all direct children of this node.
          *
          * @return a sequenced collection of child statements
@@ -314,7 +358,7 @@ public sealed interface ProtobufTree
          * @param <V> the child type
          * @return an Optional containing the first matching child, or empty if none found
          */
-        <V extends ProtobufTree> Optional<? extends V> getDirectChildByType(Class<V> clazz);
+        <V extends ProtobufTree> Optional<V> getDirectChildByType(Class<V> clazz);
 
         /**
          * Returns a stream of all direct children of the specified type.
@@ -323,7 +367,7 @@ public sealed interface ProtobufTree
          * @param <V> the child type
          * @return a stream of matching children
          */
-        <V extends ProtobufTree> Stream<? extends V> getDirectChildrenByType(Class<V> clazz);
+        <V extends ProtobufTree> Stream<V> getDirectChildrenByType(Class<V> clazz);
 
         /**
          * Finds a direct child by name.
@@ -331,7 +375,7 @@ public sealed interface ProtobufTree
          * @param name the name to search for
          * @return an Optional containing the matching child, or empty if none found
          */
-        Optional<? extends WithName> getDirectChildByName(String name);
+        Optional<WithName> getDirectChildByName(String name);
 
         /**
          * Finds a direct child by index/field number.
@@ -339,7 +383,7 @@ public sealed interface ProtobufTree
          * @param index the index to search for
          * @return an Optional containing the matching child, or empty if none found
          */
-        Optional<? extends WithIndex> getDirectChildByIndex(long index);
+        Optional<WithIndex> getDirectChildByIndex(long index);
 
         /**
          * Finds a direct child by both name and type.
@@ -349,7 +393,7 @@ public sealed interface ProtobufTree
          * @param <V> the child type
          * @return an Optional containing the matching child, or empty if none found
          */
-        <V extends ProtobufTree> Optional<? extends V> getDirectChildByNameAndType(String name, Class<V> clazz);
+        <V extends ProtobufTree> Optional<V> getDirectChildByNameAndType(String name, Class<V> clazz);
 
         /**
          * Finds a direct child by both index and type.
@@ -359,7 +403,7 @@ public sealed interface ProtobufTree
          * @param <V> the child type
          * @return an Optional containing the matching child, or empty if none found
          */
-        <V extends ProtobufTree> Optional<? extends V> getDirectChildByIndexAndType(long index, Class<V> clazz);
+        <V extends ProtobufTree> Optional<V> getDirectChildByIndexAndType(long index, Class<V> clazz);
 
         /**
          * Finds the first descendant (direct or nested) of the specified type.
@@ -368,7 +412,7 @@ public sealed interface ProtobufTree
          * @param <V> the descendant type
          * @return an Optional containing the first matching descendant, or empty if none found
          */
-        <V extends ProtobufTree> Optional<? extends V> getAnyChildByType(Class<V> clazz);
+        <V extends ProtobufTree> Optional<V> getAnyChildByType(Class<V> clazz);
 
         /**
          * Finds a descendant by both name and type.
@@ -378,7 +422,7 @@ public sealed interface ProtobufTree
          * @param <V> the descendant type
          * @return an Optional containing the matching descendant, or empty if none found
          */
-        <V extends ProtobufTree.WithName> Optional<? extends V> getAnyChildByNameAndType(String name, Class<V> clazz);
+        <V extends ProtobufTree.WithName> Optional<V> getAnyChildByNameAndType(String name, Class<V> clazz);
 
         /**
          * Returns a stream of all descendants (direct or nested) of the specified type.
@@ -387,7 +431,7 @@ public sealed interface ProtobufTree
          * @param <V> the descendant type
          * @return a stream of matching descendants
          */
-        <V extends ProtobufTree> Stream<? extends V> getAnyChildrenByType(Class<V> clazz);
+        <V extends ProtobufTree> Stream<V> getAnyChildrenByType(Class<V> clazz);
 
         /**
          * Returns a stream of all descendants matching both name and type.
@@ -397,7 +441,7 @@ public sealed interface ProtobufTree
          * @param <V> the descendant type
          * @return a stream of matching descendants
          */
-        <V extends ProtobufTree.WithName> Stream<? extends V> getAnyChildrenByNameAndType(String name, Class<V> clazz);
+        <V extends ProtobufTree.WithName> Stream<V> getAnyChildrenByNameAndType(String name, Class<V> clazz);
     }
 
     sealed interface WithType

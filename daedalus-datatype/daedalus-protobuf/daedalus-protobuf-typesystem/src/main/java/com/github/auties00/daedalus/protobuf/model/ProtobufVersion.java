@@ -51,7 +51,7 @@ public enum ProtobufVersion {
      * The default protobuf version used when no version is explicitly specified.
      * Currently defaults to {@link #PROTOBUF_2}.
      */
-    private static final ProtobufVersion DEFAULT_VERSION = PROTOBUF_2;
+    public static final ProtobufVersion DEFAULT_VERSION = PROTOBUF_2;
 
     /**
      * A lookup map for efficient version resolution by version code string.
@@ -87,19 +87,6 @@ public enum ProtobufVersion {
      */
     public static Optional<ProtobufVersion> of(String name) {
         return Optional.ofNullable(BY_VERSION_CODE.get(name));
-    }
-
-    /**
-     * Returns the default protobuf version.
-     * <p>
-     * This is used when no explicit version is specified in protobuf processing.
-     * Currently returns {@link #PROTOBUF_2} for backward compatibility.
-     * </p>
-     *
-     * @return the default ProtobufVersion
-     */
-    public static ProtobufVersion defaultVersion() {
-        return DEFAULT_VERSION;
     }
 
     /**

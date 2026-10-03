@@ -1,8 +1,10 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.SequencedCollection;
 
 /**
@@ -15,7 +17,7 @@ import java.util.SequencedCollection;
  *
  * <p>Protobuf type {@code com.google.protobuf.Enum}
  */
-@ProtobufMessage
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
 public final class Enum {
 
     /**
@@ -66,6 +68,17 @@ public final class Enum {
     @ProtobufMessage.StringField(index = 6)
     String edition;
 
+    /**
+     * Constructs a new {@code Enum} with the specified field values.
+     *
+     * @param name the value of the {@code name} field
+     * @param enumvalue the values of the repeated {@code enumvalue} field
+     * @param options the values of the repeated {@code options} field
+     * @param sourceContext the value of the {@code source_context} field, or {@code null} if the
+     *                      field is not set
+     * @param syntax the value of the {@code syntax} field
+     * @param edition the value of the {@code edition} field
+     */
     Enum(
             String name,
             List<EnumValue> enumvalue,
@@ -82,26 +95,70 @@ public final class Enum {
         this.edition = edition;
     }
 
+    /**
+     * Returns the value of the {@code name} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code name} field
+     */
     public String name() {
         return name;
     }
 
+    /**
+     * Returns an unmodifiable view of the values of the repeated
+     * {@code enumvalue} field.
+     *
+     * @return an unmodifiable view of the values of the {@code enumvalue} field,
+     *         in encounter order
+     */
     public SequencedCollection<EnumValue> enumvalue() {
         return Collections.unmodifiableSequencedCollection(enumvalue);
     }
 
+    /**
+     * Returns an unmodifiable view of the values of the repeated
+     * {@code options} field.
+     *
+     * @return an unmodifiable view of the values of the {@code options} field,
+     *         in encounter order
+     */
     public SequencedCollection<Option> options() {
         return Collections.unmodifiableSequencedCollection(options);
     }
 
-    public SourceContext sourceContext() {
-        return sourceContext;
+    /**
+     * Returns the value of the {@code source_context} field, if present.
+     *
+     * @return an {@code Optional} containing the value of the {@code source_context}
+     *         field, or an empty {@code Optional} if the field is not set
+     */
+    public Optional<SourceContext> sourceContext() {
+        return Optional.ofNullable(sourceContext);
     }
 
+    /**
+     * Returns the value of the {@code syntax} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code syntax} field
+     */
     public Syntax syntax() {
         return syntax;
     }
 
+    /**
+     * Returns the value of the {@code edition} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code edition} field
+     */
     public String edition() {
         return edition;
     }

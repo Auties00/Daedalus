@@ -1,7 +1,8 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
 import com.google.protobuf.DescriptorProtos;
-import com.google.protobuf.OneofDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosOneofDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosOneofOptionsBuilder;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -68,17 +69,30 @@ public final class ProtobufOneofStatement
         extends ProtobufStatementImpl
         implements ProtobufStatement, ProtobufTree.WithName, ProtobufTree.WithBody<ProtobufOneofChild>,
                    ProtobufMessageChild, ProtobufGroupChild, ProtobufTree.WithDescriptor {
+    private final ProtobufDocumentTree document;
     private String name;
     private final List<ProtobufOneofChild> children;
 
     /**
-     * Constructs a new oneof statement at the specified line number.
+     * Constructs a new oneof statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param document the enclosing document
+     * @param range the source range covering this statement
      */
-    public ProtobufOneofStatement(int line) {
-        super(line);
+    public ProtobufOneofStatement(ProtobufDocumentTree document, ProtobufTreeSourceRange range) {
+        super(range);
+        this.document = document;
         this.children = new ArrayList<>();
+    }
+
+    /**
+     * Returns the {@link ProtobufDocumentTree} that encloses this oneof.
+     *
+     * @return the enclosing document
+     */
+    @Override
+    public ProtobufDocumentTree document() {
+        return document;
     }
 
     /**
@@ -134,9 +148,71 @@ public final class ProtobufOneofStatement
 
     @Override
     public DescriptorProtos.OneofDescriptorProto toDescriptor() {
-        return new OneofDescriptorProtoBuilder()
-                .name(name())
-                .build();
+        var builder = new DescriptorProtosOneofDescriptorProtoBuilder()
+                .name(name());
+        var oneofOptions = buildOneofOptions();
+        if (oneofOptions != null) {
+            builder.options(oneofOptions);
+        }
+        return builder.build();
+    }
+
+    /**
+     * Builds the {@link DescriptorProtos.OneofOptions} sub message for this oneof.
+     *
+     * <p>The {@code OneofOptions} message defined in {@code descriptor.proto} contains
+     * only three kinds of fields, none of which can be derived from a typical
+     * {@link ProtobufOptionStatement}:
+     * <ul>
+     * <li>{@code features} (field 1, {@code FeatureSet}): a structured sub message
+     *     that cannot be populated from a flat single segment option.
+     * <li>{@code uninterpreted_option} (field 999): reserved for unrecognized options
+     *     kept by the parser; this compiler does not propagate uninterpreted entries.
+     * <li>Custom user extensions (fields 1000 to max): user defined extensions that
+     *     are out of scope for the standard descriptor mapping.
+     * </ul>
+     *
+     * <p>As a result, there are no scalar or enum fields on {@code OneofOptions} that
+     * map cleanly from the AST, so this helper never produces a populated options
+     * instance. It returns {@code null} whenever no recognized option could be
+     * applied, which mirrors the {@code applied} flag pattern used by sibling
+     * descriptor builders, ensuring the enclosing descriptor does not attach an
+     * empty options sub message.
+     *
+     * @return the builder of a populated {@link DescriptorProtos.OneofOptions}, or
+     *         {@code null} if no recognized options were applied
+     */
+    private DescriptorProtosOneofOptionsBuilder buildOneofOptions() {
+        var optionStatements = getDirectChildrenByType(ProtobufOptionStatement.class).toList();
+        if (optionStatements.isEmpty()) {
+            return null;
+        }
+        var builder = new DescriptorProtosOneofOptionsBuilder();
+        var applied = false;
+        for (var option : optionStatements) {
+            if (!option.hasName() || !option.hasValue() || option.name().segments().size() != 1) {
+                continue;
+            }
+            var segment = option.name().segments().getFirst();
+            if (segment.isExtension()) {
+                continue;
+            }
+            // OneofOptions has no scalar or enum fields that are directly mappable
+            // from a single segment AST option. The only declared fields are
+            // features (FeatureSet), uninterpreted_option, and custom extensions.
+            // The features field is populated below from multi segment options.
+        }
+        var features = ProtobufTreeFeatures.featureSet(this);
+        if (features != null) {
+            builder.features(features);
+            applied = true;
+        }
+        var unknownExtensions = ProtobufTreeFeatures.collectUnknownExtensions(this);
+        if (!unknownExtensions.isEmpty()) {
+            builder.unknownFields(unknownExtensions);
+            applied = true;
+        }
+        return applied ? builder : null;
     }
 
     @Override
@@ -191,55 +267,55 @@ public final class ProtobufOneofStatement
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getDirectChildByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getDirectChildByType(Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getDirectChildrenByType(children, clazz)
                 .findFirst();
     }
 
     @Override
-    public <V extends ProtobufTree> Stream<? extends V> getDirectChildrenByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Stream<V> getDirectChildrenByType(Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getDirectChildrenByType(children, clazz);
     }
 
     @Override
-    public Optional<? extends WithName> getDirectChildByName(String name) {
+    public Optional<WithName> getDirectChildByName(String name) {
         return ProtobufStatementWithBodyImpl.getDirectChildByName(children, name);
     }
 
     @Override
-    public Optional<? extends WithIndex> getDirectChildByIndex(long index) {
+    public Optional<WithIndex> getDirectChildByIndex(long index) {
         return ProtobufStatementWithBodyImpl.getDirectChildByIndex(children, index);
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getDirectChildByNameAndType(String name, Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getDirectChildByNameAndType(String name, Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getDirectChildByNameAndType(children, name, clazz);
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getDirectChildByIndexAndType(long index, Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getDirectChildByIndexAndType(long index, Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getDirectChildByIndexAndType(children, index, clazz);
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getAnyChildByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getAnyChildByType(Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getAnyChildrenByType(children, clazz)
                 .findFirst();
     }
 
     @Override
-    public <V extends WithName> Optional<? extends V> getAnyChildByNameAndType(String name, Class<V> clazz) {
+    public <V extends WithName> Optional<V> getAnyChildByNameAndType(String name, Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getAnyChildrenByNameAndType(children, name, clazz)
                 .findFirst();
     }
 
     @Override
-    public <V extends ProtobufTree> Stream<? extends V> getAnyChildrenByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Stream<V> getAnyChildrenByType(Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getAnyChildrenByType(children, clazz);
     }
 
     @Override
-    public <V extends WithName> Stream<? extends V> getAnyChildrenByNameAndType(String name, Class<V> clazz) {
+    public <V extends WithName> Stream<V> getAnyChildrenByNameAndType(String name, Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getAnyChildrenByNameAndType(children, name, clazz);
     }
 }

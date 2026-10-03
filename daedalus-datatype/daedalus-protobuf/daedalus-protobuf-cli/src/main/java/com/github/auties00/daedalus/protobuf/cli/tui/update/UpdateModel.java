@@ -1,9 +1,10 @@
 package com.github.auties00.daedalus.protobuf.cli.tui.update;
 
+import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
+import com.github.auties00.daedalus.cli.tui.StatusBar;
 import com.williamcallahan.tui4j.compat.bubbletea.*;
 import com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig;
 import com.github.auties00.daedalus.cli.tui.Theme;
-import com.github.auties00.daedalus.cli.tui.shared.StatusBar;
 import com.github.auties00.daedalus.protobuf.cli.update.UpdateEngine;
 import com.github.auties00.daedalus.protobuf.cli.update.UpdatePlan;
 
@@ -103,7 +104,7 @@ public final class UpdateModel implements Model {
                 this.engine = eng;
                 var updatePlan = eng.computeUpdatePlan();
                 return new UpdatePlanReadyMessage(updatePlan);
-            } catch (IOException e) {
+            } catch (IOException | ProtobufParserException e) {
                 return new UpdateErrorMessage(e.getMessage());
             }
         };

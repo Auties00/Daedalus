@@ -1,46 +1,68 @@
 package com.github.auties00.daedalus.protobuf.processor;
 
+import com.github.auties00.daedalus.processor.model.DaedalusMixins;
+import com.github.auties00.daedalus.protobuf.processor.manager.ProtobufExceptionManager;
 import com.github.auties00.daedalus.processor.DaedalusProcessorExtension;
 import com.github.auties00.daedalus.processor.generator.DaedalusMethodGenerator;
 import com.github.auties00.daedalus.processor.graph.DaedalusConverterGraph;
 import com.github.auties00.daedalus.processor.manager.DaedalusLogManager;
+import com.github.auties00.daedalus.processor.manager.DaedalusMixinScopeManager;
+import com.github.auties00.daedalus.processor.util.DaedalusMixinInstanceUtils;
 import com.github.auties00.daedalus.processor.manager.DaedalusTypeManager;
 import com.github.auties00.daedalus.processor.model.DaedalusConverterElement;
 import com.github.auties00.daedalus.processor.model.DaedalusMethodElement;
 import com.github.auties00.daedalus.processor.model.DaedalusTypeElement;
 import com.github.auties00.daedalus.protobuf.annotation.*;
+import com.github.auties00.daedalus.protobuf.io.reader.ProtobufBinaryReader;
+import com.github.auties00.daedalus.protobuf.io.reader.ProtobufTextReader;
 import com.github.auties00.daedalus.protobuf.io.writer.ProtobufBinaryWriter;
+import com.github.auties00.daedalus.protobuf.io.writer.ProtobufTextWriter;
+import com.github.auties00.daedalus.protobuf.model.ProtobufEnumType;
+import com.github.auties00.daedalus.protobuf.model.ProtobufFieldPresence;
+import com.github.auties00.daedalus.protobuf.model.ProtobufRepeatedFieldEncoding;
 import com.github.auties00.daedalus.protobuf.model.ProtobufType;
-import com.github.auties00.daedalus.protobuf.processor.element.ProtobufBuilderParameterElement;
-import com.github.auties00.daedalus.protobuf.processor.element.ProtobufObjectElement;
-import com.github.auties00.daedalus.protobuf.processor.element.ProtobufReservedFieldElement;
-import com.github.auties00.daedalus.protobuf.processor.element.ProtobufUnknownFieldsElement;
-import com.github.auties00.daedalus.protobuf.processor.generator.*;
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
+import com.github.auties00.daedalus.protobuf.model.ProtobufUnknownFields;
+import com.github.auties00.daedalus.protobuf.processor.diagnostic.ProtobufProcessorErrors;
+import com.github.auties00.daedalus.protobuf.processor.element.*;
+import com.github.auties00.daedalus.protobuf.processor.generator.enumeration.ProtobufEnumDeserializationGenerator;
+import com.github.auties00.daedalus.protobuf.processor.generator.enumeration.ProtobufEnumSerializationGenerator;
+import com.github.auties00.daedalus.protobuf.processor.generator.ProtobufTextConverters;
+import com.github.auties00.daedalus.protobuf.processor.generator.ProtobufDeserializationGenerator;
+import com.github.auties00.daedalus.protobuf.processor.generator.ProtobufSerializationGenerator;
+import com.github.auties00.daedalus.protobuf.processor.generator.ProtobufSizeGenerator;
+import com.github.auties00.daedalus.protobuf.processor.generator.builder.ProtobufBuilderMethodGenerator;
+import com.github.auties00.daedalus.protobuf.processor.generator.builder.ProtobufBuilderTypeGenerator;
+import com.github.auties00.daedalus.protobuf.processor.generator.enumeration.ProtobufEnumSpecGenerator;
+import com.github.auties00.daedalus.protobuf.processor.generator.message.ProtobufMessageSpecGenerator;
 import com.github.auties00.daedalus.protobuf.processor.manager.ProtobufTypeManager;
 import com.github.auties00.daedalus.protobuf.processor.manager.ProtobufValidationManager;
-import com.github.auties00.daedalus.protobuf.processor.metadata.ProtobufEnumMetadata;
-import com.github.auties00.daedalus.protobuf.processor.metadata.ProtobufFieldMetadata;
+import com.github.auties00.daedalus.protobuf.processor.element.ParsedProtobufField;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufArrayFieldType;
 import com.github.auties00.daedalus.protobuf.processor.type.ProtobufCollectionFieldType;
 import com.github.auties00.daedalus.protobuf.processor.type.ProtobufFieldType;
 import com.github.auties00.daedalus.protobuf.processor.type.ProtobufMapFieldType;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufOneOfFieldType;
 import com.github.auties00.daedalus.protobuf.processor.type.ProtobufSimpleFieldType;
+import com.github.auties00.daedalus.protobuf.processor.type.ProtobufValueFieldType;
+import com.github.auties00.daedalus.typesystem.model.ClassModifier;
 import com.github.auties00.daedalus.typesystem.annotation.TypeBuilder;
 import com.github.auties00.daedalus.typesystem.annotation.TypeDefaultValue;
 import com.github.auties00.daedalus.typesystem.annotation.TypeDeserializer;
 import com.github.auties00.daedalus.typesystem.annotation.TypeSerializer;
-import com.sun.source.tree.*;
-import com.sun.source.util.Trees;
+import com.github.auties00.daedalus.typesystem.annotation.TypeSize;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.*;
+import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.util.*;
-import java.util.stream.IntStream;
 
 /**
  * A {@link DaedalusProcessorExtension} implementation for the Protocol Buffers data format.
@@ -55,6 +77,26 @@ import java.util.stream.IntStream;
  * and code generation.
  */
 public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
+    /**
+     * The minimum index of a field.
+     */
+    private static final int MIN_FIELD_INDEX = 1;
+
+    /**
+     * The maximum index of a field, which is the largest value that fits in the 29 bits
+     * of a field tag.
+     */
+    private static final int MAX_FIELD_INDEX = 536_870_911;
+
+    /**
+     * The first index of the range that Protocol Buffers reserves for its implementation.
+     */
+    private static final int MIN_IMPLEMENTATION_FIELD_INDEX = 19_000;
+
+    /**
+     * The last index of the range that Protocol Buffers reserves for its implementation.
+     */
+    private static final int MAX_IMPLEMENTATION_FIELD_INDEX = 19_999;
 
     @SuppressWarnings("unchecked")
     private static final Class<? extends Annotation>[] PARSABLE_ANNOTATIONS = new Class[]{
@@ -67,10 +109,6 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      */
     private ProcessingEnvironment processingEnv;
 
-    /**
-     * The compiler tree utilities for accessing AST nodes.
-     */
-    private Trees trees;
 
     /**
      * The protobuf specific type utility.
@@ -93,25 +131,21 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
     private DaedalusConverterGraph converterGraph;
 
     /**
-     * The cached type mirror for the {@code int} primitive type.
-     */
-    private TypeMirror intType;
-
-    /**
-     * The cached type mirror for the {@link ProtobufBinaryWriter} type.
-     */
-    private TypeMirror outputStreamType;
-
-    /**
-     * The cached type mirror for the serialized form of a protobuf message.
-     */
-    private TypeMirror serializedMessageType;
-
-    /**
      * The set of fully qualified type names that have already been linked into
      * the converter graph, used to avoid duplicate linking.
      */
     private Set<String> linkedTypes;
+
+    /**
+     * The mixins whose converters have already been linked into the converter graph,
+     * used to link each mixin once, as the graph is shared by every field.
+     */
+    private Set<TypeElement> linkedMixins;
+
+    /**
+     * The mixin scope resolver for auto-applying scoped mixins.
+     */
+    private DaedalusMixinScopeManager mixinScopeResolver;
 
     /**
      * {@inheritDoc}
@@ -146,14 +180,14 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
                 ProtobufMessage.BytesField.class.getCanonicalName(),
                 ProtobufMessage.MessageField.class.getCanonicalName(),
                 ProtobufMessage.MapField.class.getCanonicalName(),
+                ProtobufMessage.OneOfField.class.getCanonicalName(),
                 ProtobufMessage.UnknownFields.class.getCanonicalName(),
-                ProtobufMessage.UnknownFields.Setter.class.getCanonicalName(),
                 ProtobufEnum.class.getCanonicalName(),
                 ProtobufEnum.Constant.class.getCanonicalName(),
                 ProtobufAccessor.class.getCanonicalName(),
                 ProtobufReservedRange.class.getCanonicalName(),
-                ProtobufFieldParameter.class.getCanonicalName(),
-                ProtobufSyntheticParameter.class.getCanonicalName()
+                ProtobufBuilderParameter.Field.class.getCanonicalName(),
+                ProtobufBuilderParameter.Synthetic.class.getCanonicalName()
         );
     }
 
@@ -161,16 +195,14 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * {@inheritDoc}
      */
     @Override
-    public void init(ProcessingEnvironment processingEnv, DaedalusTypeManager types, DaedalusLogManager messages) {
+    public void init(ProcessingEnvironment processingEnv, DaedalusTypeManager types, DaedalusLogManager messages, DaedalusMixinScopeManager mixinScopeResolver) {
         this.processingEnv = processingEnv;
         this.protobufTypes = new ProtobufTypeManager(processingEnv);
         this.messages = messages;
         this.checks = new ProtobufValidationManager(protobufTypes, messages);
-        this.trees = Trees.instance(processingEnv);
-        this.intType = protobufTypes.getType(int.class);
-        this.outputStreamType = protobufTypes.getType(ProtobufBinaryWriter.class);
-        this.serializedMessageType = protobufTypes.getType(void.class);
         this.linkedTypes = new HashSet<>();
+        this.linkedMixins = new HashSet<>();
+        this.mixinScopeResolver = mixinScopeResolver;
     }
 
     /**
@@ -179,6 +211,17 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
     @Override
     public boolean isManagedType(TypeMirror type) {
         return protobufTypes.isObject(type);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>A protobuf enum may convert its values to and from their index with its own
+     * converters, which its generated Spec class delegates to.
+     */
+    @Override
+    public boolean allowsDeclaredConverters(TypeMirror type) {
+        return protobufTypes.isEnum(type);
     }
 
     /**
@@ -193,7 +236,7 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * {@inheritDoc}
      */
     @Override
-    public List<? extends DaedalusTypeElement> processObjects(
+    public SequencedCollection<? extends DaedalusTypeElement> processObjects(
             RoundEnvironment roundEnv,
             DaedalusConverterGraph converterGraph
     ) {
@@ -211,30 +254,65 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * {@inheritDoc}
      */
     @Override
-    public void generateCode(List<? extends DaedalusTypeElement> objects) {
+    public void generateCode(SequencedCollection<? extends DaedalusTypeElement> objects) {
+        warnSlowPackedFields(objects);
+        warnBinaryOnlyFields(objects);
+        if (!checkNestedBuilders(objects)) {
+            return;
+        }
+
         TypeElement currentElement = null;
+        var exceptions = new ProtobufExceptionManager(processingEnv.getElementUtils(), objects);
         try {
             for (var object : objects) {
-                if (!(object instanceof ProtobufObjectElement protobufObject)) {
+                if (!(object instanceof ProtobufTypeElement protobufType)) {
                     continue;
                 }
-                currentElement = protobufObject.typeElement();
-                var packageName = processingEnv.getElementUtils().getPackageOf(protobufObject.typeElement());
-                var specVisitor = new ProtobufObjectSpecGenerator(processingEnv.getFiler());
-                specVisitor.createClass(protobufObject, packageName);
+                currentElement = protobufType.typeElement();
+                var packageName = processingEnv.getElementUtils().getPackageOf(protobufType.typeElement());
+                switch (protobufType) {
+                    case ProtobufMessageElement protobufMessage -> {
+                        var specVisitor = new ProtobufMessageSpecGenerator(processingEnv.getFiler(), exceptions);
+                        specVisitor.createClass(protobufMessage, packageName);
+                        var typeGenerator = new ProtobufBuilderTypeGenerator(processingEnv.getFiler(), protobufTypes, exceptions);
+                        typeGenerator.createClass(packageName.getQualifiedName().toString(), protobufMessage);
+                        for (var builder : protobufMessage.builders()) {
+                            // A builder without a name was reported by checkBuilderParameters
+                            if (builder.name().isEmpty()) {
+                                continue;
+                            }
 
-                if (protobufObject.type() == ProtobufObjectElement.Type.MESSAGE || protobufObject.type() == ProtobufObjectElement.Type.GROUP) {
-                    var typeGenerator = new ProtobufBuilderTypeGenerator(processingEnv.getFiler());
-                    typeGenerator.createClass(packageName.getQualifiedName().toString(), protobufObject);
-                    for (var builder : protobufObject.builders()) {
-                        var methodGenerator = new ProtobufBuilderMethodGenerator(processingEnv.getFiler());
-                        methodGenerator.createClass(packageName.getQualifiedName().toString(), protobufObject, builder);
+                            var methodGenerator = new ProtobufBuilderMethodGenerator(processingEnv.getFiler(), protobufTypes);
+                            methodGenerator.createClass(packageName.getQualifiedName().toString(), protobufMessage, builder);
+                        }
+                    }
+                    case ProtobufEnumElement protobufEnum -> {
+                        var specVisitor = new ProtobufEnumSpecGenerator(processingEnv.getFiler(), exceptions);
+                        specVisitor.createClass(protobufEnum, packageName);
                     }
                 }
             }
         } catch (IOException throwable) {
-            messages.printError("An error occurred while processing protobuf: " + Objects.requireNonNullElse(throwable.getMessage(), throwable.getClass().getName()), currentElement);
+            messages.printError(ProtobufProcessorErrors.generationFailed(currentElement, throwable), currentElement);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Returns the four concrete I/O types used by generated protobuf spec classes:
+     * {@link ProtobufBinaryReader}, {@link ProtobufBinaryWriter},
+     * {@link ProtobufTextReader}, and
+     * {@link ProtobufTextWriter}.
+     */
+    @Override
+    public Set<TypeMirror> supportedIOTypes() {
+        return Set.of(
+                protobufTypes.getType(ProtobufBinaryReader.class),
+                protobufTypes.getType(ProtobufBinaryWriter.class),
+                protobufTypes.getType(ProtobufTextReader.class),
+                protobufTypes.getType(ProtobufTextWriter.class)
+        );
     }
 
     /**
@@ -244,7 +322,12 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param object the type element to process
      * @return the set of processed protobuf objects, possibly empty
      */
-    private Set<ProtobufObjectElement> processElement(TypeElement object) {
+    private Set<ProtobufTypeElement> processElement(TypeElement object) {
+        // Any kind of type can be a protobuf enum, including sealed interfaces and abstract classes
+        if (object.getAnnotation(ProtobufEnum.class) != null) {
+            return isEnumVariant(object) ? Set.of() : processEnum(object);
+        }
+
         if (object.getModifiers().contains(Modifier.ABSTRACT)) {
             return Set.of();
         }
@@ -257,28 +340,220 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
     }
 
     /**
+     * Returns the element that declares the given field in the source code, which diagnostics
+     * about the field are reported on.
+     *
+     * <p>The accessor of a record component is implicitly declared, so it has no position in
+     * the source code: the record component is returned instead.
+     *
+     * @param field the field
+     * @return the element that declares the field
+     */
+    private Element getDeclaration(ProtobufFieldElement field) {
+        if (field.accessor() instanceof ExecutableElement method && isRecordComponentAccessor(method)) {
+            var record = (TypeElement) method.getEnclosingElement();
+            for (var component : record.getRecordComponents()) {
+                if (method.equals(component.getAccessor())) {
+                    return component;
+                }
+            }
+        }
+        return field.accessor();
+    }
+
+    /**
+     * Checks that the builder of every message held by a field is accessible from the builder
+     * of the message that declares the field, which holds it to merge the occurrences of the
+     * field.
+     *
+     * <p>A builder is accessible if it is public, or if it is in the same package. Whether a
+     * field holds the builder of a message is only known once the converters are attributed,
+     * which happens before the code is generated.
+     *
+     * @param objects the processed objects
+     * @return {@code true} if every builder is accessible, {@code false} if an error was
+     *         reported, in which case no code can be generated
+     */
+    private boolean checkNestedBuilders(SequencedCollection<? extends DaedalusTypeElement> objects) {
+        var elements = processingEnv.getElementUtils();
+        var valid = true;
+        for (var object : objects) {
+            if (!(object instanceof ProtobufMessageElement message)) {
+                continue;
+            }
+
+            var packageElement = elements.getPackageOf(message.typeElement());
+            for (var field : getFieldsAndCases(message)) {
+                var nestedMessage = field.type().builderMessage();
+                if (nestedMessage.isEmpty()) {
+                    continue;
+                }
+
+                var nestedElement = (TypeElement) nestedMessage.get().asElement();
+                var nestedAnnotation = nestedElement.getAnnotation(ProtobufMessage.class);
+                if (Arrays.asList(nestedAnnotation.defaultBuilderModifiers()).contains(ClassModifier.PUBLIC) || elements.getPackageOf(nestedElement).equals(packageElement)) {
+                    continue;
+                }
+
+                var builderName = DaedalusMethodGenerator.getBuilderByType(nestedMessage.get());
+                messages.printError(ProtobufProcessorErrors.fieldBuilderNotAccessible(field.name(), nestedMessage.get(), builderName), getDeclaration(field));
+                valid = false;
+            }
+        }
+        return valid;
+    }
+
+    /**
+     * Warns about every packed field that is not written and read in bulk, because its value
+     * cannot be converted to and from an array of the primitive type of its wire values.
+     *
+     * <p>The outcome of the optional converters that decide it is only known once the
+     * converters are attributed, which happens before the code is generated.
+     *
+     * @param objects the processed objects
+     */
+    private void warnSlowPackedFields(SequencedCollection<? extends DaedalusTypeElement> objects) {
+        for (var object : objects) {
+            if (!(object instanceof ProtobufMessageElement message)) {
+                continue;
+            }
+
+            for (var field : message.fields()) {
+                var slowType = switch (field.type()) {
+                    case ProtobufCollectionFieldType collectionType when !collectionType.bulk() -> collectionType;
+                    case ProtobufArrayFieldType arrayType when !arrayType.bulk() -> arrayType;
+                    default -> null;
+                };
+                if (field.packed() && slowType != null) {
+                    var bulkType = ProtobufArrayFieldType.getBulkComponentType(slowType.protobufType()) + "[]";
+                    messages.printWarning(ProtobufProcessorErrors.fieldPackedNotBulk(slowType.descriptorElementType(), slowType.protobufType(), bulkType), getDeclaration(field));
+                }
+            }
+        }
+    }
+
+    /**
+     * Warns about every field whose value is converted by a converter that uses the binary
+     * format directly and has no text overload, as the field cannot be written to, or read
+     * from, the text format.
+     *
+     * <p>The converters of a field are only known once they are attributed, which happens
+     * before the code is generated.
+     *
+     * @param objects the processed objects
+     */
+    private void warnBinaryOnlyFields(SequencedCollection<? extends DaedalusTypeElement> objects) {
+        for (var object : objects) {
+            if (!(object instanceof ProtobufMessageElement message)) {
+                continue;
+            }
+
+            for (var field : getFieldsAndCases(message)) {
+                var converter = ProtobufTextConverters.findBinaryOnlySerializer(field.type())
+                        .or(() -> field.isSynthetic() ? Optional.empty() : ProtobufTextConverters.findBinaryOnlyDeserializer(field.type()));
+                if (converter.isPresent()) {
+                    var converterName = converter.get().ownerName() + "." + converter.get().name();
+                    messages.printWarning(ProtobufProcessorErrors.fieldBinaryOnlyConverter(field.textName(), converterName), getDeclaration(field));
+                }
+            }
+        }
+    }
+
+    /**
+     * Returns whether the given protobuf enum is a permitted subtype of a sealed protobuf
+     * enum, whose values it is part of: it is encoded through its parent, so it is not
+     * processed on its own.
+     *
+     * @param object the protobuf enum type element
+     * @return {@code true} if a direct supertype of the type is a protobuf enum
+     */
+    private boolean isEnumVariant(TypeElement object) {
+        if (protobufTypes.isEnum(object.getSuperclass())) {
+            return true;
+        }
+        for (var supertype : object.getInterfaces()) {
+            if (protobufTypes.isEnum(supertype)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Processes a class or record annotated with {@link ProtobufMessage}.
      *
      * @param typeElement the class or record type element
      * @return the set of processed protobuf objects
      */
-    private Set<ProtobufObjectElement> processObject(TypeElement typeElement) {
+    private Set<ProtobufTypeElement> processObject(TypeElement typeElement) {
         var messageAnnotation = typeElement.getAnnotation(ProtobufMessage.class);
         if (messageAnnotation != null) {
             var deserializer = getObjectDeserializer(typeElement)
                     .orElse(null);
-            Set<? extends ProtobufReservedFieldElement> reserved = ProtobufReservedFieldElement.of(messageAnnotation);
-            var messageElement = ProtobufObjectElement.ofMessage(typeElement, deserializer, reserved);
+            var reserved = ProtobufReservedFieldElement.of(messageAnnotation);
+            var builderModifiers = checkBuilderModifiers(typeElement, messageAnnotation.defaultBuilderModifiers());
+            var messageElement = new ProtobufMessageElement(typeElement, messageAnnotation.version(), builderModifiers, deserializer, reserved);
             var results = processObject(messageElement, messageElement.typeElement());
             linkMessage(typeElement.asType());
-            if (!hasPropertiesConstructor(messageElement)) {
-                messages.printError("Missing protobuf constructor: a protobuf message must provide a constructor that takes as parameters only its properties, following their declaration order, and, if present, its unknown fields wrapper", messageElement.typeElement());
-            }
+            checkFieldsConstructor(messageElement);
+            checkBuilderParameters(messageElement);
             return results;
         }
 
         // An error will be printed by the preliminary checks
         return Set.of();
+    }
+
+    /**
+     * Checks that the modifiers of the builder of the given message can be applied to a top
+     * level class that the Spec class of the message instantiates, which are
+     * {@link ClassModifier#PUBLIC} and {@link ClassModifier#FINAL}, and returns the ones that
+     * can.
+     *
+     * <p>Every other modifier is reported as an error, and left out of the returned ones, so
+     * that the message is still processed, and the messages that reference it do not report
+     * errors caused by this one.
+     *
+     * @param typeElement the message
+     * @param modifiers the modifiers of the builder of the message
+     * @return the modifiers of the builder that are legal
+     */
+    private ClassModifier[] checkBuilderModifiers(TypeElement typeElement, ClassModifier[] modifiers) {
+        var legal = new ArrayList<ClassModifier>();
+        for (var modifier : modifiers) {
+            switch (modifier) {
+                case PUBLIC, FINAL -> legal.add(modifier);
+                default -> messages.printError(ProtobufProcessorErrors.builderInvalidModifier(modifier), typeElement);
+            }
+        }
+        return legal.toArray(ClassModifier[]::new);
+    }
+
+    /**
+     * Checks that every builder declared on the given message with {@link TypeBuilder} has a
+     * name, so that it does not clash with the builder that is always generated for the
+     * message, and that every builder parameter annotated with
+     * {@link ProtobufBuilderParameter.Field} maps to a field of the message.
+     *
+     * @param messageElement the protobuf message element whose builders are checked
+     */
+    private void checkBuilderParameters(ProtobufMessageElement messageElement) {
+        for (var builder : messageElement.builders()) {
+            if (builder.name().isEmpty()) {
+                var builderName = DaedalusMethodGenerator.getBuilderByType(messageElement.typeElement().asType());
+                messages.printError(ProtobufProcessorErrors.builderMissingName(builderName), builder.delegate());
+            }
+
+            for (var parameter : builder.parameters()) {
+                if (!(parameter instanceof ProtobufBuilderParameterElement.Field field)) {
+                    continue;
+                }
+
+                if (messageElement.indexOwner(field.fieldIndex()).isEmpty()) {
+                    messages.printError(ProtobufProcessorErrors.builderUnknownFieldIndex(field.fieldIndex()), field.element());
+                }
+            }
+        }
     }
 
     /**
@@ -300,7 +575,7 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
             }
 
             if (deserializer != null) {
-                messages.printError("Duplicated protobuf builder delegate: a message or group should provide only one method annotated with @TypeDeserializer", method);
+                messages.printError(ProtobufProcessorErrors.messageDuplicatedDeserializer(method, deserializer.name()), method);
                 continue;
             }
 
@@ -317,8 +592,8 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param typeElement the current type element in the hierarchy
      * @return the set of protobuf objects discovered during processing
      */
-    private Set<ProtobufObjectElement> processObject(ProtobufObjectElement messageElement, TypeElement typeElement) {
-        Set<ProtobufObjectElement> results = new HashSet<>();
+    private Set<ProtobufTypeElement> processObject(ProtobufMessageElement messageElement, TypeElement typeElement) {
+        Set<ProtobufTypeElement> results = new HashSet<>();
 
         // Add the element being processed only if we are not processing a super class
         if (messageElement.typeElement() == typeElement) {
@@ -356,30 +631,78 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
 
     /**
      * Processes a method in a class or record annotated with {@link ProtobufMessage},
-     * handling builder, accessor, serializer, and deserializer annotations.
+     * handling field, builder, accessor, serializer, and deserializer annotations.
+     *
+     * <p>A method annotated with a field annotation declares a synthetic field, whose
+     * value is the value returned by the method: it is serialized, but not deserialized.
      *
      * @param messageElement the enclosing protobuf message element
      * @param executableElement the method to process
      */
-    private void processObjectMethod(ProtobufObjectElement messageElement, ExecutableElement executableElement) {
+    private void processObjectMethod(ProtobufMessageElement messageElement, ExecutableElement executableElement) {
+        // The accessor of a record component inherits the field annotation of the component
+        var oneOfAnnotation = executableElement.getAnnotation(ProtobufMessage.OneOfField.class);
+        if (oneOfAnnotation != null && !isRecordComponentAccessor(executableElement)) {
+            processOneOfField(messageElement, executableElement, oneOfAnnotation);
+            return;
+        }
+
+        var propertyAnnotation = ParsedProtobufField.of(executableElement);
+        if (propertyAnnotation.isPresent() && !isRecordComponentAccessor(executableElement)) {
+            processMessageProperty(messageElement, executableElement, propertyAnnotation.get());
+            return;
+        }
+
         var builder = executableElement.getAnnotation(TypeBuilder.class);
         if (builder != null) {
             var parameters = executableElement.getParameters()
                     .stream()
-                    .map(ProtobufBuilderParameterElement::new)
+                    .map(param -> {
+                        var fieldParam = param.getAnnotation(ProtobufBuilderParameter.Field.class);
+                        if (fieldParam != null) {
+                            return (ProtobufBuilderParameterElement) new ProtobufBuilderParameterElement.Field(param, fieldParam.index());
+                        }
+                        return (ProtobufBuilderParameterElement) new ProtobufBuilderParameterElement.Synthetic(param);
+                    })
                     .toList();
-            messageElement.addBuilder(builder.name(), parameters, executableElement);
-            return;
+            messageElement.addBuilder(
+                    builder.name(),
+                    builder.modifiers(),
+                    builder.buildMethodName(),
+                    builder.settersMethodName(),
+                    parameters,
+                    executableElement
+            );
+        } else {
+            var getter = executableElement.getAnnotation(ProtobufAccessor.class);
+            if (getter != null) {
+                handleMessageGetter(messageElement, executableElement, getter);
+            } else {
+                processObjectSerializer(executableElement);
+                processObjectSizer(executableElement);
+                processObjectDeserializer(executableElement);
+            }
+        }
+    }
+
+    /**
+     * Returns whether the given method is the accessor of a record component.
+     *
+     * @param method the method to check
+     * @return {@code true} if the method is enclosed by a record and accesses one of its
+     *         components
+     */
+    private boolean isRecordComponentAccessor(ExecutableElement method) {
+        if (!(method.getEnclosingElement() instanceof TypeElement typeElement) || typeElement.getKind() != ElementKind.RECORD) {
+            return false;
         }
 
-        var getter = executableElement.getAnnotation(ProtobufAccessor.class);
-        if (getter != null) {
-            handleMessageGetter(messageElement, executableElement, getter);
-            return;
+        for (var component : typeElement.getRecordComponents()) {
+            if (method.equals(component.getAccessor())) {
+                return true;
+            }
         }
-
-        processObjectSerializer(executableElement);
-        processObjectDeserializer(executableElement);
+        return false;
     }
 
     /**
@@ -396,7 +719,7 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
         var from = executableElement.getParameters().getFirst().asType();
         var to = executableElement.getReturnType();
         var method = DaedalusMethodElement.of(executableElement, protobufTypes.isParametrized(executableElement), deserializer.warning());
-        converterGraph.link(from, to, method);
+        converterGraph.linkDeserializer(from, to, method);
     }
 
     /**
@@ -410,10 +733,38 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
             return;
         }
 
-        var from = !executableElement.getParameters().isEmpty() ? executableElement.getParameters().getFirst().asType() : executableElement.getEnclosingElement().asType();
+        // An instance serializer of the type of the value receives it as this, while a static one or one of a mixin instance receives it as its first parameter
+        var from = DaedalusMixinInstanceUtils.receivesValueAsFirstParameter(executableElement) && !executableElement.getParameters().isEmpty()
+                ? executableElement.getParameters().getFirst().asType()
+                : executableElement.getEnclosingElement().asType();
         var to = executableElement.getReturnType();
         var method = DaedalusMethodElement.of(executableElement, protobufTypes.isParametrized(executableElement), serializer.warning());
-        converterGraph.link(from, to, method);
+        converterGraph.linkSerializer(from, to, method);
+    }
+
+    /**
+     * Attaches a method annotated with {@link TypeSize} as the sizer for its declared
+     * value type. The graph either updates an already-registered serializer node or
+     * stores the sizer as an orphan to be consumed by a future serializer registration.
+     *
+     * <p>Mixin sizers are static and take the value type as their first parameter,
+     * while non-mixin sizers are instance methods whose enclosing type is the
+     * value type.
+     *
+     * @param executableElement the method to process
+     */
+    private void processObjectSizer(ExecutableElement executableElement) {
+        var sizeAnnotation = executableElement.getAnnotation(TypeSize.class);
+        if (sizeAnnotation == null) {
+            return;
+        }
+
+        var enclosingType = executableElement.getEnclosingElement().asType();
+        var valueType = protobufTypes.isMixin(enclosingType) && !executableElement.getParameters().isEmpty()
+                ? executableElement.getParameters().getFirst().asType()
+                : enclosingType;
+        var method = DaedalusMethodElement.of(executableElement, protobufTypes.isParametrized(executableElement), "");
+        converterGraph.attachSizer(valueType, method);
     }
 
     /**
@@ -423,11 +774,11 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param executableElement the getter method
      * @param getter the accessor annotation
      */
-    private void handleMessageGetter(ProtobufObjectElement messageElement, ExecutableElement executableElement, ProtobufAccessor getter) {
+    private void handleMessageGetter(ProtobufMessageElement messageElement, ExecutableElement executableElement, ProtobufAccessor getter) {
         if (hasMatchedProperty(messageElement, getter)) {
             return;
         }
-        messages.printError("Invalid getter: there is no property with index \"" + getter.index() + "\" in \"" + messageElement.typeElement().getQualifiedName().toString() + "\"", executableElement);
+        messages.printError(ProtobufProcessorErrors.accessorUnknownIndex(executableElement, getter.index(), messageElement.typeElement()), executableElement);
     }
 
     /**
@@ -437,56 +788,95 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param getter the accessor annotation
      * @return {@code true} if a matching property exists
      */
-    private boolean hasMatchedProperty(ProtobufObjectElement messageElement, ProtobufAccessor getter) {
-        return messageElement.protobufProperties()
-                .stream()
-                .anyMatch(entry -> !(entry.type().descriptorElementType() instanceof ExecutableElement) && entry.index() == getter.index());
+    private boolean hasMatchedProperty(ProtobufMessageElement messageElement, ProtobufAccessor getter) {
+        return messageElement.indexOwner(getter.index())
+                .filter(entry -> !entry.isSynthetic())
+                .isPresent();
     }
 
     /**
-     * Returns whether the given message has a constructor whose parameters match
-     * its properties in declaration order, optionally including unknown fields.
+     * Checks that the given message has a constructor whose parameters match its
+     * properties in declaration order, optionally including unknown fields. If no
+     * matching constructor is found, prints an error showing the expected signature
+     * and all constructors that were found.
      *
      * @param message the protobuf message element
-     * @return {@code true} if a matching constructor exists
      */
-    private boolean hasPropertiesConstructor(ProtobufObjectElement message) {
-        var unknownFieldsType = message.unknownFieldsElement()
+    private void checkFieldsConstructor(ProtobufMessageElement message) {
+        var unknownFieldsElement = message.unknownFieldsElement()
                 .orElse(null);
-        var properties = message.protobufProperties()
+        var fields = message.fields()
                 .stream()
-                .filter(property -> !property.synthetic())
+                .filter(field -> !field.isSynthetic())
                 .toList();
-        return message.typeElement()
+
+        // A field that was rejected already reported why, and the expected constructor would not include it
+        if (fields.size() != countDeclaredFields(message.typeElement())) {
+            return;
+        }
+
+        var constructors = message.typeElement()
                 .getEnclosedElements()
                 .stream()
                 .filter(entry -> entry.getKind() == ElementKind.CONSTRUCTOR)
                 .map(entry -> (ExecutableElement) entry)
-                .anyMatch(constructor -> {
-                    var constructorParameters = constructor.getParameters();
-                    if (properties.size() + (unknownFieldsType != null ? 1 : 0) != constructorParameters.size()) {
-                        return false;
-                    }
+                .toList();
+        var expectedParamCount = fields.size() + (unknownFieldsElement != null ? 1 : 0);
+        for (var constructor : constructors) {
+            var constructorParameters = constructor.getParameters();
+            if (expectedParamCount != constructorParameters.size()) {
+                continue;
+            }
 
-                    var propertiesIterator = properties.iterator();
-                    var constructorParametersIterator = constructorParameters.iterator();
-                    var foundUnknownFieldsParam = false;
-                    while (propertiesIterator.hasNext() && constructorParametersIterator.hasNext()) {
-                        var property = propertiesIterator.next();
-                        var constructorParameter = constructorParametersIterator.next();
-                        if (unknownFieldsType != null && protobufTypes.isAssignable(constructorParameter.asType(), property.type().descriptorElementType())) {
-                            if (foundUnknownFieldsParam) {
-                                messages.printError("Duplicated protobuf unknown fields parameter: a protobuf constructor should provide only one parameter whose type can be assigned to the field annotated with @ProtobufUnknownFields", constructorParameter);
-                            }
+            var propertiesMatch = true;
+            for (var i = 0; i < fields.size(); i++) {
+                var property = fields.get(i);
+                var parameter = constructorParameters.get(i);
+                if (!protobufTypes.isAssignable(property.type().descriptorElementType(), parameter.asType())) {
+                    propertiesMatch = false;
+                    break;
+                }
+            }
+            if (!propertiesMatch) {
+                continue;
+            }
 
-                            foundUnknownFieldsParam = true;
-                        } else if (!protobufTypes.isAssignable(property.type().descriptorElementType(), constructorParameter.asType())) {
-                            return false;
-                        }
-                    }
+            if (unknownFieldsElement != null) {
+                var unknownFieldsParameter = constructorParameters.get(fields.size());
+                if (!protobufTypes.isAssignable(unknownFieldsParameter.asType(), unknownFieldsElement.type())) {
+                    continue;
+                }
+            }
 
-                    return unknownFieldsType == null || foundUnknownFieldsParam;
-                });
+            return;
+        }
+
+        List<String> expectedParameters = new ArrayList<>();
+        for (var property : fields) {
+            expectedParameters.add(property.type().descriptorElementType() + " " + property.name());
+        }
+        if (unknownFieldsElement != null) {
+            expectedParameters.add(unknownFieldsElement.type() + " " + unknownFieldsElement.field().getSimpleName());
+        }
+
+        messages.printError(ProtobufProcessorErrors.messageMissingConstructor(message.typeElement(), expectedParameters, constructors), message.typeElement());
+    }
+
+    /**
+     * Returns the number of fields, declared by the given type and by its superclasses,
+     * that are annotated with a field annotation.
+     *
+     * @param typeElement the type whose fields are counted
+     * @return the number of fields
+     */
+    private long countDeclaredFields(TypeElement typeElement) {
+        var count = typeElement.getEnclosedElements()
+                .stream()
+                .filter(element -> element instanceof VariableElement && !ParsedProtobufField.annotationNames(element).isEmpty())
+                .count();
+        return count + protobufTypes.getDirectSuperClass(typeElement)
+                .map(this::countDeclaredFields)
+                .orElse(0L);
     }
 
     /**
@@ -497,8 +887,13 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param variableElement the field to process
      * @return the set of protobuf objects discovered during processing
      */
-    private Set<ProtobufObjectElement> processObjectField(ProtobufObjectElement messageElement, VariableElement variableElement) {
-        var propertyAnnotation = ProtobufFieldMetadata.of(variableElement);
+    private Set<ProtobufTypeElement> processObjectField(ProtobufMessageElement messageElement, VariableElement variableElement) {
+        var oneOfAnnotation = variableElement.getAnnotation(ProtobufMessage.OneOfField.class);
+        if (oneOfAnnotation != null) {
+            return processOneOfField(messageElement, variableElement, oneOfAnnotation);
+        }
+
+        var propertyAnnotation = ParsedProtobufField.of(variableElement);
         if (propertyAnnotation.isPresent()) {
             return processMessageProperty(messageElement, variableElement, propertyAnnotation.get());
         }
@@ -518,9 +913,10 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param variableElement the annotated field
      * @param unknownFieldsAnnotation the unknown fields annotation
      */
-    private void processMessageUnknownFields(ProtobufObjectElement messageElement, VariableElement variableElement, ProtobufMessage.UnknownFields unknownFieldsAnnotation) {
-        if (messageElement.unknownFieldsElement().isPresent()) {
-            messages.printError("Duplicated protobuf unknown fields: a message should provide only one method field annotated with @ProtobufUnknownFields", variableElement);
+    private void processMessageUnknownFields(ProtobufMessageElement messageElement, VariableElement variableElement, ProtobufMessage.UnknownFields unknownFieldsAnnotation) {
+        var existingUnknownFields = messageElement.unknownFieldsElement();
+        if (existingUnknownFields.isPresent()) {
+            messages.printError(ProtobufProcessorErrors.unknownFieldsDuplicated(variableElement, existingUnknownFields.get().field()), variableElement);
             return;
         }
 
@@ -535,193 +931,656 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
     }
 
     /**
-     * Processes the type and setter for an unknown fields field.
+     * Processes the type of an unknown fields field, validating that the
+     * field's declared type is compatible with
+     * {@link com.github.auties00.daedalus.protobuf.model.ProtobufUnknownFields}
+     * either directly or via a registered conversion mixin, and that it can be read.
      *
-     * @param variableElement the annotated field
+     * <p>A field whose type is not a store needs a mixin with a static method that converts
+     * it to a store, and one that converts a store to it.
+     *
+     * @param variableElement         the annotated field
      * @param unknownFieldsAnnotation the unknown fields annotation
      * @return the unknown fields element, if valid
      */
     private Optional<ProtobufUnknownFieldsElement> processUnknownFieldsField(VariableElement variableElement, ProtobufMessage.UnknownFields unknownFieldsAnnotation) {
         var unknownFieldsType = variableElement.asType();
-        if (!(unknownFieldsType instanceof DeclaredType unknownFieldsDeclaredType)) {
-            messages.printError("Type error: variables annotated with @ProtobufUnknownFields must have an object type", variableElement);
+        if (!(unknownFieldsType instanceof DeclaredType)) {
+            messages.printError(ProtobufProcessorErrors.unknownFieldsNotDeclaredType(variableElement), variableElement);
             return Optional.empty();
         }
 
+        var accessor = getUnknownFieldsAccessor(variableElement);
+        if (accessor.isEmpty()) {
+            messages.printError(ProtobufProcessorErrors.unknownFieldsMissingAccessor(variableElement), variableElement);
+            return Optional.empty();
+        }
+
+        // Every format collects its unknown fields in a ProtobufUnknownFields, which the field must be able to hold
+        var storeType = protobufTypes.getType(ProtobufUnknownFields.class);
         var mixins = protobufTypes.getMixins(unknownFieldsAnnotation);
-        var setter = findUnknownFieldsSetterInType(unknownFieldsDeclaredType);
-        if (setter != null) {
-            return checkUnknownFieldsSetter(setter, false)
-                    .map(setterElement -> createUnknownFieldsElement(variableElement, unknownFieldsDeclaredType, setterElement, unknownFieldsType, mixins));
+        if (protobufTypes.isAssignable(storeType, unknownFieldsType)) {
+            return Optional.of(new ProtobufUnknownFieldsElement(variableElement, accessor.get(), unknownFieldsType, null, null));
         }
 
-        var setterFromMixin = findUnknownFieldsSetterInMixins(variableElement, unknownFieldsType, mixins);
-        if (setterFromMixin == null) {
-            messages.printError("Type error: cannot find a @ProtobufUnknownFields.Setter for the provided type", variableElement);
+        var serializer = findMixinConversion(mixins, unknownFieldsType, storeType);
+        var deserializer = findMixinConversion(mixins, storeType, unknownFieldsType);
+        if (serializer.isEmpty() || deserializer.isEmpty()) {
+            messages.printError(ProtobufProcessorErrors.unknownFieldsNotConvertible(variableElement, storeType), variableElement);
             return Optional.empty();
         }
 
-        return checkUnknownFieldsSetter(setterFromMixin, true)
-                .map(setterElement -> createUnknownFieldsElement(variableElement, unknownFieldsDeclaredType, setterElement, unknownFieldsType, mixins));
+        return Optional.of(new ProtobufUnknownFieldsElement(variableElement, accessor.get(), unknownFieldsType, serializer.get(), deserializer.get()));
     }
 
     /**
-     * Creates a new unknown fields element with a resolved default value.
+     * Finds the element that reads the unknown fields of a message, which is the field
+     * itself unless it is private, or a getter named after it otherwise.
      *
      * @param variableElement the annotated field
-     * @param variableType the declared type of the field
-     * @param setterElement the setter method for the unknown fields
-     * @param unknownFieldsType the type mirror of the unknown fields
-     * @param mixins the mixin type elements
-     * @return the unknown fields element
+     * @return the accessor, if found
      */
-    private ProtobufUnknownFieldsElement createUnknownFieldsElement(VariableElement variableElement, DeclaredType variableType, ExecutableElement setterElement, TypeMirror unknownFieldsType, List<TypeElement> mixins) {
-        var defaultValue = getDefaultValue(variableElement, unknownFieldsType, mixins)
-                .orElse("new %s()".formatted(variableType));
-        return new ProtobufUnknownFieldsElement(variableType, defaultValue, setterElement);
-    }
+    private Optional<? extends Element> getUnknownFieldsAccessor(VariableElement variableElement) {
+        if (!variableElement.getModifiers().contains(Modifier.PRIVATE)) {
+            return Optional.of(variableElement);
+        }
 
-    /**
-     * Finds a method annotated with {@link ProtobufMessage.UnknownFields.Setter}
-     * in the given declared type.
-     *
-     * @param unknownFieldsDeclaredType the declared type to search
-     * @return the setter method, or {@code null} if not found
-     */
-    private ExecutableElement findUnknownFieldsSetterInType(DeclaredType unknownFieldsDeclaredType) {
-        return (ExecutableElement) unknownFieldsDeclaredType.asElement()
+        var methods = variableElement.getEnclosingElement()
                 .getEnclosedElements()
                 .stream()
-                .filter(enclosedElement -> enclosedElement.getKind() == ElementKind.METHOD && enclosedElement.getAnnotation(ProtobufMessage.UnknownFields.Setter.class) != null)
-                .findFirst()
-                .orElse(null);
+                .filter(entry -> entry instanceof ExecutableElement)
+                .map(entry -> (ExecutableElement) entry)
+                .filter(element -> !element.getModifiers().contains(Modifier.PRIVATE))
+                .toList();
+        return inferAccessor(variableElement, methods);
     }
 
     /**
-     * Finds a method annotated with {@link ProtobufMessage.UnknownFields.Setter}
-     * in the given mixin types that accepts the unknown fields type.
+     * Finds a static method of the given mixins, annotated with {@link TypeSerializer} or
+     * {@link TypeDeserializer}, that converts a value of the given type to the other one.
      *
-     * @param element the annotated field element, used for error reporting
-     * @param unknownFieldsType the type of the unknown fields
-     * @param mixins the mixin type elements to search
-     * @return the setter method, or {@code null} if not found
+     * @param mixins the mixins to search
+     * @param from   the type of the value to convert
+     * @param to     the type of the converted value
+     * @return the method, if found
      */
-    private ExecutableElement findUnknownFieldsSetterInMixins(VariableElement element, TypeMirror unknownFieldsType, List<TypeElement> mixins) {
-        return mixins.stream()
-                .map(TypeElement::getEnclosedElements)
-                .flatMap(Collection::stream)
-                .filter(enclosedElement -> enclosedElement.getKind() == ElementKind.METHOD && enclosedElement.getAnnotation(ProtobufMessage.UnknownFields.Setter.class) != null)
-                .map(enclosedElement -> (ExecutableElement) enclosedElement)
-                .filter(enclosedMethod -> !enclosedMethod.getParameters().isEmpty() && protobufTypes.isAssignable(enclosedMethod.getParameters().getFirst().asType(), unknownFieldsType))
-                .reduce((first, second) -> {
-                    messages.printError("Duplicated protobuf unknown fields setter: only one setter for %s is allowed in the mixins".formatted(unknownFieldsType), element);
-                    return first;
-                })
-                .orElse(null);
+    private Optional<ExecutableElement> findMixinConversion(Set<TypeElement> mixins, TypeMirror from, TypeMirror to) {
+        for (var mixin : mixins) {
+            for (var enclosed : mixin.getEnclosedElements()) {
+                if (!(enclosed instanceof ExecutableElement method) || method.getKind() != ElementKind.METHOD || !DaedalusMixinInstanceUtils.receivesValueAsFirstParameter(method) || method.getParameters().size() != 1) {
+                    continue;
+                }
+                if (method.getAnnotation(TypeSerializer.class) == null && method.getAnnotation(TypeDeserializer.class) == null) {
+                    continue;
+                }
+                if (protobufTypes.isAssignable(from, method.getParameters().getFirst().asType()) && protobufTypes.isAssignable(method.getReturnType(), to)) {
+                    return Optional.of(method);
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     /**
-     * Validates the unknown fields setter method for correct visibility, static modifier,
-     * parameter count, and parameter types.
+     * Processes an element with a protobuf field annotation, validating
+     * its type, index, name, presence, accessor, and converters.
      *
-     * @param setter the setter method to validate
-     * @param fromMixin whether the setter comes from a mixin
-     * @return the setter method if valid, or empty if invalid
-     */
-    private Optional<ExecutableElement> checkUnknownFieldsSetter(ExecutableElement setter, boolean fromMixin) {
-        if (!setter.getModifiers().contains(Modifier.PUBLIC)) {
-            messages.printError("Type error: methods annotated with @ProtobufUnknownFields.Setter must have public visibility", setter);
-            return Optional.empty();
-        }
-
-        if (fromMixin != setter.getModifiers().contains(Modifier.STATIC)) {
-            messages.printError("Type error: methods annotated with @ProtobufUnknownFields.Setter %s".formatted(fromMixin ? "in a mixin must be static" : "must not be static"), setter);
-            return Optional.empty();
-        }
-
-        if (setter.getParameters().size() != (fromMixin ? 3 : 2)) {
-            messages.printError("Type error: methods annotated with @ProtobufUnknownFields.Setter %smust take only %s parameters".formatted(fromMixin ? "in a mixin" : "", fromMixin ? "three" : "two"), setter);
-            return Optional.empty();
-        }
-
-        var error = false;
-        var keyType = setter.getParameters()
-                .get(fromMixin ? 1 : 0)
-                .asType();
-        if (!protobufTypes.isAssignable(keyType, Long.class) && !protobufTypes.isSameType(keyType, long.class)) {
-            messages.printError("Type error: methods annotated with @ProtobufUnknownFields.Setter %smust take as the %s parameter a long".formatted(fromMixin ? "in a mixin" : "", fromMixin ? "second" : "first"), setter);
-            error = true;
-        }
-
-        var valueType = setter.getParameters()
-                .get(fromMixin ? 2 : 1)
-                .asType();
-        if (!protobufTypes.isSameType(valueType, Object.class)) {
-            messages.printError("Type error: methods annotated with @ProtobufUnknownFields.Setter %smust take as the %s parameter an Object".formatted(fromMixin ? "in a mixin" : "", fromMixin ? "third" : "second"), setter);
-            error = true;
-        }
-
-        return error ? Optional.empty() : Optional.of(setter);
-    }
-
-    /**
-     * Processes a field with a protobuf field annotation, validating
-     * its type, index, name, accessor, and converters.
+     * <p>The element is either a field, or a method that declares a synthetic field.
      *
      * @param messageElement the enclosing protobuf message element
-     * @param variableElement the annotated field
+     * @param element the annotated field or method
      * @param propertyAnnotation the normalized field annotation
      * @return the set of protobuf objects discovered during linking
      */
-    private Set<ProtobufObjectElement> processMessageProperty(ProtobufObjectElement messageElement, VariableElement variableElement, ProtobufFieldMetadata propertyAnnotation) {
-        if (propertyAnnotation.type() == ProtobufType.UNKNOWN) {
-            messages.printError("Type error: properties must specify a valid protobuf type", variableElement);
+    private Set<ProtobufTypeElement> processMessageProperty(ProtobufMessageElement messageElement, Element element, ParsedProtobufField propertyAnnotation) {
+        if (!checkPropertyAnnotation(messageElement, element, propertyAnnotation)) {
             return Set.of();
         }
 
-        if (propertyAnnotation.required() && !checks.isValidRequiredProperty(variableElement)) {
-            return Set.of();
-        }
-
-        if (propertyAnnotation.packed() && !checks.isValidPackedProperty(variableElement, propertyAnnotation)) {
-            return Set.of();
-        }
-
-        var accessor = getAccessor(variableElement, propertyAnnotation);
+        Optional<? extends Element> accessor = element instanceof VariableElement variableElement
+                ? getAccessor(variableElement, Set.of(propertyAnnotation.index()))
+                : Optional.of(element);
         if (accessor.isEmpty()) {
-            messages.printError("Missing accessor: a non-private getter/accessor must be declared, or the property must have non-private visibility.", variableElement);
+            messages.printError(ProtobufProcessorErrors.fieldMissingAccessor(element, propertyAnnotation.index()), element);
             return Set.of();
         }
 
         var accessorType = getAccessorType(accessor.get());
-        var variableType = variableElement.asType();
-        var type = getPropertyType(variableElement, variableType, accessorType, propertyAnnotation);
-        if (type.isEmpty()) {
+        var variableType = element instanceof ExecutableElement method ? method.getReturnType() : element.asType();
+        var type = getPropertyType(element, variableType, accessorType, propertyAnnotation, isPacked(messageElement, propertyAnnotation));
+        if (type.isEmpty() || !checkPropertyType(messageElement, element, variableType, propertyAnnotation, type.get())) {
             return Set.of();
         }
 
-        var propertyName = variableElement.getSimpleName().toString();
-        if (!messageElement.isNameAllowed(propertyName)) {
-            messages.printError("Restricted message property name: %s is not allowed as it's marked as reserved".formatted(propertyName), variableElement);
+        var javaName = element.getSimpleName().toString();
+        var textName = propertyAnnotation.name().isEmpty() ? ProtobufMessageElement.toSnakeCase(javaName) : propertyAnnotation.name();
+        if (!messageElement.isNameAllowed(textName)) {
+            messages.printError(ProtobufProcessorErrors.fieldReservedName(textName), element);
+        } else if (!messageElement.isNameAllowed(javaName)) {
+            messages.printError(ProtobufProcessorErrors.fieldReservedName(javaName), element);
         }
 
         if (!messageElement.isIndexAllowed(propertyAnnotation.index())) {
-            messages.printError("Restricted message property index: %s is not allowed as it's marked as reserved".formatted(propertyAnnotation.index()), variableElement);
+            messages.printError(ProtobufProcessorErrors.fieldReservedIndex(propertyAnnotation.index()), element);
         }
 
-        if (propertyAnnotation.ignored()) {
-            return Set.of();
-        }
-
-        var error = messageElement.addProperty(variableElement, accessor.get(), type.get(), propertyAnnotation);
+        var error = messageElement.addProperty(element, accessor.get(), type.get(), propertyAnnotation);
         if (error.isPresent()) {
-            messages.printError("Duplicated message property: %s and %s with index %s".formatted(variableElement.getSimpleName(), error.get().name(), propertyAnnotation.index()), variableElement);
+            messages.printError(ProtobufProcessorErrors.fieldDuplicatedIndex(element, error.get().name(), propertyAnnotation.index()), element);
             return Set.of();
         }
 
-        var mixins = protobufTypes.getMirroredTypes(propertyAnnotation.mixins());
-        linkMixins(mixins);
+        var nameOwner = messageElement.claimName(textName, javaName);
+        if (nameOwner.isPresent()) {
+            messages.printError(ProtobufProcessorErrors.fieldDuplicatedName(element, nameOwner.get(), textName), element);
+            return Set.of();
+        }
+
+        // The resolved mixins also include the scoped and imported ones, not only the explicit ones
+        linkMixins(type.get().mixins().all());
         return linkType(variableType);
+    }
+
+    /**
+     * Returns the fields of the given message, replacing each oneof with its cases.
+     *
+     * @param message the message
+     * @return the fields and the cases of the oneofs of the message
+     */
+    private static List<ProtobufFieldElement> getFieldsAndCases(ProtobufMessageElement message) {
+        var result = new ArrayList<ProtobufFieldElement>();
+        for (var field : message.fields()) {
+            if (field instanceof ProtobufFieldElement.OneOf oneOf) {
+                result.addAll(oneOf.cases());
+            } else {
+                result.add(field);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Processes an element annotated with {@link ProtobufMessage.OneOfField}, validating its
+     * sealed type and its cases.
+     *
+     * <p>Each case is validated like a field of the same kind whose type is the permitted
+     * subtype that holds the case. Every type that the sealed type of the oneof permits,
+     * expanding the permitted types that are sealed in turn, must be held by exactly one
+     * case: a sealed class that is not abstract is itself one of these types.
+     *
+     * @param messageElement the enclosing protobuf message element
+     * @param element the annotated field or method
+     * @param annotation the oneof annotation
+     * @return the set of protobuf objects discovered during linking
+     */
+    private Set<ProtobufTypeElement> processOneOfField(ProtobufMessageElement messageElement, Element element, ProtobufMessage.OneOfField annotation) {
+        var annotations = ParsedProtobufField.annotationNames(element);
+        if (annotations.size() > 1) {
+            messages.printError(ProtobufProcessorErrors.fieldConflictingAnnotations(annotations), element);
+            return Set.of();
+        }
+
+        if (element instanceof ExecutableElement method
+                && (method.getModifiers().contains(Modifier.PRIVATE) || method.getModifiers().contains(Modifier.STATIC) || !method.getParameters().isEmpty() || method.getReturnType().getKind() == TypeKind.VOID)) {
+            messages.printError(ProtobufProcessorErrors.fieldSyntheticMethod(), element);
+            return Set.of();
+        }
+
+        var variableType = element instanceof ExecutableElement method ? method.getReturnType() : element.asType();
+        if (!(variableType instanceof DeclaredType declaredType)
+                || !(declaredType.asElement() instanceof TypeElement sealedElement)
+                || !sealedElement.getModifiers().contains(Modifier.SEALED)) {
+            messages.printError(ProtobufProcessorErrors.oneOfNotSealed(variableType), element);
+            return Set.of();
+        }
+
+        var cases = ParsedProtobufField.cases(annotation);
+        if (cases.isEmpty()) {
+            messages.printError(ProtobufProcessorErrors.oneOfEmpty(variableType), element);
+            return Set.of();
+        }
+
+        var valid = true;
+        var javaName = element.getSimpleName().toString();
+        var textName = annotation.name().isEmpty() ? ProtobufMessageElement.toSnakeCase(javaName) : annotation.name();
+        if (!annotation.name().isEmpty() && !isValidFieldName(annotation.name())) {
+            messages.printError(ProtobufProcessorErrors.fieldInvalidName(annotation.name()), element);
+            valid = false;
+        } else if (!messageElement.isNameAllowed(textName)) {
+            messages.printError(ProtobufProcessorErrors.fieldReservedName(textName), element);
+            valid = false;
+        }
+
+        var indexes = new LinkedHashSet<Integer>();
+        for (var oneOfCase : cases) {
+            if (!indexes.add(oneOfCase.field().index())) {
+                messages.printError(ProtobufProcessorErrors.oneOfDuplicatedCaseIndex(oneOfCase.field().index()), element);
+                valid = false;
+            }
+        }
+
+        Optional<? extends Element> accessor = element instanceof VariableElement variableElement
+                ? getAccessor(variableElement, indexes)
+                : Optional.of(element);
+        if (accessor.isEmpty()) {
+            messages.printError(ProtobufProcessorErrors.fieldMissingAccessor(element, indexes.getFirst()), element);
+            return Set.of();
+        }
+
+        var permittedTypes = new LinkedHashSet<TypeElement>();
+        collectOneOfTypes(sealedElement, permittedTypes);
+        var caseTypes = new HashMap<TypeElement, Integer>();
+        List<ResolvedOneOfCase> resolvedCases = new ArrayList<>();
+        for (var oneOfCase : cases) {
+            var field = oneOfCase.field();
+            var index = field.index();
+            var caseType = protobufTypes.getMirroredType(oneOfCase.type());
+            var caseElement = caseType instanceof DeclaredType caseDeclaredType && caseDeclaredType.asElement() instanceof TypeElement typeElement ? typeElement : null;
+            if (caseElement == null || !permittedTypes.contains(caseElement)) {
+                messages.printError(ProtobufProcessorErrors.oneOfCaseNotPermitted(index, caseType, variableType), element);
+                valid = false;
+                continue;
+            }
+
+            // The type of the case is covered even if the rest of the case is not valid
+            var previousIndex = caseTypes.putIfAbsent(caseElement, index);
+            if (previousIndex != null) {
+                messages.printError(ProtobufProcessorErrors.oneOfDuplicatedCaseType(caseType, previousIndex, index), element);
+                valid = false;
+                continue;
+            }
+
+            if (!checkOneOfCaseAnnotation(messageElement, element, field)) {
+                valid = false;
+                continue;
+            }
+
+            var owner = messageElement.indexOwner(index);
+            if (owner.isPresent()) {
+                messages.printError(ProtobufProcessorErrors.fieldDuplicatedIndex(element, owner.get().name(), index), element);
+                valid = false;
+                continue;
+            }
+
+            var caseName = field.name().isEmpty() ? ProtobufMessageElement.toSnakeCase(caseElement.getSimpleName().toString()) : field.name();
+            if (!messageElement.isNameAllowed(caseName)) {
+                messages.printError(ProtobufProcessorErrors.fieldReservedName(caseName), element);
+                valid = false;
+            }
+
+            var nameOwner = messageElement.claimName(caseName, javaName);
+            if (nameOwner.isPresent()) {
+                messages.printError(ProtobufProcessorErrors.fieldDuplicatedName(element, nameOwner.get(), caseName), element);
+                valid = false;
+            }
+
+            var type = getPropertyType(element, caseType, caseType, field, false);
+            if (type.isEmpty()) {
+                valid = false;
+                continue;
+            }
+
+            if (!(type.get() instanceof ProtobufSimpleFieldType simpleType)) {
+                messages.printError(ProtobufProcessorErrors.oneOfRepeatedCase(index, caseType), element);
+                valid = false;
+                continue;
+            }
+
+            if (!checkPropertyType(messageElement, element, caseType, field, simpleType)) {
+                valid = false;
+                continue;
+            }
+
+            resolvedCases.add(new ResolvedOneOfCase(field, caseName, caseType, simpleType));
+        }
+
+        var missingTypes = new ArrayList<TypeMirror>();
+        for (var permittedType : permittedTypes) {
+            if (!caseTypes.containsKey(permittedType)) {
+                missingTypes.add(permittedType.asType());
+            }
+        }
+        if (!missingTypes.isEmpty()) {
+            messages.printError(ProtobufProcessorErrors.oneOfMissingCases(variableType, missingTypes), element);
+            valid = false;
+        }
+
+        if (!valid) {
+            return Set.of();
+        }
+
+        resolvedCases = orderOneOfCases(resolvedCases);
+        var oneOfType = new ProtobufOneOfFieldType(declaredType, resolvedCases.stream().map(ResolvedOneOfCase::type).toList());
+        messageElement.addOneOf(
+                element,
+                accessor.get(),
+                textName,
+                oneOfType,
+                resolvedCases.stream().map(ResolvedOneOfCase::field).toList(),
+                resolvedCases.stream().map(ResolvedOneOfCase::name).toList()
+        );
+
+        var results = new HashSet<ProtobufTypeElement>();
+        for (var resolvedCase : resolvedCases) {
+            linkMixins(resolvedCase.type().mixins().all());
+            results.addAll(linkType(resolvedCase.javaType()));
+        }
+        return results;
+    }
+
+    /**
+     * Orders the cases of a oneof by index, except that a case precedes every case whose type
+     * is one of its supertypes, so that a value is matched against its most specific case.
+     *
+     * <p>A case type can only be a supertype of another one if it is a sealed class that is
+     * not abstract.
+     *
+     * @param cases the cases of the oneof
+     * @return the ordered cases
+     */
+    private List<ResolvedOneOfCase> orderOneOfCases(List<ResolvedOneOfCase> cases) {
+        var byIndex = new ArrayList<>(cases);
+        byIndex.sort(Comparator.comparingInt(resolvedCase -> resolvedCase.field().index()));
+        var result = new ArrayList<ResolvedOneOfCase>();
+        for (var resolvedCase : byIndex) {
+            var position = result.size();
+            for (var i = 0; i < result.size(); i++) {
+                if (protobufTypes.isAssignable(resolvedCase.javaType(), result.get(i).javaType())) {
+                    position = i;
+                    break;
+                }
+            }
+            result.add(position, resolvedCase);
+        }
+        return result;
+    }
+
+    /**
+     * A case of a oneof whose type is resolved.
+     *
+     * @param field the normalized annotation of the case
+     * @param name the Protocol Buffers name of the case
+     * @param javaType the permitted subtype that holds the case
+     * @param type the resolved type of the case
+     */
+    private record ResolvedOneOfCase(ParsedProtobufField field, String name, TypeMirror javaType, ProtobufSimpleFieldType type) {
+
+    }
+
+    /**
+     * Collects the types that a value of the given sealed type may have, which are the types
+     * that it permits, expanding the permitted types that are sealed in turn.
+     *
+     * <p>A class that is not abstract is collected even if it is sealed, as a value may be an
+     * instance of the class itself. An enum is never expanded, as the anonymous classes of
+     * its constants are not types of their own.
+     *
+     * @param type the type to collect
+     * @param result the collected types
+     */
+    private void collectOneOfTypes(TypeElement type, Set<TypeElement> result) {
+        var sealed = type.getModifiers().contains(Modifier.SEALED) && type.getKind() != ElementKind.ENUM;
+        var instantiable = type.getKind() != ElementKind.INTERFACE && !type.getModifiers().contains(Modifier.ABSTRACT);
+        if (!sealed || instantiable) {
+            result.add(type);
+        }
+
+        if (!sealed) {
+            return;
+        }
+
+        for (var permitted : type.getPermittedSubclasses()) {
+            if (permitted instanceof DeclaredType permittedType && permittedType.asElement() instanceof TypeElement permittedElement) {
+                collectOneOfTypes(permittedElement, result);
+            }
+        }
+    }
+
+    /**
+     * Checks the attributes of the annotation of a case of a oneof that do not depend on its
+     * type, reporting an error for each one that is not valid.
+     *
+     * @param messageElement the enclosing protobuf message element
+     * @param element the field or method annotated with the oneof
+     * @param field the normalized annotation of the case
+     * @return {@code true} if the case can be processed
+     */
+    private boolean checkOneOfCaseAnnotation(ProtobufMessageElement messageElement, Element element, ParsedProtobufField field) {
+        var valid = true;
+        var index = field.index();
+        if (index < MIN_FIELD_INDEX || index > MAX_FIELD_INDEX) {
+            messages.printError(ProtobufProcessorErrors.fieldIndexOutOfRange(index, MIN_FIELD_INDEX, MAX_FIELD_INDEX), element);
+            valid = false;
+        } else if (index >= MIN_IMPLEMENTATION_FIELD_INDEX && index <= MAX_IMPLEMENTATION_FIELD_INDEX) {
+            messages.printError(ProtobufProcessorErrors.fieldIndexInImplementationRange(index, MIN_IMPLEMENTATION_FIELD_INDEX, MAX_IMPLEMENTATION_FIELD_INDEX), element);
+            valid = false;
+        } else if (!messageElement.isIndexAllowed(index)) {
+            messages.printError(ProtobufProcessorErrors.fieldReservedIndex(index), element);
+            valid = false;
+        }
+
+        if (!field.name().isEmpty() && !isValidFieldName(field.name())) {
+            messages.printError(ProtobufProcessorErrors.fieldInvalidName(field.name()), element);
+            valid = false;
+        }
+
+        return valid;
+    }
+
+    /**
+     * Checks the attributes of a field annotation that do not depend on the resolved type
+     * of the field, reporting an error for each one that is not valid.
+     *
+     * @param messageElement the enclosing protobuf message element
+     * @param element the annotated field or method
+     * @param propertyAnnotation the normalized field annotation
+     * @return {@code true} if the field can be processed
+     */
+    private boolean checkPropertyAnnotation(ProtobufMessageElement messageElement, Element element, ParsedProtobufField propertyAnnotation) {
+        var valid = true;
+        var annotations = ParsedProtobufField.annotationNames(element);
+        if (annotations.size() > 1) {
+            messages.printError(ProtobufProcessorErrors.fieldConflictingAnnotations(annotations), element);
+            valid = false;
+        }
+
+        var index = propertyAnnotation.index();
+        if (index < MIN_FIELD_INDEX || index > MAX_FIELD_INDEX) {
+            messages.printError(ProtobufProcessorErrors.fieldIndexOutOfRange(index, MIN_FIELD_INDEX, MAX_FIELD_INDEX), element);
+            valid = false;
+        } else if (index >= MIN_IMPLEMENTATION_FIELD_INDEX && index <= MAX_IMPLEMENTATION_FIELD_INDEX) {
+            messages.printError(ProtobufProcessorErrors.fieldIndexInImplementationRange(index, MIN_IMPLEMENTATION_FIELD_INDEX, MAX_IMPLEMENTATION_FIELD_INDEX), element);
+            valid = false;
+        }
+
+        if (!propertyAnnotation.name().isEmpty() && !isValidFieldName(propertyAnnotation.name())) {
+            messages.printError(ProtobufProcessorErrors.fieldInvalidName(propertyAnnotation.name()), element);
+            valid = false;
+        }
+
+        if (element instanceof ExecutableElement method
+                && (method.getModifiers().contains(Modifier.PRIVATE) || method.getModifiers().contains(Modifier.STATIC) || !method.getParameters().isEmpty() || method.getReturnType().getKind() == TypeKind.VOID)) {
+            messages.printError(ProtobufProcessorErrors.fieldSyntheticMethod(), element);
+            valid = false;
+        }
+
+        var version = messageElement.version();
+        switch (propertyAnnotation.fieldPresence()) {
+            case LEGACY_REQUIRED -> {
+                if (version == ProtobufVersion.PROTOBUF_3) {
+                    messages.printError(ProtobufProcessorErrors.fieldRequiredNotSupported(version), element);
+                    valid = false;
+                }
+            }
+            case IMPLICIT -> {
+                if (version == ProtobufVersion.PROTOBUF_2) {
+                    messages.printError(ProtobufProcessorErrors.fieldImplicitNotSupported(version), element);
+                    valid = false;
+                } else if (propertyAnnotation instanceof ParsedProtobufField.Message) {
+                    messages.printError(ProtobufProcessorErrors.fieldImplicitMessage(), element);
+                    valid = false;
+                }
+            }
+            case EXPLICIT, VERSION_DEFAULT -> {}
+        }
+
+        return valid;
+    }
+
+    /**
+     * Checks the attributes of a field annotation that depend on the resolved type of the
+     * field, reporting an error for each one that is not valid.
+     *
+     * <p>The presence of a field follows the rules of the official Protocol Buffers
+     * implementation, and a field whose Java type cannot represent every state that its
+     * presence allows is rejected:
+     * <ul>
+     * <li>a repeated or map field has no presence, so it cannot declare one;
+     * <li>a required field must be able to be missing, so it cannot be primitive;
+     * <li>a field with explicit presence must distinguish a field that is not set from a
+     *     field set to its default value, so it cannot be primitive either;
+     * <li>a field with implicit presence that is not on the wire holds the value with
+     *     index {@code 0}, which a closed enum may not have.
+     * </ul>
+     *
+     * @param messageElement the enclosing protobuf message element
+     * @param element the annotated field or method
+     * @param variableType the declared type of the field
+     * @param propertyAnnotation the normalized field annotation
+     * @param type the resolved type of the field
+     * @return {@code true} if the field can be processed
+     */
+    private boolean checkPropertyType(ProtobufMessageElement messageElement, Element element, TypeMirror variableType, ParsedProtobufField propertyAnnotation, ProtobufFieldType type) {
+        var valid = true;
+        var repeated = type instanceof ProtobufCollectionFieldType || type instanceof ProtobufArrayFieldType;
+        var declaredPresence = propertyAnnotation.fieldPresence();
+        if (repeated || type instanceof ProtobufMapFieldType) {
+            if (declaredPresence == ProtobufFieldPresence.LEGACY_REQUIRED) {
+                messages.printError(ProtobufProcessorErrors.fieldRequiredRepeated(), element);
+                valid = false;
+            } else if (declaredPresence != ProtobufFieldPresence.VERSION_DEFAULT) {
+                messages.printError(ProtobufProcessorErrors.fieldPresenceRepeated(declaredPresence), element);
+                valid = false;
+            }
+        } else if (variableType instanceof PrimitiveType primitiveType && !(element instanceof ExecutableElement)) {
+            // A synthetic field is only written, so it never needs to represent a field that is not set
+            switch (declaredPresence.resolve(messageElement.version())) {
+                case LEGACY_REQUIRED -> {
+                    messages.printError(ProtobufProcessorErrors.fieldRequiredPrimitive(), element);
+                    valid = false;
+                }
+                case EXPLICIT -> {
+                    var boxedType = processingEnv.getTypeUtils().boxedClass(primitiveType).asType();
+                    messages.printError(ProtobufProcessorErrors.fieldExplicitPrimitive(variableType, boxedType, messageElement.version()), element);
+                    valid = false;
+                }
+                case IMPLICIT, VERSION_DEFAULT -> {}
+            }
+        }
+
+        var enumField = propertyAnnotation instanceof ParsedProtobufField.Scalar scalar && scalar.type() == ProtobufType.ENUM;
+        if (!repeated && enumField
+                && declaredPresence.resolve(messageElement.version()) == ProtobufFieldPresence.IMPLICIT
+                && isClosedEnum(variableType)) {
+            messages.printError(ProtobufProcessorErrors.fieldImplicitClosedEnum(variableType), element);
+            valid = false;
+        }
+
+        if (propertyAnnotation.packed() && !repeated) {
+            messages.printError(ProtobufProcessorErrors.fieldPackedNotRepeated(), element);
+            valid = false;
+        }
+
+        // A Java enum cannot hold the values of an open enum that have no constant
+        var enumType = getEnumValueType(type);
+        if (enumField && enumType instanceof DeclaredType declaredEnumType
+                && declaredEnumType.asElement().getKind() == ElementKind.ENUM && isOpenEnum(enumType)) {
+            messages.printWarning(ProtobufProcessorErrors.fieldOpenJavaEnum(enumType), element);
+        }
+
+        return valid;
+    }
+
+    /**
+     * Returns whether a repeated field with the given annotation is packed, once its encoding is
+     * resolved against the version of its message.
+     *
+     * @param messageElement the enclosing protobuf message element
+     * @param propertyAnnotation the normalized field annotation
+     * @return {@code true} if the field is a packable scalar whose resolved encoding is packed
+     */
+    private static boolean isPacked(ProtobufMessageElement messageElement, ParsedProtobufField propertyAnnotation) {
+        return propertyAnnotation instanceof ParsedProtobufField.Scalar scalar
+                && scalar.type().isPackable()
+                && scalar.repeatedFieldEncoding().resolve(messageElement.version()) == ProtobufRepeatedFieldEncoding.PACKED;
+    }
+
+    /**
+     * Returns the type of the values of the given field type, which is the type of the
+     * elements of a repeated field.
+     *
+     * @param type the field type
+     * @return the type of the values
+     */
+    private static TypeMirror getEnumValueType(ProtobufFieldType type) {
+        return switch (type) {
+            case ProtobufCollectionFieldType collectionType -> collectionType.valueType().descriptorElementType();
+            case ProtobufArrayFieldType arrayType -> arrayType.valueType().descriptorElementType();
+            case ProtobufMapFieldType mapType -> mapType.valueType().descriptorElementType();
+            case ProtobufSimpleFieldType simpleType -> simpleType.descriptorElementType();
+            case ProtobufOneOfFieldType oneOfType -> oneOfType.descriptorElementType();
+        };
+    }
+
+    /**
+     * Returns whether the given type is an enum annotated with {@link ProtobufEnum} that is
+     * open, once its type is resolved against its version.
+     *
+     * @param type the type to check
+     * @return {@code true} if the type is an open protobuf enum
+     */
+    private boolean isOpenEnum(TypeMirror type) {
+        if (!(type instanceof DeclaredType declaredType)) {
+            return false;
+        }
+
+        var annotation = declaredType.asElement().getAnnotation(ProtobufEnum.class);
+        return annotation != null && annotation.type().resolve(annotation.version()) == ProtobufEnumType.OPEN;
+    }
+
+    /**
+     * Returns whether the given type is an enum annotated with {@link ProtobufEnum} that is
+     * closed, once its type is resolved against its version.
+     *
+     * @param type the type to check
+     * @return {@code true} if the type is a closed protobuf enum
+     */
+    private boolean isClosedEnum(TypeMirror type) {
+        if (!(type instanceof DeclaredType declaredType)) {
+            return false;
+        }
+
+        var annotation = declaredType.asElement().getAnnotation(ProtobufEnum.class);
+        return annotation != null && annotation.type().resolve(annotation.version()) == ProtobufEnumType.CLOSED;
+    }
+
+    /**
+     * Returns whether the given name is a valid Protocol Buffers identifier.
+     *
+     * @param name the name to check
+     * @return {@code true} if the name starts with a letter or an underscore, followed by
+     *         letters, digits or underscores
+     */
+    private static boolean isValidFieldName(String name) {
+        for (var i = 0; i < name.length(); i++) {
+            var character = name.charAt(i);
+            var letter = (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || character == '_';
+            var digit = character >= '0' && character <= '9';
+            if (!letter && (i == 0 || !digit)) {
+                return false;
+            }
+        }
+        return !name.isEmpty();
     }
 
     /**
@@ -731,7 +1590,12 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param variableType the type to link
      * @return the set of protobuf objects discovered during linking
      */
-    private Set<ProtobufObjectElement> linkType(TypeMirror variableType) {
+    private Set<ProtobufTypeElement> linkType(TypeMirror variableType) {
+        // The elements of an array field are linked like the ones of a collection
+        if (variableType instanceof ArrayType arrayType) {
+            return linkType(arrayType.getComponentType());
+        }
+
         if (protobufTypes.isMessage(variableType)) {
             linkMessage(variableType);
             return Set.of();
@@ -756,12 +1620,13 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
             }
         }
 
-        Set<ProtobufObjectElement> results = new HashSet<>();
+        Set<ProtobufTypeElement> results = new HashSet<>();
         var name = typeElement.getQualifiedName().toString();
         if (linkedTypes.add(name)) {
             for (var entry : typeElement.getEnclosedElements()) {
                 if (entry instanceof ExecutableElement element) {
                     processObjectSerializer(element);
+                    processObjectSizer(element);
                     processObjectDeserializer(element);
                 }
             }
@@ -770,21 +1635,29 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
     }
 
     /**
-     * Links the encode and decode converters for a protobuf enum type.
+     * Links the encode and decode converters for a protobuf enum type. Enums are
+     * encoded as varint integers and use the built-in
+     * {@link com.github.auties00.daedalus.protobuf.io.size.ProtobufBinarySizeCalculator}
+     * for size calculation, so no sizer is registered.
      *
      * @param type the enum type
      */
     private void linkEnum(TypeMirror type) {
         var specName = DaedalusMethodGenerator.getSpecByType(type);
-        var serializer = DaedalusMethodElement.of(specName, Set.of(Modifier.PUBLIC, Modifier.STATIC), intType, ProtobufObjectSerializationGenerator.METHOD_NAME, type);
-        converterGraph.link(type, intType, serializer);
-        var deserializer = DaedalusMethodElement.of(specName, Set.of(Modifier.PUBLIC, Modifier.STATIC), type, ProtobufDeserializationGenerator.METHOD_NAME, intType);
-        converterGraph.link(intType, type, deserializer);
+        var specInstance = ProtobufMessageSpecGenerator.getInstanceExpression(specName);
+        var targetType = protobufTypes.getType(int.class);
+        var serializer = DaedalusMethodElement.ofMixinInstance(specName, specInstance, targetType, ProtobufEnumSerializationGenerator.METHOD_NAME, type);
+        converterGraph.linkSerializer(type, targetType, serializer);
+        var deserializer = DaedalusMethodElement.ofMixinInstance(specName, specInstance, type, ProtobufEnumDeserializationGenerator.METHOD_NAME, targetType);
+        converterGraph.linkDeserializer(targetType, type, deserializer);
     }
 
     /**
-     * Links the encode and decode converters for a protobuf message type,
-     * including recursive linking of its type arguments.
+     * Links the encode and decode converters for a protobuf message type, including
+     * recursive linking of its type arguments. The converters are instance methods of the
+     * Spec of the message, invoked on the instance returned by its {@code global()} method,
+     * and the synthetic {@code sizeOfBinary} method is registered as the sizer for the
+     * message type so that length prefixes can be written before the message body.
      *
      * @param type the message type
      */
@@ -795,26 +1668,94 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
             }
         }
         var specName = DaedalusMethodGenerator.getSpecByType(type);
-        var serializer = DaedalusMethodElement.of(specName, Set.of(Modifier.PUBLIC, Modifier.STATIC), serializedMessageType, ProtobufSerializationGenerator.METHOD_NAME, type, outputStreamType);
-        converterGraph.link(type, serializedMessageType, serializer);
-        var deserializer = DaedalusMethodElement.of(specName, Set.of(Modifier.PUBLIC, Modifier.STATIC), type, ProtobufDeserializationGenerator.METHOD_NAME, serializedMessageType);
-        converterGraph.link(serializedMessageType, type, deserializer);
+        var specInstance = ProtobufMessageSpecGenerator.getInstanceExpression(specName);
+
+        // public void encodeBinary(<type>, ProtobufBinaryWriter)
+        var serializer = DaedalusMethodElement.ofMixinInstance(
+                specName,
+                specInstance,
+                protobufTypes.getType(void.class),
+                ProtobufSerializationGenerator.METHOD_NAME,
+                type,
+                protobufTypes.getType(ProtobufBinaryWriter.class)
+        );
+        converterGraph.linkSerializer(
+                type,
+                protobufTypes.getType(void.class),
+                serializer
+        );
+
+        // public int sizeOfBinary(<type>)
+        var sizer = DaedalusMethodElement.ofMixinInstance(
+                specName,
+                specInstance,
+                protobufTypes.getType(int.class),
+                ProtobufSizeGenerator.METHOD_NAME,
+                type
+        );
+        converterGraph.attachSizer(type, sizer);
+
+        // public <type> decodeBinary(ProtobufBinaryReader)
+        var deserializer = DaedalusMethodElement.ofMixinInstance(
+                specName,
+                specInstance,
+                type,
+                ProtobufDeserializationGenerator.METHOD_NAME,
+                protobufTypes.getType(ProtobufBinaryReader.class)
+        );
+        converterGraph.linkDeserializer(
+                protobufTypes.getType(ProtobufBinaryReader.class),
+                type,
+                deserializer
+        );
     }
 
     /**
      * Links all serializer and deserializer methods from the given mixin types
-     * into the converter graphs.
+     * into the converter graphs, along with the types they convert to and from.
+     *
+     * <p>A mixin can convert to a type that is not processed in this compilation,
+     * such as a message declared in a dependency. Linking that type registers its
+     * own converters, like the methods of its spec, so that a conversion path can
+     * continue past the mixin.
+     *
+     * <p>Each mixin is linked once, as the converter graph is shared by every field.
      *
      * @param mixins the mixin type elements
      */
-    private void linkMixins(List<TypeElement> mixins) {
+    private void linkMixins(Set<TypeElement> mixins) {
         for (var mixin : mixins) {
+            if (!linkedMixins.add(mixin)) {
+                continue;
+            }
+
             for (var element : mixin.getEnclosedElements()) {
                 if (element instanceof ExecutableElement method) {
                     processObjectSerializer(method);
+                    processObjectSizer(method);
                     processObjectDeserializer(method);
+                    linkConverterTypes(method);
                 }
             }
+        }
+    }
+
+    /**
+     * Links the type on the other side of the given converter method: the
+     * return type of a {@link TypeSerializer}, or the first parameter type of a
+     * {@link TypeDeserializer}.
+     *
+     * <p>Methods that are not converters are ignored.
+     *
+     * @param method the method to inspect
+     */
+    private void linkConverterTypes(ExecutableElement method) {
+        if (method.getAnnotation(TypeSerializer.class) != null) {
+            linkType(method.getReturnType());
+        }
+
+        if (method.getAnnotation(TypeDeserializer.class) != null && !method.getParameters().isEmpty()) {
+            linkType(method.getParameters().getFirst().asType());
         }
     }
 
@@ -841,7 +1782,7 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param mixins the mixin type elements
      * @return the default value expression, if found
      */
-    private Optional<String> getCollectionDefaultValue(Element invoker, TypeMirror collectionType, List<TypeElement> mixins) {
+    private Optional<String> getCollectionDefaultValue(Element invoker, TypeMirror collectionType, Set<TypeElement> mixins) {
         return protobufTypes.getDefaultConstructor(collectionType)
                 .map(typeElement -> "new %s()".formatted(typeElement.getQualifiedName()))
                 .or(() -> getDefaultValue(invoker, collectionType, mixins));
@@ -856,7 +1797,7 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param mixins the mixin type elements
      * @return the default value expression, if found
      */
-    private Optional<String> getDefaultValue(Element invoker, TypeMirror type, List<TypeElement> mixins) {
+    private Optional<String> getDefaultValue(Element invoker, TypeMirror type, Set<TypeElement> mixins) {
         if (type instanceof DeclaredType declaredType && declaredType.asElement() instanceof TypeElement classType) {
             var selfDefaultValue = getDefaultValueFromAnnotation(invoker, type, classType);
             if (selfDefaultValue.isPresent()) {
@@ -909,7 +1850,7 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
             var candidate = candidates.get(i);
             var candidateType = getDefaultValueType(candidate);
             if (protobufTypes.isSameType(bestMatchType, candidateType)) {
-                messages.printError("Duplicated default value: " + getDefaultValueCaller(candidate) + " provides a default value for type " + bestMatchType + ", which was already defined by " + getDefaultValueType(bestMatch), invoker);
+                messages.printError(ProtobufProcessorErrors.defaultValueDuplicated(candidate, bestMatch, bestMatchType, invoker), invoker);
             }
 
             if (protobufTypes.isAssignable(bestMatchType, candidateType)) {
@@ -960,24 +1901,27 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param property the property annotation
      * @return the resolved property type, if valid
      */
-    private Optional<? extends ProtobufFieldType> getPropertyType(Element invoker, TypeMirror elementType, TypeMirror accessorType, ProtobufFieldMetadata property) {
-        var mixins = protobufTypes.getMirroredTypes(property.mixins());
+    private Optional<? extends ProtobufFieldType> getPropertyType(Element invoker, TypeMirror elementType, TypeMirror accessorType, ParsedProtobufField property, boolean packed) {
+        var explicitMixins = protobufTypes.getMirroredTypes(property.mixins());
+        var enclosingType = protobufTypes.getEnclosingTypeElement(invoker);
+        var mixins = mixinScopeResolver.getApplicableMixins(enclosingType, explicitMixins);
+        if (!(property instanceof ParsedProtobufField.Value valueProperty)) {
+            return getConcreteMapType((ParsedProtobufField.Map) property, invoker, elementType, mixins);
+        }
+
+        // A single bytes field is held by a byte[], so every other array is a repeated field
+        if (elementType instanceof ArrayType arrayType && (valueProperty.type() != ProtobufType.BYTES || arrayType.getComponentType().getKind() != TypeKind.BYTE)) {
+            return getConcreteArrayType(invoker, valueProperty, arrayType, mixins, packed);
+        }
+
         if (protobufTypes.isAssignable(elementType, Collection.class)) {
-            return getConcreteCollectionType(invoker, property, elementType, mixins);
+            return getConcreteCollectionType(invoker, valueProperty, elementType, mixins, packed);
         }
 
-        if (protobufTypes.isAssignable(elementType, Map.class) && property instanceof ProtobufFieldMetadata.MapField mapField) {
-            return getConcreteMapType(mapField, invoker, elementType, mixins);
-        }
-
-        if (property instanceof ProtobufFieldMetadata.MapField mapField) {
-            return getConcreteMapType(mapField, invoker, elementType, mixins);
-        }
-
-        var defaultValue = getDefaultValue(invoker, elementType, mixins)
+        var defaultValue = getDefaultValue(invoker, elementType, mixins.all())
                 .orElse("null");
         var implementation = new ProtobufSimpleFieldType(
-                property.type(),
+                valueProperty.type(),
                 elementType,
                 accessorType,
                 defaultValue,
@@ -995,19 +1939,20 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param invoker the element used for error reporting
      * @param property the property annotation
      * @param elementType the type of the field element
-     * @param mixins the mixin type elements
+     * @param mixins the mixins that apply to the field
+     * @param packed whether the field is packed, so that it is a candidate for the bulk path
      * @return the resolved collection property type, if valid
      */
-    private Optional<? extends ProtobufFieldType> getConcreteCollectionType(Element invoker, ProtobufFieldMetadata property, TypeMirror elementType, List<TypeElement> mixins) {
+    private Optional<? extends ProtobufFieldType> getConcreteCollectionType(Element invoker, ParsedProtobufField.Value property, TypeMirror elementType, DaedalusMixins mixins, boolean packed) {
         var collectionTypeParameter = protobufTypes.getTypeParameter(elementType, protobufTypes.getType(Collection.class), 0);
         if (collectionTypeParameter.isEmpty()) {
-            messages.printError("Type inference error: cannot determine collection's type parameter", invoker);
+            messages.printError(ProtobufProcessorErrors.fieldCollectionTypeUnknown(invoker, elementType), invoker);
             return Optional.empty();
         }
 
-        var collectionDefaultValue = getCollectionDefaultValue(invoker, elementType, mixins);
+        var collectionDefaultValue = getCollectionDefaultValue(invoker, elementType, mixins.all());
         if (collectionDefaultValue.isEmpty()) {
-            messages.printError("Type inference error: cannot determine collection's default value, provide one either in the definition or using a mixin", invoker);
+            messages.printError(ProtobufProcessorErrors.fieldCollectionDefaultUnknown(invoker, elementType), invoker);
             return Optional.empty();
         }
 
@@ -1025,9 +1970,90 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
                 elementType,
                 collectionTypeParameterType,
                 collectionDefaultValue.get(),
+                packed,
                 mixins
         );
+        if (packed) {
+            createBulkConverters(invoker, elementType, type);
+        }
         return Optional.of(type);
+    }
+
+    /**
+     * Resolves the type of a repeated field held by an array.
+     *
+     * <p>Like the elements of a collection, the elements of the array are converted from the
+     * component type of the array to the wire type of the field.
+     *
+     * @param invoker the element used for error reporting
+     * @param property the normalized field annotation
+     * @param arrayType the array type of the field
+     * @param mixins the mixins that apply to the field
+     * @param packed whether the field is packed, so that it is a candidate for the bulk path
+     * @return the resolved array field type, if valid
+     */
+    private Optional<ProtobufArrayFieldType> getConcreteArrayType(Element invoker, ParsedProtobufField.Value property, ArrayType arrayType, DaedalusMixins mixins, boolean packed) {
+        var componentType = arrayType.getComponentType();
+        if (!isReifiable(componentType)) {
+            messages.printError(ProtobufProcessorErrors.fieldArrayNotReifiable(arrayType), invoker);
+            return Optional.empty();
+        }
+
+        var valueType = new ProtobufSimpleFieldType(property.type(), componentType, componentType, null, mixins);
+        createUnattributedSerializer(invoker, valueType);
+        createUnattributedDeserializer(invoker, valueType);
+        var type = new ProtobufArrayFieldType(arrayType, valueType, packed, mixins);
+        if (packed) {
+            createBulkConverters(invoker, arrayType, type);
+        }
+        return Optional.of(type);
+    }
+
+    /**
+     * Creates the optional converters of a packed field from its type to the array of the
+     * primitive type of its wire values, and from that array to its type.
+     *
+     * <p>If both converters are resolved, the field is written and read in bulk; otherwise,
+     * its elements are converted one by one. No converter is needed if the type of the field
+     * is already that array, and no deserializer is needed by a synthetic field, which is
+     * only written.
+     *
+     * @param invoker the element that declares the field
+     * @param fieldType the type of the field
+     * @param type the type of the field to add the converters to
+     */
+    private void createBulkConverters(Element invoker, TypeMirror fieldType, ProtobufValueFieldType type) {
+        var componentKind = switch (type.protobufType()) {
+            case FLOAT -> TypeKind.FLOAT;
+            case DOUBLE -> TypeKind.DOUBLE;
+            case BOOL -> TypeKind.BOOLEAN;
+            case ENUM, INT32, SINT32, UINT32, FIXED32, SFIXED32 -> TypeKind.INT;
+            case INT64, SINT64, UINT64, FIXED64, SFIXED64 -> TypeKind.LONG;
+            default -> throw new IllegalStateException("Internal bug: %s fields cannot be packed".formatted(type.protobufType()));
+        };
+        var typeUtils = processingEnv.getTypeUtils();
+        var bulkType = typeUtils.getArrayType(typeUtils.getPrimitiveType(componentKind));
+        if (!protobufTypes.isAssignable(fieldType, bulkType)) {
+            type.addConverter(new DaedalusConverterElement.Unattributed(invoker, fieldType, bulkType, type.mixins(), DaedalusConverterElement.Unattributed.Type.SERIALIZER, true));
+        }
+        if (!(invoker instanceof ExecutableElement) && !protobufTypes.isAssignable(bulkType, fieldType)) {
+            type.addConverter(new DaedalusConverterElement.Unattributed(invoker, bulkType, fieldType, type.mixins(), DaedalusConverterElement.Unattributed.Type.DESERIALIZER, true));
+        }
+    }
+
+    /**
+     * Returns whether the given type is reifiable, so that an array of it can be created.
+     *
+     * @param type the type to check
+     * @return {@code true} if the type is a primitive, a declared type without type arguments,
+     *         or an array of a reifiable type
+     */
+    private static boolean isReifiable(TypeMirror type) {
+        return switch (type) {
+            case ArrayType arrayType -> isReifiable(arrayType.getComponentType());
+            case DeclaredType declaredType -> declaredType.getTypeArguments().isEmpty();
+            default -> type.getKind().isPrimitive();
+        };
     }
 
     /**
@@ -1035,10 +2061,10 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * sufficient visibility, or a matching getter method.
      *
      * @param fieldElement the field element
-     * @param propertyAnnotation the property annotation
+     * @param indexes the indexes of the field, which are the indexes of the cases of a oneof
      * @return the accessor element, if found
      */
-    private Optional<? extends Element> getAccessor(VariableElement fieldElement, ProtobufFieldMetadata propertyAnnotation) {
+    private Optional<? extends Element> getAccessor(VariableElement fieldElement, Set<Integer> indexes) {
         if (!fieldElement.getModifiers().contains(Modifier.PRIVATE)) {
             return Optional.of(fieldElement);
         }
@@ -1051,7 +2077,7 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
                 .filter(element -> !element.getModifiers().contains(Modifier.PRIVATE))
                 .toList();
         return methods.stream()
-                .filter(entry -> isProtobufGetter(entry, propertyAnnotation))
+                .filter(entry -> isProtobufGetter(entry, indexes))
                 .findFirst()
                 .or(() -> inferAccessor(fieldElement, methods));
     }
@@ -1084,15 +2110,15 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
 
     /**
      * Returns whether the given method is annotated with {@link ProtobufAccessor}
-     * and matches the given property annotation index.
+     * and matches one of the given indexes.
      *
      * @param entry the method element
-     * @param propertyAnnotation the normalized field annotation
+     * @param indexes the indexes of the field
      * @return {@code true} if the method is a matching getter
      */
-    private boolean isProtobufGetter(ExecutableElement entry, ProtobufFieldMetadata propertyAnnotation) {
+    private boolean isProtobufGetter(ExecutableElement entry, Set<Integer> indexes) {
         var annotation = entry.getAnnotation(ProtobufAccessor.class);
-        return annotation != null && annotation.index() == propertyAnnotation.index();
+        return annotation != null && indexes.contains(annotation.index());
     }
 
     /**
@@ -1101,42 +2127,37 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      *
      * @param invoker the element used for error reporting
      * @param elementType the type of the field element
-     * @param mixins the mixin type elements
+     * @param mixins the mixins that apply to the field
      * @return the resolved map property type, if valid
      */
-    private Optional<ProtobufMapFieldType> getConcreteMapType(ProtobufFieldMetadata.MapField mapField, Element invoker, TypeMirror elementType, List<TypeElement> mixins) {
-        var keyType = mapField.mapKeyType();
-        var valueType = mapField.mapValueType();
+    private Optional<ProtobufMapFieldType> getConcreteMapType(ParsedProtobufField.Map mapField, Element invoker, TypeMirror elementType, DaedalusMixins mixins) {
+        var mapType = protobufTypes.getType(Map.class);
+        var mapKeyProtobufType = mapField.mapKeyType();
+        var mapValueProtobufType = mapField.mapValueType();
 
-        if (keyType == ProtobufType.UNKNOWN || keyType == ProtobufType.MAP) {
-            messages.printError("Missing type error: specify the type of the map's key in @MapField with mapKeyType", invoker);
+        if (!protobufTypes.isAssignable(elementType, Map.class)) {
+            messages.printError(ProtobufProcessorErrors.fieldMapNotMap(elementType), invoker);
             return Optional.empty();
         }
 
-        if (valueType == ProtobufType.UNKNOWN || valueType == ProtobufType.MAP) {
-            messages.printError("Missing type error: specify the type of the map's valueType in @MapField with mapValueType", invoker);
-            return Optional.empty();
+        // Only integral, bool and string keys are allowed, as floating point and bytes keys are not comparable
+        switch (mapKeyProtobufType) {
+            case INT32, SINT32, UINT32, FIXED32, SFIXED32, INT64, SINT64, UINT64, FIXED64, SFIXED64, BOOL, STRING -> {}
+            default -> {
+                messages.printError(ProtobufProcessorErrors.fieldInvalidMapKeyType(mapKeyProtobufType), invoker);
+                return Optional.empty();
+            }
         }
 
-        if (keyType == ProtobufType.MESSAGE || keyType == ProtobufType.ENUM || keyType == ProtobufType.GROUP) {
-            messages.printError("Type error: protobuf doesn't support messages, enums or groups as keys in a map", invoker);
-            return Optional.empty();
-        }
-
-        if (valueType == ProtobufType.GROUP) {
-            messages.printError("Type error: protobuf doesn't support groups as values in a map", invoker);
-            return Optional.empty();
-        }
-
-        var keyTypeParameter = protobufTypes.getTypeParameter(elementType, protobufTypes.getType(Map.class), 0)
-                .orElse(protobufTypes.getType(ProtobufFieldMetadata.deserializableType(keyType)));
+        var keyTypeParameter = protobufTypes.getTypeParameter(elementType, mapType, 0)
+                .orElse(null);
         if (keyTypeParameter == null) {
-            messages.printError("Type inference error: cannot determine map's key type", invoker);
+            messages.printError(ProtobufProcessorErrors.fieldMapKeyTypeUnknown(invoker, elementType), invoker);
             return Optional.empty();
         }
 
         var keyEntry = new ProtobufSimpleFieldType(
-                keyType,
+                mapKeyProtobufType,
                 keyTypeParameter,
                 keyTypeParameter,
                 null,
@@ -1145,17 +2166,17 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
         createUnattributedSerializer(invoker, keyEntry);
         createUnattributedDeserializer(invoker, keyEntry);
 
-        var valueTypeParameter = protobufTypes.getTypeParameter(elementType, protobufTypes.getType(Map.class), 1)
-                .orElse(valueType != ProtobufType.MESSAGE && valueType != ProtobufType.ENUM ? protobufTypes.getType(ProtobufFieldMetadata.deserializableType(valueType)) : null);
+        var valueTypeParameter = protobufTypes.getTypeParameter(elementType, mapType, 1)
+                .orElse(null);
         if (valueTypeParameter == null) {
-            messages.printError("Type inference error: cannot determine map's valueType type", invoker);
+            messages.printError(ProtobufProcessorErrors.fieldMapValueTypeUnknown(invoker, elementType), invoker);
             return Optional.empty();
         }
 
-        var valueDefaultValue = getDefaultValue(invoker, valueTypeParameter, mixins)
+        var valueDefaultValue = getDefaultValue(invoker, valueTypeParameter, mixins.all())
                 .orElse("null");
         var valueEntry = new ProtobufSimpleFieldType(
-                valueType,
+                mapValueProtobufType,
                 valueTypeParameter,
                 valueTypeParameter,
                 valueDefaultValue,
@@ -1164,9 +2185,9 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
         createUnattributedSerializer(invoker, valueEntry);
         createUnattributedDeserializer(invoker, valueEntry);
 
-        var mapDefaultValue = getCollectionDefaultValue(invoker, elementType, mixins);
+        var mapDefaultValue = getCollectionDefaultValue(invoker, elementType, mixins.all());
         if (mapDefaultValue.isEmpty()) {
-            messages.printError("Type inference error: cannot determine map default valueType", invoker);
+            messages.printError(ProtobufProcessorErrors.fieldMapDefaultUnknown(invoker, elementType), invoker);
             return Optional.empty();
         }
 
@@ -1186,7 +2207,7 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param invoker the element used for error reporting
      * @param implementation the property type
      */
-    private void createUnattributedSerializer(Element invoker, ProtobufFieldType implementation) {
+    private void createUnattributedSerializer(Element invoker, ProtobufValueFieldType implementation) {
         createUnattributedSerializer(invoker, implementation.accessorType(), implementation);
     }
 
@@ -1198,26 +2219,38 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param from the source type
      * @param implementation the property type
      */
-    private void createUnattributedSerializer(Element invoker, TypeMirror from, ProtobufFieldType implementation) {
-        var to = implementation.protobufType();
-        var toWrapped = protobufTypes.getType(ProtobufFieldMetadata.deserializableType(to));
-        if (to != ProtobufType.MESSAGE && to != ProtobufType.ENUM && to != ProtobufType.GROUP && protobufTypes.isAssignable(from, toWrapped)) {
-            return;
+    private void createUnattributedSerializer(Element invoker, TypeMirror from, ProtobufValueFieldType implementation) {
+        var to = switch (implementation.protobufType()) {
+            case FLOAT -> protobufTypes.getType(float.class);
+            case DOUBLE -> protobufTypes.getType(double.class);
+            case BOOL -> protobufTypes.getType(boolean.class);
+            case STRING -> protobufTypes.getType(String.class);
+            case BYTES -> protobufTypes.getType(byte[].class);
+            case INT32, SINT32, UINT32, FIXED32, SFIXED32, ENUM -> protobufTypes.getType(int.class);
+            case INT64, SINT64, UINT64, FIXED64, SFIXED64 -> protobufTypes.getType(long.class);
+            case MESSAGE -> protobufTypes.getType(void.class);
+        };
+        if (!protobufTypes.isAssignable(from, to)) {
+            var unattributed = new DaedalusConverterElement.Unattributed(invoker, from, to, implementation.mixins(), DaedalusConverterElement.Unattributed.Type.SERIALIZER);
+            implementation.addConverter(unattributed);
         }
-
-        var targetDescription = getProtobufTypeName(to, true);
-        var unattributed = new DaedalusConverterElement.Unattributed(invoker, from, toWrapped, targetDescription, implementation.mixins(), DaedalusConverterElement.Unattributed.Type.SERIALIZER);
-        implementation.addConverter(unattributed);
     }
 
     /**
      * Creates an unattributed deserializer converter element for the given property type,
      * if a conversion from the protobuf wire type to the descriptor element type is needed.
      *
-     * @param invoker the element used for error reporting
+     * <p>A synthetic field, declared by a method, is only serialized, so no deserializer
+     * is created for it.
+     *
+     * @param invoker the element used for error reporting, which declares the field
      * @param implementation the property type
      */
-    private void createUnattributedDeserializer(Element invoker, ProtobufFieldType implementation) {
+    private void createUnattributedDeserializer(Element invoker, ProtobufValueFieldType implementation) {
+        if (invoker instanceof ExecutableElement) {
+            return;
+        }
+
         createUnattributedDeserializer(invoker, implementation.descriptorElementType(), implementation);
     }
 
@@ -1229,358 +2262,202 @@ public class ProtobufProcessorExtension implements DaedalusProcessorExtension {
      * @param to the target type
      * @param implementation the property type
      */
-    private void createUnattributedDeserializer(Element invoker, TypeMirror to, ProtobufFieldType implementation) {
-        var from = implementation.protobufType();
-        var fromType = protobufTypes.getType(ProtobufFieldMetadata.deserializableType(from));
-        if (from != ProtobufType.MESSAGE && from != ProtobufType.ENUM && from != ProtobufType.GROUP && protobufTypes.isAssignable(to, fromType)) {
-            return;
-        }
-
-        var targetDescription = getProtobufTypeName(from, false);
-        var unattributed = new DaedalusConverterElement.Unattributed(invoker, fromType, to, targetDescription, implementation.mixins(), DaedalusConverterElement.Unattributed.Type.DESERIALIZER);
-        implementation.addConverter(unattributed);
-    }
-
-    /**
-     * Returns a human readable name for the given protobuf type, used in error messages
-     * for missing converters.
-     *
-     * @param type the protobuf type
-     * @param serializer whether this is for a serializer (affects the display of non-object types)
-     * @return the human readable type name
-     */
-    private String getProtobufTypeName(ProtobufType type, boolean serializer) {
-        return switch (type) {
-            case MESSAGE -> "ProtobufMessage";
-            case ENUM -> "ProtobufEnum";
-            case GROUP -> "ProtobufGroup";
-            case STRING -> "ProtobufString";
-            default -> "%s(%s)".formatted(type.name(), ProtobufFieldMetadata.deserializableType(type));
+    private void createUnattributedDeserializer(Element invoker, TypeMirror to, ProtobufValueFieldType implementation) {
+        var from = switch (implementation.protobufType()) {
+            case FLOAT -> protobufTypes.getType(float.class);
+            case DOUBLE -> protobufTypes.getType(double.class);
+            case BOOL -> protobufTypes.getType(boolean.class);
+            case STRING -> protobufTypes.getType(String.class);
+            case BYTES -> protobufTypes.getType(byte[].class);
+            case INT32, SINT32, UINT32, FIXED32, SFIXED32, ENUM -> protobufTypes.getType(int.class);
+            case INT64, SINT64, UINT64, FIXED64, SFIXED64 -> protobufTypes.getType(long.class);
+            case MESSAGE -> protobufTypes.getType(ProtobufBinaryReader.class);
         };
+        // A deserializer is only needed if the wire type cannot be assigned to the field, like a String to a CharSequence
+        if (!protobufTypes.isAssignable(from, to)) {
+            var unattributed = new DaedalusConverterElement.Unattributed(invoker, from, to, implementation.mixins(), DaedalusConverterElement.Unattributed.Type.DESERIALIZER);
+            implementation.addConverter(unattributed);
+        }
     }
 
     /**
      * Processes an enum annotated with {@link ProtobufEnum}, creating its element,
      * linking it into the converter graph, and processing its constants.
      *
-     * @param enumElement the enum type element
+     * @param enumTypeElement the enum type element
      * @return the set of processed protobuf objects
      */
-    private Set<ProtobufObjectElement> processEnum(TypeElement enumElement) {
-        var messageElement = createEnumElement(enumElement);
-        if (messageElement.isEmpty()) {
+    private Set<ProtobufTypeElement> processEnum(TypeElement enumTypeElement) {
+        var enumElement = createEnumElement(enumTypeElement);
+        if (enumElement.isEmpty()) {
             return Set.of();
         }
-
-        linkEnum(enumElement.asType());
-
-        var constantsCount = processEnumConstants(messageElement.get());
-        if (constantsCount == 0) {
-            messages.printWarning("No constants found", enumElement);
-        }
-
-        return Set.of(messageElement.get());
+        linkEnum(enumTypeElement.asType());
+        return Set.of(enumElement.get());
     }
 
     /**
-     * Counts and processes all enum constants in the given protobuf enum element.
+     * Returns whether the given field is a constant of the given protobuf enum.
      *
-     * @param messageElement the protobuf enum element
-     * @return the number of constants processed
+     * <p>The constants of a Java enum are its enum constants. The constants of any other
+     * type are its {@code static final} fields annotated with {@link ProtobufEnum.Constant}.
+     *
+     * @param enumTypeElement the protobuf enum type element
+     * @param variableElement the field to check
+     * @return {@code true} if the field is a constant of the enum
      */
-    private long processEnumConstants(ProtobufObjectElement messageElement) {
-        var enumTree = trees.getTree(messageElement.typeElement());
-        return enumTree.getMembers()
-                .stream()
-                .filter(member -> member instanceof VariableTree)
-                .map(member -> (VariableTree) member)
-                .peek(variableTree -> processEnumConstant(messageElement, messageElement.typeElement(), variableTree))
-                .count();
+    private boolean isEnumConstant(TypeElement enumTypeElement, VariableElement variableElement) {
+        if (enumTypeElement.getKind() == ElementKind.ENUM) {
+            return variableElement.getKind() == ElementKind.ENUM_CONSTANT;
+        }
+
+        if (variableElement.getAnnotation(ProtobufEnum.Constant.class) == null) {
+            return false;
+        }
+
+        var modifiers = variableElement.getModifiers();
+        var constant = enumTypeElement.getKind() == ElementKind.INTERFACE
+                || (modifiers.contains(Modifier.STATIC) && modifiers.contains(Modifier.FINAL));
+        if (!constant || !protobufTypes.isAssignable(variableElement.asType(), enumTypeElement.asType())) {
+            messages.printError(ProtobufProcessorErrors.enumIllegalConstant(variableElement.getSimpleName().toString(), enumTypeElement.getSimpleName().toString()), variableElement);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Finds the methods that convert the values of the given protobuf enum to and from their
+     * index, if the type declares them instead of constants.
+     *
+     * <p>The serializer is an instance method annotated with {@link TypeSerializer} that takes
+     * no parameters and returns an {@code int}, and the deserializer is a static method
+     * annotated with {@link TypeDeserializer} that takes an {@code int} and returns the type.
+     *
+     * @param enumElement the protobuf enum element
+     * @return {@code true} if the type declares both methods
+     */
+    private boolean processEnumConverters(ProtobufEnumElement enumElement) {
+        ExecutableElement serializer = null;
+        ExecutableElement deserializer = null;
+        var intType = protobufTypes.getType(int.class);
+        var enumType = enumElement.typeElement().asType();
+        for (var entry : enumElement.typeElement().getEnclosedElements()) {
+            if (!(entry instanceof ExecutableElement method) || method.getKind() != ElementKind.METHOD) {
+                continue;
+            }
+
+            if (method.getAnnotation(TypeSerializer.class) != null) {
+                if (method.getModifiers().contains(Modifier.STATIC) || !method.getParameters().isEmpty() || !protobufTypes.isAssignable(method.getReturnType(), intType)) {
+                    messages.printError(ProtobufProcessorErrors.enumIllegalSerializer(method.getSimpleName().toString()), method);
+                } else {
+                    serializer = method;
+                }
+            }
+
+            if (method.getAnnotation(TypeDeserializer.class) != null) {
+                if (!method.getModifiers().contains(Modifier.STATIC) || method.getParameters().size() != 1 || !protobufTypes.isAssignable(intType, method.getParameters().getFirst().asType()) || !protobufTypes.isAssignable(method.getReturnType(), enumType)) {
+                    messages.printError(ProtobufProcessorErrors.enumIllegalDeserializer(method.getSimpleName().toString(), enumElement.typeElement().getSimpleName().toString()), method);
+                } else {
+                    deserializer = method;
+                }
+            }
+        }
+
+        if (serializer == null && deserializer == null) {
+            return false;
+        }
+
+        if (serializer == null || deserializer == null) {
+            messages.printError(ProtobufProcessorErrors.enumMissingConverter(enumElement.typeElement().getSimpleName().toString()), serializer != null ? serializer : deserializer);
+            return false;
+        }
+
+        enumElement.setConverters(serializer, deserializer);
+        return true;
     }
 
     /**
      * Creates a protobuf enum element from the given enum type, resolving
      * its metadata and reserved elements.
      *
-     * @param enumElement the enum type element
+     * @param enumTypeElement the enum type element
      * @return the protobuf enum element, if valid
      */
-    private Optional<ProtobufObjectElement> createEnumElement(TypeElement enumElement) {
-        var enumAnnotation = enumElement.getAnnotation(ProtobufEnum.class);
+    private Optional<ProtobufEnumElement> createEnumElement(TypeElement enumTypeElement) {
+        var enumAnnotation = enumTypeElement.getAnnotation(ProtobufEnum.class);
         if (enumAnnotation == null) {
             return Optional.empty();
         }
 
-        Set<? extends ProtobufReservedFieldElement> reserved = ProtobufReservedFieldElement.of(enumAnnotation);
-        var metadata = getEnumMetadata(enumElement);
-        if (metadata.isEmpty()) {
-            return Optional.of(ProtobufObjectElement.ofEnum(enumElement, ProtobufEnumMetadata.javaEnum(), reserved));
-        }
+        var reserved = ProtobufReservedFieldElement.of(enumAnnotation);
+        var version = enumAnnotation.version();
+        var enumType = enumAnnotation.type();
+        var enumElement = new ProtobufEnumElement(enumTypeElement, version, enumType, reserved);
 
-        if (metadata.get().isUnknown()) {
-            return Optional.empty();
-        }
-
-        var result = ProtobufObjectElement.ofEnum(enumElement, metadata.get(), reserved);
-        return Optional.of(result);
-    }
-
-    /**
-     * Resolves the enum metadata by finding a constructor with a parameter annotated
-     * with {@link ProtobufEnum.Constant} or a single int parameter.
-     *
-     * @param enumElement the enum type element
-     * @return the enum metadata, if found
-     */
-    private Optional<ProtobufEnumMetadata> getEnumMetadata(TypeElement enumElement) {
-        var fields = getEnumFields(enumElement);
-        return getConstructors(enumElement)
-                .stream()
-                .map(constructor -> getEnumMetadata(constructor, fields))
-                .flatMap(Optional::stream)
-                .reduce((first, second) -> {
-                    messages.printError("Duplicated protobuf constructor: an enum should provide only one constructor with a scalar parameter annotated with @ProtobufEnum.Constant", second.constructor());
-                    return first;
-                });
-    }
-
-    /**
-     * Resolves the enum metadata for a single constructor.
-     *
-     * @param constructor the constructor element
-     * @param fields the enum fields
-     * @return the enum metadata, if found
-     */
-    private Optional<ProtobufEnumMetadata> getEnumMetadata(ExecutableElement constructor, ProtobufEnumFields fields) {
-        var constructorTree = trees.getTree(constructor);
-        return IntStream.range(0, constructor.getParameters().size())
-                .filter(index -> isImplicitEnumConstructor(constructor) || hasProtobufIndexAnnotation(constructor, index))
-                .mapToObj(index -> getEnumMetadata(constructor, constructor.getParameters().get(index), index, constructorTree, fields))
-                .reduce((first, second) -> {
-                    messages.printError("Duplicated protobuf enum index: an enum constructor should provide only one parameter annotated with @ProtobufEnum.Constant", second.parameter());
-                    return first;
-                });
-    }
-
-    /**
-     * Returns whether the given constructor is an implicit enum constructor
-     * with a single int parameter.
-     *
-     * @param constructor the constructor element
-     * @return {@code true} if the constructor is implicit
-     */
-    private boolean isImplicitEnumConstructor(ExecutableElement constructor) {
-        return constructor.getParameters().size() == 1
-               && protobufTypes.isSameType(constructor.getParameters().getFirst().asType(), int.class);
-    }
-
-    /**
-     * Returns whether the parameter at the given index in the constructor
-     * is annotated with {@link ProtobufEnum.Constant}.
-     *
-     * @param constructor the constructor element
-     * @param index the parameter index
-     * @return {@code true} if the parameter is annotated
-     */
-    private boolean hasProtobufIndexAnnotation(ExecutableElement constructor, int index) {
-        return constructor.getParameters()
-                       .get(index)
-                       .getAnnotation(ProtobufEnum.Constant.class) != null;
-    }
-
-    /**
-     * Resolves the enum metadata for a specific constructor parameter, tracing
-     * field assignments in the constructor body to identify the index field.
-     *
-     * @param constructor the constructor element
-     * @param parameter the annotated parameter
-     * @param index the parameter index
-     * @param constructorTree the AST tree of the constructor
-     * @param fields the enum fields
-     * @return the resolved enum metadata
-     */
-    private ProtobufEnumMetadata getEnumMetadata(ExecutableElement constructor, VariableElement parameter, int index, MethodTree constructorTree, ProtobufEnumFields fields) {
-        if (fields.enumIndexField() != null) {
-            return new ProtobufEnumMetadata(constructor, fields.enumIndexField(), parameter, index);
-        }
-
-        return constructorTree.getBody()
-                .getStatements()
-                .stream()
-                .filter(constructorEntry -> constructorEntry instanceof ExpressionStatementTree)
-                .map(constructorEntry -> ((ExpressionStatementTree) constructorEntry).getExpression())
-                .filter(constructorEntry -> constructorEntry instanceof AssignmentTree)
-                .map(constructorEntry -> (AssignmentTree) constructorEntry)
-                .filter(assignmentTree -> isEnumIndexParameterAssignment(assignmentTree, parameter))
-                .map(this::getAssignmentExpressionName)
-                .flatMap(Optional::stream)
-                .map(fields.fields()::get)
-                .filter(Objects::nonNull)
-                .reduce((first, second) -> {
-                    messages.printError("Duplicated assignment: the parameter annotated with @ProtobufEnum.Constant must be assigned to a single local field", second);
-                    return first;
-                })
-                .map(fieldElement -> {
-                    checkProtobufEnumIndexField(fieldElement);
-                    return new ProtobufEnumMetadata(constructor, fieldElement, parameter, index);
-                })
-                .orElseGet(() -> {
-                    messages.printError("Missing or too complex assignment: the parameter annotated with @ProtobufEnum.Constant should be assigned to a local field", constructor);
-                    messages.printError("If the assignment is too complex for the compiler to evaluate, annotate the local field directly with @ProtobufEnum.Constant", constructor);
-                    return ProtobufEnumMetadata.unknown();
-                });
-    }
-
-    /**
-     * Returns whether the given assignment tree assigns the specified parameter.
-     *
-     * @param assignmentTree the assignment tree
-     * @param parameter the parameter element
-     * @return {@code true} if the assignment uses the parameter
-     */
-    private boolean isEnumIndexParameterAssignment(AssignmentTree assignmentTree, VariableElement parameter) {
-        return assignmentTree.getExpression() instanceof IdentifierTree identifierTree
-               && identifierTree.getName().equals(parameter.getSimpleName());
-    }
-
-    /**
-     * Returns the name of the field being assigned to in the given assignment tree.
-     *
-     * @param assignmentTree the assignment tree
-     * @return the field name, if resolvable
-     */
-    private Optional<Name> getAssignmentExpressionName(AssignmentTree assignmentTree) {
-        if (assignmentTree.getExpression() instanceof IdentifierTree fieldIdentifier) {
-            return Optional.of(fieldIdentifier.getName());
-        } else if (assignmentTree.getExpression() instanceof MemberSelectTree memberSelectTree) {
-            return Optional.of(memberSelectTree.getIdentifier());
-        } else {
-            return Optional.empty();
-        }
-    }
-
-    /**
-     * Collects the fields of the given enum type, checking for a field annotated
-     * with {@link ProtobufEnum.Constant}.
-     *
-     * @param enumElement the enum type element
-     * @return the collected enum fields
-     */
-    private ProtobufEnumFields getEnumFields(TypeElement enumElement) {
-        Map<Name, VariableElement> fields = new HashMap<>();
-        for (var entry : enumElement.getEnclosedElements()) {
-            if (!(entry instanceof VariableElement variableElement)) {
+        var conflicts = new TreeMap<Integer, SequencedCollection<String>>();
+        var textNames = new HashMap<String, String>();
+        var javaEnum = enumTypeElement.getKind() == ElementKind.ENUM;
+        for (var entry : enumTypeElement.getEnclosedElements()) {
+            if (!(entry instanceof VariableElement variableElement) || !isEnumConstant(enumTypeElement, variableElement)) {
                 continue;
             }
 
-            if (variableElement.getAnnotation(ProtobufEnum.Constant.class) != null) {
-                checkProtobufEnumIndexField(variableElement);
-                return new ProtobufEnumFields(variableElement, null);
+            var name = variableElement.getSimpleName().toString();
+            var annotation = variableElement.getAnnotation(ProtobufEnum.Constant.class);
+            var index = annotation == null
+                    ? enumElement.fields().size()
+                    : annotation.index();
+            if (!enumElement.isIndexAllowed(index)) {
+                messages.printError(ProtobufProcessorErrors.fieldReservedIndex(index), variableElement);
             }
 
-            fields.put(variableElement.getSimpleName(), variableElement);
+            var textName = annotation == null || annotation.name().isEmpty() ? name : annotation.name();
+            if (annotation != null && !annotation.name().isEmpty() && !isValidFieldName(textName)) {
+                messages.printError(ProtobufProcessorErrors.fieldInvalidName(textName), variableElement);
+            } else if(!enumElement.isNameAllowed(textName)) {
+                messages.printError(ProtobufProcessorErrors.fieldReservedName(textName), variableElement);
+            }
+
+            var nameOwner = textNames.putIfAbsent(textName, name);
+            if (nameOwner != null) {
+                messages.printError(ProtobufProcessorErrors.enumDuplicatedName(variableElement, nameOwner, textName), variableElement);
+            }
+
+            // The first constant of an open enum is its default value, which must be encoded as zero
+            if (enumElement.fields().isEmpty() && enumElement.enumType() == ProtobufEnumType.OPEN && index != 0) {
+                messages.printError(ProtobufProcessorErrors.enumOpenWithoutZero(name, index), variableElement);
+            }
+
+            var type = variableElement.asType();
+            var mixins = annotation != null
+                    ? protobufTypes.getMirroredTypes(annotation::mixins)
+                    : Set.<TypeElement>of();
+            var defaultValue = getDefaultValue(variableElement, type, mixins)
+                    .orElse("null");
+            var constantType = new ProtobufSimpleFieldType(ProtobufType.ENUM, type, type, defaultValue, DaedalusMixins.of(mixins));
+            var constant = new ProtobufEnumConstantElement(index, name, textName, variableElement, constantType);
+            var existingConstant = enumElement.addField(constant);
+            if (existingConstant.isEmpty()) {
+                continue;
+            }
+
+            conflicts.compute(index, (_, names) -> {
+                if(names == null) {
+                    names = new LinkedList<>();
+                    names.add(existingConstant.get().name());
+                }
+                names.add(name);
+                return names;
+            });
         }
 
-        return new ProtobufEnumFields(null, fields);
-    }
-
-    /**
-     * Validates that the enum index field has at least package-private visibility.
-     *
-     * @param variableElement the field element
-     */
-    private void checkProtobufEnumIndexField(VariableElement variableElement) {
-        if (!variableElement.getModifiers().contains(Modifier.PRIVATE)) {
-            return;
+        if (!processEnumConverters(enumElement) && !javaEnum && enumElement.fields().isEmpty()) {
+            messages.printError(ProtobufProcessorErrors.enumWithoutValues(enumTypeElement.getSimpleName().toString()), enumTypeElement);
         }
 
-        messages.printError("Weak visibility: the field annotated with @ProtobufEnum.Constant must have at least package-private visibility", variableElement);
-    }
+        conflicts.forEach((index, names) -> messages.printError(ProtobufProcessorErrors.enumDuplicatedIndex(enumTypeElement, index, names), enumTypeElement));
 
-    /**
-     * A holder for the fields of a protobuf enum during metadata resolution.
-     *
-     * @param enumIndexField the field annotated with {@link ProtobufEnum.Constant}, if any
-     * @param fields the map of field names to field elements
-     */
-    private record ProtobufEnumFields(VariableElement enumIndexField, Map<Name, VariableElement> fields) {
-
-    }
-
-    /**
-     * Returns all constructor elements of the given enum type.
-     *
-     * @param enumElement the enum type element
-     * @return the list of constructors
-     */
-    private List<ExecutableElement> getConstructors(TypeElement enumElement) {
-        return enumElement.getEnclosedElements()
-                .stream()
-                .filter(entry -> entry instanceof ExecutableElement)
-                .map(entry -> (ExecutableElement) entry)
-                .filter(entry -> entry.getKind() == ElementKind.CONSTRUCTOR)
-                .toList();
-    }
-
-    /**
-     * Processes a single enum constant, extracting its index from the constructor
-     * arguments and registering it with the protobuf enum element.
-     *
-     * @param messageElement the protobuf enum element
-     * @param enumElement the enum type element, used for error reporting
-     * @param enumConstantTree the AST tree of the enum constant
-     */
-    private void processEnumConstant(ProtobufObjectElement messageElement, TypeElement enumElement, VariableTree enumConstantTree) {
-        if (!(enumConstantTree.getInitializer() instanceof NewClassTree newClassTree)) {
-            return;
-        }
-
-        var newClassType = newClassTree.getIdentifier().toString();
-        var simpleEnumName = enumElement.getSimpleName().toString();
-        if (!newClassType.equals(simpleEnumName) && !newClassType.equals(messageElement.typeElement().getQualifiedName().toString())) {
-            return;
-        }
-
-        var variableName = enumConstantTree.getName().toString();
-        if (messageElement.enumMetadata().orElseThrow().isJavaEnum()) {
-            var ordinal = messageElement.constants().size();
-            if (!messageElement.isIndexAllowed(ordinal)) {
-                messages.printError("Restricted message property index: %s is not allowed as it's marked as reserved".formatted(ordinal), enumElement);
-            }
-
-            var error = messageElement.addEnumConstant(ordinal, variableName);
-            if (error.isEmpty()) {
-                return;
-            }
-
-            messages.printError("Duplicated enum constant: %s and %s with index %s".formatted(variableName, error.get(), ordinal), enumElement);
-        } else {
-            if (newClassTree.getArguments().isEmpty()) {
-                messages.printError("%s doesn't specify an index".formatted(variableName), enumElement);
-                return;
-            }
-
-            var indexArgument = newClassTree.getArguments().get(messageElement.enumMetadata().orElseThrow().parameterIndex());
-            if (!(indexArgument instanceof LiteralTree literalTree)) {
-                messages.printError("%s's index must be a constant valueType".formatted(variableName), enumElement);
-                return;
-            }
-
-            var value = ((Number) literalTree.getValue()).intValue();
-            if (value < 0) {
-                messages.printError("%s's index must be positive".formatted(variableName), enumElement);
-            }
-
-            if (!messageElement.isIndexAllowed(value)) {
-                messages.printError("Restricted message property index: %s is not allowed as it's marked as reserved".formatted(value), enumElement);
-            }
-
-            var error = messageElement.addEnumConstant(value, variableName);
-            if (error.isEmpty()) {
-                return;
-            }
-
-            messages.printError("Duplicated enum constant: %s and %s with index %s".formatted(variableName, error.get(), value), enumElement);
-        }
+        return Optional.of(enumElement);
     }
 }

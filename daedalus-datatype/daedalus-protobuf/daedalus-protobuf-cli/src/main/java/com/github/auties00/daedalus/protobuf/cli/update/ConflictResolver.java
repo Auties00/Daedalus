@@ -1,10 +1,12 @@
 package com.github.auties00.daedalus.protobuf.cli.update;
 
+import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufOneofStatement;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufEnumConstantStatement;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufEnumStatement;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufFieldStatement;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufMessageStatement;
 import com.github.auties00.daedalus.protobuf.cli.generation.NamingStrategy;
+import com.github.auties00.daedalus.protobuf.cli.generation.PropertyGenerator;
 import com.github.auties00.daedalus.protobuf.cli.model.Conflict;
 
 import java.util.ArrayList;
@@ -25,14 +27,22 @@ import java.util.List;
  * </ul>
  */
 public final class ConflictResolver {
+    /**
+     * The property generator used to collect the fields of a message, including the
+     * members of its {@code oneof} declarations.
+     */
+    private final PropertyGenerator propertyGenerator;
+
     private final NamingStrategy naming;
 
     /**
-     * Constructs a conflict resolver with the given naming strategy.
+     * Constructs a conflict resolver with the given property generator and naming strategy.
      *
+     * @param propertyGenerator the property generator used to collect the fields of a message
      * @param naming the naming strategy for converting proto names to Java names
      */
-    public ConflictResolver(NamingStrategy naming) {
+    public ConflictResolver(PropertyGenerator propertyGenerator, NamingStrategy naming) {
+        this.propertyGenerator = propertyGenerator;
         this.naming = naming;
     }
 
@@ -50,9 +60,12 @@ public final class ConflictResolver {
         var conflicts = new ArrayList<Conflict>();
         var existingByIndex = scannedType.existingFieldsByIndex();
 
-        message.getDirectChildrenByType(ProtobufFieldStatement.class).forEach(field -> {
-            var protoIndex = field.index().value().longValueExact();
-            var protoFieldName = naming.toFieldName(field.name());
+        propertyGenerator.collectFields(message).forEach(field -> {
+            var protoIndex = (int) field.index().value();
+            // The member of a oneof is held by the single field of the oneof
+            var protoFieldName = field.parent() instanceof ProtobufOneofStatement oneof
+                    ? naming.toFieldName(oneof.name())
+                    : naming.toFieldName(field.name());
 
             // Check for index collision: same index, different name
             if (existingByIndex.containsKey(protoIndex)) {
@@ -102,7 +115,7 @@ public final class ConflictResolver {
         var existingIndexes = scannedType.existingEnumConstantIndexes();
 
         enumStmt.getDirectChildrenByType(ProtobufEnumConstantStatement.class).forEach(constant -> {
-            var protoIndex = constant.index().value().longValueExact();
+            var protoIndex = (int) constant.index().value();
             var protoName = naming.toEnumConstantName(constant.name());
 
             // For enums, index collision is less likely to be a problem since

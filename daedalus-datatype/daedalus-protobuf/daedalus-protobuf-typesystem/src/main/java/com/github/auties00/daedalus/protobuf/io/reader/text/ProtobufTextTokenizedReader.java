@@ -90,19 +90,19 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
     // Each constant identifies the lexical category of a token in the
     // packed long tape. The kind occupies the lowest 4 bits of the
     // packed token, allowing up to 16 distinct kinds.
-    private static final int IDENT         = 0;
-    private static final int DSTR          = 1;
-    private static final int SSTR          = 2;
-    private static final int NUMERIC       = 3;
-    private static final int MINUS         = 4;
-    private static final int BRACE_OPEN    = 5;
-    private static final int BRACE_CLOSE   = 6;
-    private static final int ANGLE_OPEN    = 7;
-    private static final int ANGLE_CLOSE   = 8;
-    private static final int BRACKET_OPEN  = 9;
-    private static final int BRACKET_CLOSE = 10;
-    private static final int COLON         = 11;
-    private static final int SEP           = 12;
+    private static final int KIND_IDENT         = 0;
+    private static final int KIND_DSTR          = 1;
+    private static final int KIND_SSTR          = 2;
+    private static final int KIND_NUMERIC       = 3;
+    private static final int KIND_MINUS         = 4;
+    private static final int KIND_BRACE_OPEN    = 5;
+    private static final int KIND_BRACE_CLOSE   = 6;
+    private static final int KIND_ANGLE_OPEN    = 7;
+    private static final int KIND_ANGLE_CLOSE   = 8;
+    private static final int KIND_BRACKET_OPEN  = 9;
+    private static final int KIND_BRACKET_CLOSE = 10;
+    private static final int KIND_COLON         = 11;
+    private static final int KIND_SEP           = 12;
 
 
     /**
@@ -194,16 +194,16 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
         CHAR_CLASS[DOT] = CHAR_DIGIT_OR_DOT;
 
         // Populate the structural-to-kind mapping
-        STRUCTURAL_KIND[LBRACE]   = BRACE_OPEN;
-        STRUCTURAL_KIND[RBRACE]   = BRACE_CLOSE;
-        STRUCTURAL_KIND[LANGLE]   = ANGLE_OPEN;
-        STRUCTURAL_KIND[RANGLE]   = ANGLE_CLOSE;
-        STRUCTURAL_KIND[LBRACKET] = BRACKET_OPEN;
-        STRUCTURAL_KIND[RBRACKET] = BRACKET_CLOSE;
-        STRUCTURAL_KIND[COLON]    = COLON;
-        STRUCTURAL_KIND[COMMA]    = SEP;
-        STRUCTURAL_KIND[SEMICOLON]= SEP;
-        STRUCTURAL_KIND[MINUS]    = MINUS;
+        STRUCTURAL_KIND[LBRACE]   = KIND_BRACE_OPEN;
+        STRUCTURAL_KIND[RBRACE]   = KIND_BRACE_CLOSE;
+        STRUCTURAL_KIND[LANGLE]   = KIND_ANGLE_OPEN;
+        STRUCTURAL_KIND[RANGLE]   = KIND_ANGLE_CLOSE;
+        STRUCTURAL_KIND[LBRACKET] = KIND_BRACKET_OPEN;
+        STRUCTURAL_KIND[RBRACKET] = KIND_BRACKET_CLOSE;
+        STRUCTURAL_KIND[COLON]    = KIND_COLON;
+        STRUCTURAL_KIND[COMMA]    = KIND_SEP;
+        STRUCTURAL_KIND[SEMICOLON]= KIND_SEP;
+        STRUCTURAL_KIND[MINUS]    = KIND_MINUS;
 
         // Pre-compute broadcast vectors
         V_SPACE    = ByteVector.broadcast(SPECIES, (byte) SPACE);
@@ -239,6 +239,12 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
     private final int inputOffset;
     private final int inputLimit;
     private final LongBuffer tape;
+
+    /**
+     * The offset of the opening quote of the string that the input does not close, or
+     * {@code -1} if every string is closed.
+     */
+    private int unterminatedStringOffset = -1;
     private int tapePosition;
 
     /**
@@ -309,82 +315,192 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
      */
     public ProtobufTextTokenizedReader(CharSequence input) {
         // TODO: Would be cool to have some way to not have to UTF-8 encode the CharSequence
-        //       Problem is strings are UTF-16 encoded internally in Java and MemorySegment.ofBuffer doens't support Buffers that don't have a backing array(e.g. CharBuffer)
+        //       Problem is strings are UTF-16 encoded internally in Java and MemorySegment.ofBuffer doesn't support Buffers that don't have a backing array(e.g. CharBuffer)
         this(input.toString().getBytes(StandardCharsets.UTF_8));
     }
 
     /**
      * {@inheritDoc}
      *
-     * @throws ProtobufDeserializationException if the next token is not
-     *         {@code &#123;} or {@code <}
+     * @throws ProtobufDeserializationException if a message is open and the next token is
+     *         neither {@code &#123;} nor {@code <}, or if the message exceeds the recursion limit
      */
     @Override
-    public void readStartObject() {
-        var kind = tokenKind(next());
-        if (kind != BRACE_OPEN && kind != ANGLE_OPEN) {
-            throw new ProtobufDeserializationException("Expected '{' or '<' to start object");
+    public void readStartMessage() throws ProtobufDeserializationException {
+        if (hasRemaining()) {
+            var kind = peekKind();
+            if (kind == KIND_BRACE_OPEN || kind == KIND_ANGLE_OPEN) {
+                skipToken();
+                pushMessage(kind == KIND_BRACE_OPEN ? RBRACE : RANGLE);
+                return;
+            }
         }
+
+        if (messageDepth() != 0) {
+            throw ProtobufDeserializationException.expectedMessageStart(describeNextToken());
+        }
+
+        pushMessage(END_OF_TEXT);
     }
 
     /**
      * {@inheritDoc}
-     *
-     * @throws ProtobufDeserializationException if the next token is not
-     *         {@code &#125;} or {@code >}
      */
     @Override
-    public void readEndObject() {
-        var kind = tokenKind(next());
-        if (kind != BRACE_CLOSE && kind != ANGLE_CLOSE) {
-            throw new ProtobufDeserializationException("Expected '}' or '>' to end object");
-        }
-        skipOptionalSeparator();
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @throws ProtobufDeserializationException if the next token is not {@code [}
-     */
-    @Override
-    public void readStartArray() {
-        if (tokenKind(next()) != BRACKET_OPEN) {
-            throw new ProtobufDeserializationException("Expected '[' to start array");
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * @throws ProtobufDeserializationException if the next token is not {@code ]}
-     */
-    @Override
-    public void readEndArray() {
-        if (tokenKind(next()) != BRACKET_CLOSE) {
-            throw new ProtobufDeserializationException("Expected ']' to end array");
-        }
-        skipOptionalSeparator();
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>Returns {@code false} if the tape is exhausted or the next token
-     * is not an identifier. If an identifier is found, the optional colon
-     * separator after the field name is also consumed.
-     */
-    @Override
-    public boolean readPropertyName() {
-        if (!hasRemaining() || peekKind() != IDENT) {
+    public boolean nextField() throws ProtobufDeserializationException {
+        if (!hasRemaining()) {
+            if (messageDelimiter() != END_OF_TEXT) {
+                throw ProtobufDeserializationException.unexpectedEndOfText();
+            }
             return false;
         }
-        var token = next();
-        propertyName = tokenText(token);
-        if (hasRemaining() && peekKind() == COLON) {
-            next();
+
+        var token = tape.get(tapePosition);
+        switch (tokenKind(token)) {
+            case KIND_IDENT -> {
+                skipToken();
+                fieldName = tokenText(token);
+            }
+            case KIND_BRACKET_OPEN -> {
+                skipToken();
+                fieldName = readBracketedName();
+            }
+            case KIND_BRACE_CLOSE, KIND_ANGLE_CLOSE -> {
+                var delimiter = messageDelimiter();
+                if (delimiter == END_OF_TEXT) {
+                    throw ProtobufDeserializationException.expectedEndOfText(tokenText(token));
+                }
+                if (getClosingDelimiter(tokenKind(token)) != delimiter) {
+                    throw ProtobufDeserializationException.expectedMessageEnd(Character.toString(delimiter), tokenText(token));
+                }
+                return false;
+            }
+            default -> throw ProtobufDeserializationException.expectedFieldName(tokenText(token));
+        }
+
+        if (hasRemaining() && peekKind() == KIND_COLON) {
+            skipToken();
         }
         return true;
+    }
+
+    /**
+     * Reads the name of an extension, or the type URL of an expanded {@code Any}, whose opening
+     * square bracket was consumed, and the closing square bracket that follows it.
+     *
+     * <p>The tokens of the name are concatenated, dropping the whitespace and the comments
+     * between them.
+     *
+     * @return the name, enclosed in square brackets
+     * @throws ProtobufDeserializationException if the name is empty, or if the text ends before
+     *                                          the closing square bracket
+     */
+    private String readBracketedName() throws ProtobufDeserializationException {
+        var result = new StringBuilder();
+        result.append('[');
+        while (true) {
+            var token = next();
+            var kind = tokenKind(token);
+            if (kind == KIND_BRACKET_CLOSE) {
+                break;
+            }
+            if (kind != KIND_IDENT && kind != KIND_NUMERIC && kind != KIND_MINUS) {
+                throw ProtobufDeserializationException.expectedFieldName(tokenText(token));
+            }
+            result.append(tokenText(token));
+        }
+        if (result.length() == 1) {
+            throw ProtobufDeserializationException.expectedFieldName("]");
+        }
+        return result.append(']').toString();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ProtobufDeserializationException if the next token is not the delimiter that
+     *         closes the message, or if the message is the top level message and the text does
+     *         not end
+     */
+    @Override
+    public void readEndMessage() throws ProtobufDeserializationException {
+        var delimiter = popMessage();
+        if (delimiter == END_OF_TEXT) {
+            if (hasRemaining()) {
+                throw ProtobufDeserializationException.expectedEndOfText(describeNextToken());
+            }
+            return;
+        }
+
+        var token = next();
+        if (getClosingDelimiter(tokenKind(token)) != delimiter) {
+            throw ProtobufDeserializationException.expectedMessageEnd(Character.toString(delimiter), tokenText(token));
+        }
+        skipOptionalSeparator();
+    }
+
+    /**
+     * Returns the delimiter that closes a message, represented by the given token kind.
+     *
+     * @param kind the kind of a token
+     * @return the closing brace or the closing angle bracket, or {@code 0} if the token does not
+     *         close a message
+     */
+    private static int getClosingDelimiter(int kind) {
+        return switch (kind) {
+            case KIND_BRACE_CLOSE -> RBRACE;
+            case KIND_ANGLE_CLOSE -> RANGLE;
+            default -> 0;
+        };
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean readStartList() {
+        if (hasRemaining() && peekKind() == KIND_BRACKET_OPEN) {
+            skipToken();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean nextListElement() throws ProtobufDeserializationException {
+        if (!hasRemaining()) {
+            throw ProtobufDeserializationException.unexpectedEndOfText();
+        }
+        if (peekKind() == KIND_BRACKET_CLOSE) {
+            skipToken();
+            skipOptionalSeparator();
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isNextValueIdentifier() {
+        return hasRemaining() && peekKind() == KIND_IDENT;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String readIdentifierField() throws ProtobufDeserializationException {
+        var token = next();
+        if (tokenKind(token) != KIND_IDENT) {
+            throw ProtobufDeserializationException.expectedValue("identifier", tokenText(token));
+        }
+        skipOptionalSeparator();
+        return tokenText(token);
     }
 
     /**
@@ -399,31 +515,27 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
      * {@inheritDoc}
      *
      * <p>Handles scalar values, signed numerics, adjacent string
-     * concatenation, and nested objects or arrays at arbitrary depth.
+     * concatenation, and nested messages or lists at arbitrary depth.
      */
     @Override
-    public void skipUnknownProperty() {
-        if (!hasRemaining()) {
-            return;
-        }
-
-        switch (peekKind()) {
-            case BRACE_OPEN -> skipBlock(BRACE_OPEN, BRACE_CLOSE);
-            case ANGLE_OPEN -> skipBlock(ANGLE_OPEN, ANGLE_CLOSE);
-            case BRACKET_OPEN -> skipBlock(BRACKET_OPEN, BRACKET_CLOSE);
-            case MINUS -> {
-                next();
-                next();
+    public void skipUnknownField() throws ProtobufDeserializationException {
+        switch (tokenKind(peek())) {
+            case KIND_BRACE_OPEN -> skipBlock(KIND_BRACE_OPEN, KIND_BRACE_CLOSE);
+            case KIND_ANGLE_OPEN -> skipBlock(KIND_ANGLE_OPEN, KIND_ANGLE_CLOSE);
+            case KIND_BRACKET_OPEN -> skipBlock(KIND_BRACKET_OPEN, KIND_BRACKET_CLOSE);
+            case KIND_MINUS -> {
+                skipToken();
+                readNumberText(next());
                 skipOptionalSeparator();
             }
-            case DSTR, SSTR -> {
+            case KIND_DSTR, KIND_SSTR -> {
                 do {
-                    next();
-                } while (hasRemaining() && (peekKind() == DSTR || peekKind() == SSTR));
+                    skipToken();
+                } while (hasRemaining() && (peekKind() == KIND_DSTR || peekKind() == KIND_SSTR));
                 skipOptionalSeparator();
             }
             default -> {
-                next();
+                readNumberText(next());
                 skipOptionalSeparator();
             }
         }
@@ -433,140 +545,157 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
      * {@inheritDoc}
      */
     @Override
-    public float readFloatProperty() {
+    public boolean isNextValueMessage() {
+        return hasRemaining() && (peekKind() == KIND_BRACE_OPEN || peekKind() == KIND_ANGLE_OPEN);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isNextValueString() {
+        return hasRemaining() && (peekKind() == KIND_DSTR || peekKind() == KIND_SSTR);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String readScalarField() throws ProtobufDeserializationException {
         var negative = consumeOptionalMinus();
         var token = next();
         var kind = tokenKind(token);
-        float value;
-        if (kind == IDENT) {
-            var text = tokenText(token);
-            value = switch (text) {
-                case "inf", "Inf", "infinity", "Infinity" -> Float.POSITIVE_INFINITY;
-                case "nan", "NaN" -> Float.NaN;
-                default -> throw new ProtobufDeserializationException("Expected float value");
-            };
-        } else if (kind == NUMERIC) {
-            value = parseFloat(token);
-        } else {
-            throw new ProtobufDeserializationException("Expected float value");
+        if (kind != KIND_NUMERIC && kind != KIND_IDENT) {
+            throw ProtobufDeserializationException.expectedValue("scalar", tokenText(token));
         }
+        var text = readNumberText(token);
+        skipOptionalSeparator();
+        return negative ? "-" + text : text;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public float readFloatField() throws ProtobufDeserializationException {
+        var negative = consumeOptionalMinus();
+        var value = parseFloat(readNumberText(next()));
         skipOptionalSeparator();
         return negative ? -value : value;
     }
 
-    // TODO: Improve performance
-    private float parseFloat(long token) {
-        return Float.parseFloat(tokenText(token));
-    }
-
     /**
      * {@inheritDoc}
      */
     @Override
-    public double readDoubleProperty() {
+    public double readDoubleField() throws ProtobufDeserializationException {
         var negative = consumeOptionalMinus();
-        var token = next();
-        var kind = tokenKind(token);
-        double value;
-        if (kind == IDENT) {
-            var text = tokenText(token);
-            value = switch (text) {
-                case "inf", "Inf", "infinity", "Infinity" -> Double.POSITIVE_INFINITY;
-                case "nan", "NaN" -> Double.NaN;
-                default -> throw new ProtobufDeserializationException("Expected double value");
-            };
-        } else if (kind == NUMERIC) {
-            value = parseDouble(token);
-        } else {
-            throw new ProtobufDeserializationException("Expected double value");
-        }
+        var value = parseDouble(readNumberText(next()));
         skipOptionalSeparator();
         return negative ? -value : value;
     }
 
-    // TODO: Improve performance
-    private double parseDouble(long token) {
-        return Double.parseDouble(tokenText(token));
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int readInt32Field() throws ProtobufDeserializationException {
+        var negative = consumeOptionalMinus();
+        return toSignedInt32(readMagnitude("int32"), negative, "int32");
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public int readInt32Property() {
-        return (int) readRawInteger();
+    public int readUInt32Field() throws ProtobufDeserializationException {
+        return toUnsignedInt32(readMagnitude("uint32"), "uint32");
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public int readUInt32Property() {
-        return (int) readRawInteger();
+    public int readSInt32Field() throws ProtobufDeserializationException {
+        var negative = consumeOptionalMinus();
+        return toSignedInt32(readMagnitude("sint32"), negative, "sint32");
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public int readSInt32Property() {
-        return (int) readRawInteger();
+    public int readFixed32Field() throws ProtobufDeserializationException {
+        return toUnsignedInt32(readMagnitude("fixed32"), "fixed32");
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public int readFixed32Property() {
-        return (int) readRawInteger();
+    public int readSFixed32Field() throws ProtobufDeserializationException {
+        var negative = consumeOptionalMinus();
+        return toSignedInt32(readMagnitude("sfixed32"), negative, "sfixed32");
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public int readSFixed32Property() {
-        return (int) readRawInteger();
+    public long readInt64Field() throws ProtobufDeserializationException {
+        var negative = consumeOptionalMinus();
+        return toSignedInt64(readMagnitude("int64"), negative, "int64");
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public long readInt64Property() {
-        return readRawInteger();
+    public long readUInt64Field() throws ProtobufDeserializationException {
+        return readMagnitude("uint64");
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public long readUInt64Property() {
-        return readRawInteger();
+    public long readSInt64Field() throws ProtobufDeserializationException {
+        var negative = consumeOptionalMinus();
+        return toSignedInt64(readMagnitude("sint64"), negative, "sint64");
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public long readSInt64Property() {
-        return readRawInteger();
+    public long readFixed64Field() throws ProtobufDeserializationException {
+        return readMagnitude("fixed64");
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public long readFixed64Property() {
-        return readRawInteger();
+    public long readSFixed64Field() throws ProtobufDeserializationException {
+        var negative = consumeOptionalMinus();
+        return toSignedInt64(readMagnitude("sfixed64"), negative, "sfixed64");
     }
 
     /**
-     * {@inheritDoc}
+     * Reads the magnitude of an integer value, and the separator that follows it, if any.
+     *
+     * @param type the name of the type of the field, used in the error messages
+     * @return the magnitude, interpreted as unsigned
+     * @throws ProtobufDeserializationException if the next token is not an integer
      */
-    @Override
-    public long readSFixed64Property() {
-        return readRawInteger();
+    private long readMagnitude(String type) throws ProtobufDeserializationException {
+        var token = next();
+        if (tokenKind(token) != KIND_NUMERIC) {
+            throw ProtobufDeserializationException.expectedValue(type, tokenText(token));
+        }
+        var value = parseUnsignedMagnitude(tokenText(token), type);
+        skipOptionalSeparator();
+        return value;
     }
 
     /**
@@ -574,29 +703,29 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
      *
      * <p>Accepts identifier literals ({@code true}, {@code false} and
      * common variants) as well as numeric values ({@code 0} for false,
-     * non-zero for true).
+     * {@code 1} for true).
      *
      * @throws ProtobufDeserializationException if the next token is not a
      *         valid boolean representation
      */
     @Override
-    public boolean readBoolProperty() {
+    public boolean readBoolField() throws ProtobufDeserializationException {
         var token = next();
         var kind = tokenKind(token);
-        boolean result;
-        if (kind == IDENT) {
-            var text = tokenText(token);
-            result = switch (text) {
-                case "true", "True", "TRUE", "t" -> true;
-                case "false", "False", "FALSE", "f" -> false;
-                default -> throw new ProtobufDeserializationException(
-                        "Expected boolean value, got: " + text);
+        var text = tokenText(token);
+        var result = switch (kind) {
+            case KIND_IDENT -> switch (text) {
+                case "true", "True", "t" -> true;
+                case "false", "False", "f" -> false;
+                default -> throw ProtobufDeserializationException.expectedValue("bool", text);
             };
-        } else if (kind == NUMERIC) {
-            result = !tokenText(token).equals("0");
-        } else {
-            throw new ProtobufDeserializationException("Expected boolean value");
-        }
+            case KIND_NUMERIC -> switch (text) {
+                case "0" -> false;
+                case "1" -> true;
+                default -> throw ProtobufDeserializationException.expectedBooleanNumber(text);
+            };
+            default -> throw ProtobufDeserializationException.expectedValue("bool", text);
+        };
         skipOptionalSeparator();
         return result;
     }
@@ -610,19 +739,8 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
      * @throws ProtobufDeserializationException if the next token is not a string
      */
     @Override
-    public String readStringProperty() {
-        var token = next();
-        var kind = tokenKind(token);
-        if (kind != DSTR && kind != SSTR) {
-            throw new ProtobufDeserializationException("Expected string value");
-        }
-        var sb = new StringBuilder();
-        unescapeStringInto(sb, token);
-        while (hasRemaining() && (peekKind() == DSTR || peekKind() == SSTR)) {
-            unescapeStringInto(sb, next());
-        }
-        skipOptionalSeparator();
-        return sb.toString();
+    public String readStringField() throws ProtobufDeserializationException {
+        return new String(readQuotedBytes("string"), StandardCharsets.UTF_8);
     }
 
     /**
@@ -634,16 +752,32 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
      * @throws ProtobufDeserializationException if the next token is not a string
      */
     @Override
-    public byte[] readBytesProperty() {
+    public byte[] readBytesField() throws ProtobufDeserializationException {
+        return readQuotedBytes("bytes");
+    }
+
+    /**
+     * Reads one or more adjacent string tokens, decoding their escape sequences as bytes, and
+     * the separator that follows them, if any.
+     *
+     * @param type the name of the type of the field, used in the error message
+     * @return the bytes of the strings
+     * @throws ProtobufDeserializationException if the next token is not a string, or if a
+     *                                          string is not closed
+     */
+    private byte[] readQuotedBytes(String type) throws ProtobufDeserializationException {
         var token = next();
         var kind = tokenKind(token);
-        if (kind != DSTR && kind != SSTR) {
-            throw new ProtobufDeserializationException("Expected string value for bytes field");
+        if (kind != KIND_DSTR && kind != KIND_SSTR) {
+            throw ProtobufDeserializationException.expectedValue(type, tokenText(token));
         }
         var out = new ByteArrayOutputStream();
         unescapeBytesInto(out, token);
-        while (hasRemaining() && (peekKind() == DSTR || peekKind() == SSTR)) {
-            unescapeBytesInto(out, next());
+        while (hasRemaining() && (peekKind() == KIND_DSTR || peekKind() == KIND_SSTR)) {
+            unescapeBytesInto(out, tape.get(tapePosition++));
+        }
+        if (unterminatedStringOffset != -1 && tokenOffset(tape.get(tapePosition - 1)) == unterminatedStringOffset) {
+            throw ProtobufDeserializationException.unterminatedString();
         }
         skipOptionalSeparator();
         return out.toByteArray();
@@ -662,12 +796,50 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
         return tapePosition < tape.limit();
     }
 
-    private long next() {
+    /**
+     * Consumes and returns the next token.
+     *
+     * @return the next token
+     * @throws ProtobufDeserializationException if the text has no more tokens
+     */
+    private long next() throws ProtobufDeserializationException {
+        if (!hasRemaining()) {
+            throw ProtobufDeserializationException.unexpectedEndOfText();
+        }
         return tape.get(tapePosition++);
+    }
+
+    /**
+     * Returns the next token without consuming it.
+     *
+     * @return the next token
+     * @throws ProtobufDeserializationException if the text has no more tokens
+     */
+    private long peek() throws ProtobufDeserializationException {
+        if (!hasRemaining()) {
+            throw ProtobufDeserializationException.unexpectedEndOfText();
+        }
+        return tape.get(tapePosition);
+    }
+
+    /**
+     * Consumes the next token, which the caller checked to exist.
+     */
+    private void skipToken() {
+        tapePosition++;
     }
 
     private int peekKind() {
         return tokenKind(tape.get(tapePosition));
+    }
+
+    /**
+     * Returns the text of the next token, used to describe what was found in an error message.
+     *
+     * @return the text of the next token, or an empty string if the text has no more tokens
+     */
+    private String describeNextToken() {
+        return hasRemaining() ? tokenText(tape.get(tapePosition)) : "";
     }
 
     private String tokenText(long token) {
@@ -678,17 +850,77 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
         return new String(bytes, StandardCharsets.UTF_8);
     }
 
+    /**
+     * Returns the text of a numeric or identifier token, merging it with the tokens of the
+     * negative exponent that follows it, if any.
+     *
+     * <p>The lexer splits a number like {@code 1e-5} in three tokens, as the minus sign is a
+     * token of its own: the minus sign and the digits that follow it are merged into the number
+     * if they are adjacent to it.
+     *
+     * @param token the numeric or identifier token, which was consumed
+     * @return the text of the number
+     * @throws ProtobufDeserializationException if the token is neither numeric nor an identifier
+     */
+    private String readNumberText(long token) throws ProtobufDeserializationException {
+        var kind = tokenKind(token);
+        if (kind != KIND_NUMERIC && kind != KIND_IDENT) {
+            throw ProtobufDeserializationException.expectedNumericValue();
+        }
+
+        var text = tokenText(token);
+        if (kind != KIND_NUMERIC || !hasExponentWithoutDigits(text) || tapePosition + 1 >= tape.limit()) {
+            return text;
+        }
+
+        var minus = tape.get(tapePosition);
+        var exponent = tape.get(tapePosition + 1);
+        if (tokenKind(minus) != KIND_MINUS
+                || tokenKind(exponent) != KIND_NUMERIC
+                || tokenOffset(minus) != tokenOffset(token) + tokenLength(token)
+                || tokenOffset(exponent) != tokenOffset(minus) + 1) {
+            return text;
+        }
+
+        tapePosition += 2;
+        return text + "-" + tokenText(exponent);
+    }
+
+    /**
+     * Returns whether a decimal number ends with the marker of an exponent whose digits follow
+     * a minus sign.
+     *
+     * @param text the text of the number
+     * @return {@code true} if the text ends with {@code e} or {@code E} and is not hexadecimal
+     */
+    private static boolean hasExponentWithoutDigits(String text) {
+        var last = text.charAt(text.length() - 1);
+        return (last == 'e' || last == 'E')
+                && !(text.length() > 1 && text.charAt(0) == '0' && (text.charAt(1) | 0x20) == 'x');
+    }
+
     private void skipOptionalSeparator() {
-        if (hasRemaining() && peekKind() == SEP) {
-            next();
+        if (hasRemaining() && peekKind() == KIND_SEP) {
+            skipToken();
         }
     }
 
-    private void skipBlock(int openKind, int closeKind) {
-        next();
+    /**
+     * Skips a block enclosed by the given delimiters, including the blocks nested in it, and
+     * the separator that follows it, if any.
+     *
+     * @param openKind  the kind of the token that opens the block
+     * @param closeKind the kind of the token that closes the block
+     * @throws ProtobufDeserializationException if the text ends before the block is closed
+     */
+    private void skipBlock(int openKind, int closeKind) throws ProtobufDeserializationException {
+        skipToken();
         var depth = 1;
-        while (depth > 0 && hasRemaining()) {
-            var kind = tokenKind(next());
+        while (depth > 0) {
+            if (!hasRemaining()) {
+                throw ProtobufDeserializationException.unterminatedBlock();
+            }
+            var kind = tokenKind(tape.get(tapePosition++));
             if (kind == openKind) {
                 depth++;
             } else if (kind == closeKind) {
@@ -699,131 +931,11 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
     }
 
     private boolean consumeOptionalMinus() {
-        if (hasRemaining() && peekKind() == MINUS) {
-            next();
+        if (hasRemaining() && peekKind() == KIND_MINUS) {
+            skipToken();
             return true;
         }
         return false;
-    }
-
-    private long readRawInteger() {
-        var negative = consumeOptionalMinus();
-        var token = next();
-        if (tokenKind(token) != NUMERIC) {
-            throw new ProtobufDeserializationException("Expected numeric value");
-        }
-        var value = parseInteger(tokenText(token));
-        skipOptionalSeparator();
-        return negative ? -value : value;
-    }
-
-    // TODO: Improve performance
-    private static long parseInteger(String text) {
-        if (text.length() > 2 && (text.startsWith("0x") || text.startsWith("0X"))) {
-            return Long.parseUnsignedLong(text.substring(2), 16);
-        }
-        if (text.length() > 1 && text.charAt(0) == '0' && text.charAt(1) >= '0' && text.charAt(1) <= '7') {
-            return Long.parseUnsignedLong(text, 8);
-        }
-        return Long.parseLong(text);
-    }
-
-    private void unescapeStringInto(StringBuilder sb, long token) {
-        var offset = tokenOffset(token) + 1;
-        var length = tokenLength(token) - 2;
-        var end = offset + length;
-        var pos = offset;
-        while (pos < end) {
-            var b = input.get(JAVA_BYTE, pos) & 0xFF;
-            if (b != '\\') {
-                if (b < 0x80) {
-                    sb.append((char) b);
-                    pos++;
-                } else {
-                    int codePoint;
-                    int seqLen;
-                    if ((b & 0xE0) == 0xC0) {
-                        seqLen = 2;
-                        codePoint = b & 0x1F;
-                    } else if ((b & 0xF0) == 0xE0) {
-                        seqLen = 3;
-                        codePoint = b & 0x0F;
-                    } else {
-                        seqLen = 4;
-                        codePoint = b & 0x07;
-                    }
-                    for (var j = 1; j < seqLen && (pos + j) < end; j++) {
-                        codePoint = (codePoint << 6) | (input.get(JAVA_BYTE, pos + j) & 0x3F);
-                    }
-                    sb.appendCodePoint(codePoint);
-                    pos += seqLen;
-                }
-                continue;
-            }
-            pos++;
-            if (pos >= end) break;
-            pos = unescapeCharInto(sb, pos, end);
-        }
-    }
-
-    private int unescapeCharInto(StringBuilder sb, int pos, int end) {
-        var esc = input.get(JAVA_BYTE, pos) & 0xFF;
-        pos++;
-        switch (esc) {
-            case 'a' -> sb.append(ALERT);
-            case 'b' -> sb.append('\b');
-            case 'f' -> sb.append('\f');
-            case 'n' -> sb.append('\n');
-            case 'r' -> sb.append('\r');
-            case 't' -> sb.append('\t');
-            case 'v' -> sb.append(VTAB);
-            case '\\' -> sb.append('\\');
-            case '\'' -> sb.append('\'');
-            case '"' -> sb.append('"');
-            case '?' -> sb.append('?');
-            case 'x', 'X' -> {
-                var hex = 0;
-                for (var d = 0; d < 2 && pos < end; d++) {
-                    var digit = hexDigit(input.get(JAVA_BYTE, pos) & 0xFF);
-                    if (digit < 0) break;
-                    hex = (hex << 4) | digit;
-                    pos++;
-                }
-                sb.append((char) hex);
-            }
-            case 'u' -> {
-                var cp = 0;
-                for (var d = 0; d < 4 && pos < end; d++) {
-                    cp = (cp << 4) | hexDigit(input.get(JAVA_BYTE, pos) & 0xFF);
-                    pos++;
-                }
-                sb.append((char) cp);
-            }
-            case 'U' -> {
-                var cp = 0;
-                for (var d = 0; d < 8 && pos < end; d++) {
-                    cp = (cp << 4) | hexDigit(input.get(JAVA_BYTE, pos) & 0xFF);
-                    pos++;
-                }
-                sb.appendCodePoint(cp);
-            }
-            default -> {
-                if (esc >= '0' && esc <= '7') {
-                    var oct = esc - '0';
-                    for (var d = 1; d < 3 && pos < end; d++) {
-                        var digit = input.get(JAVA_BYTE, pos) & 0xFF;
-                        if (digit < '0' || digit > '7') break;
-                        oct = (oct << 3) | (digit - '0');
-                        pos++;
-                    }
-                    sb.append((char) oct);
-                } else {
-                    sb.append('\\');
-                    sb.append((char) esc);
-                }
-            }
-        }
-        return pos;
     }
 
     private void unescapeBytesInto(ByteArrayOutputStream out, long token) {
@@ -869,6 +981,17 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
                 }
                 out.write(hex);
             }
+            case 'u', 'U' -> {
+                var codePoint = 0;
+                var digits = esc == 'u' ? 4 : 8;
+                for (var d = 0; d < digits && pos < end; d++) {
+                    var digit = hexDigit(input.get(JAVA_BYTE, pos) & 0xFF);
+                    if (digit < 0) break;
+                    codePoint = (codePoint << 4) | digit;
+                    pos++;
+                }
+                writeUtf8(out, codePoint);
+            }
             default -> {
                 if (esc >= '0' && esc <= '7') {
                     var oct = esc - '0';
@@ -886,6 +1009,30 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
             }
         }
         return pos;
+    }
+
+    /**
+     * Writes the UTF-8 encoding of a code point decoded from a Unicode escape sequence.
+     *
+     * @param out       the stream to write to
+     * @param codePoint the code point
+     */
+    private static void writeUtf8(ByteArrayOutputStream out, int codePoint) {
+        if (codePoint < 0x80) {
+            out.write(codePoint);
+        } else if (codePoint < 0x800) {
+            out.write(0xC0 | (codePoint >>> 6));
+            out.write(0x80 | (codePoint & 0x3F));
+        } else if (codePoint < 0x10000) {
+            out.write(0xE0 | (codePoint >>> 12));
+            out.write(0x80 | ((codePoint >>> 6) & 0x3F));
+            out.write(0x80 | (codePoint & 0x3F));
+        } else {
+            out.write(0xF0 | (codePoint >>> 18));
+            out.write(0x80 | ((codePoint >>> 12) & 0x3F));
+            out.write(0x80 | ((codePoint >>> 6) & 0x3F));
+            out.write(0x80 | (codePoint & 0x3F));
+        }
     }
 
     private static int hexDigit(int c) {
@@ -955,6 +1102,7 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
         // If a string was opened but never closed (malformed input or string
         // extending to end of file), emit it with length to end of input.
         if (state.pendingStringStart >= 0) {
+            unterminatedStringOffset = state.pendingStringStart;
             var len = inputLimit - state.pendingStringStart;
             tape[tapePos++] = packToken(state.pendingStringStart, len, state.pendingStringKind);
         }
@@ -1296,12 +1444,12 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
             } else if ((dstrStarts & bit) != 0) {
                 // Double-quoted string
                 tapePos = emitString(pos, inDquote, chunkStart, chunkLen,
-                        DSTR, state, tape, tapePos);
+                        KIND_DSTR, state, tape, tapePos);
 
             } else if ((sstrStarts & bit) != 0) {
                 // Single-quoted string
                 tapePos = emitString(pos, inSquote, chunkStart, chunkLen,
-                        SSTR, state, tape, tapePos);
+                        KIND_SSTR, state, tape, tapePos);
 
             } else {
                 // Content run (identifier or numeric literal).
@@ -1313,8 +1461,8 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
                 // Classify by first byte: digits and '.' start NUMERIC runs
                 var firstByte = input.get(JAVA_BYTE, absPos) & 0xFF;
                 var kind = (CHAR_CLASS[firstByte] & CHAR_DIGIT_OR_DOT) != 0
-                        ? NUMERIC
-                        : IDENT;
+                        ? KIND_NUMERIC
+                        : KIND_IDENT;
 
                 if (pos + runLen >= chunkLen) {
                     // Run extends to end of chunk, may continue in next chunk
@@ -1393,7 +1541,7 @@ public final class ProtobufTextTokenizedReader extends ProtobufTextReader {
             return tapePos;
         }
 
-        var isDquote = (state.pendingStringKind == DSTR);
+        var isDquote = (state.pendingStringKind == KIND_DSTR);
         var quotes = isDquote ? unescapedDquote : unescapedSquote;
 
         if (quotes == 0) {

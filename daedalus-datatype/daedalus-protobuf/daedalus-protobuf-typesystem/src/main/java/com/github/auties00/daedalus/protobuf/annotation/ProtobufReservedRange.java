@@ -11,12 +11,12 @@ public @interface ProtobufReservedRange {
      *
      * @return the minimum value of the reserved numeric range
      */
-    long min();
+    int min();
 
     /**
      * Returns the maximum value of the reserved numeric range, inclusive.
      *
      * @return the maximum value of the reserved numeric range
      */
-    long max();
+    int max();
 }

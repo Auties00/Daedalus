@@ -40,16 +40,29 @@ sealed abstract class ProtobufStatementWithBodyImpl<CHILD extends ProtobufStatem
         extends ProtobufStatementImpl
         implements ProtobufTree.WithBody<CHILD>
         permits ProtobufEnumStatement, ProtobufExtendStatement, ProtobufMessageStatement, ProtobufMethodStatement, ProtobufServiceStatement {
+    private final ProtobufDocumentTree document;
     final LinkedList<CHILD> children;
 
     /**
-     * Constructs a new statement with body at the specified line number.
+     * Constructs a new statement with body at the specified source range.
      *
-     * @param line the line number in the source file where this statement appears
+     * @param document the enclosing document
+     * @param range the source range covering this statement
      */
-    public ProtobufStatementWithBodyImpl(int line) {
-        super(line);
+    public ProtobufStatementWithBodyImpl(ProtobufDocumentTree document, ProtobufTreeSourceRange range) {
+        super(range);
+        this.document = document;
         this.children = new LinkedList<>();
+    }
+
+    /**
+     * Returns the {@link ProtobufDocumentTree} that encloses this container.
+     *
+     * @return the enclosing document
+     */
+    @Override
+    public ProtobufDocumentTree document() {
+        return document;
     }
 
     /**
@@ -97,13 +110,13 @@ sealed abstract class ProtobufStatementWithBodyImpl<CHILD extends ProtobufStatem
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getDirectChildByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getDirectChildByType(Class<V> clazz) {
         return getDirectChildrenByType(children, clazz)
                 .findFirst();
     }
 
     @Override
-    public <V extends ProtobufTree> Stream<? extends V> getDirectChildrenByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Stream<V> getDirectChildrenByType(Class<V> clazz) {
         return getDirectChildrenByType(children, clazz);
     }
 
@@ -118,7 +131,7 @@ sealed abstract class ProtobufStatementWithBodyImpl<CHILD extends ProtobufStatem
      * @param <V>      the type parameter
      * @return a stream of matching children
      */
-    static <V extends ProtobufTree> Stream<? extends V> getDirectChildrenByType(Collection<? extends ProtobufTree> children, Class<V> clazz) {
+    static <V extends ProtobufTree> Stream<V> getDirectChildrenByType(Collection<? extends ProtobufTree> children, Class<V> clazz) {
         if (clazz == null) {
             return Stream.empty();
         }
@@ -129,7 +142,7 @@ sealed abstract class ProtobufStatementWithBodyImpl<CHILD extends ProtobufStatem
     }
 
     @Override
-    public Optional<? extends ProtobufTree.WithName> getDirectChildByName(String name){
+    public Optional<ProtobufTree.WithName> getDirectChildByName(String name){
         return getDirectChildByName(children, name);
     }
 
@@ -156,7 +169,7 @@ sealed abstract class ProtobufStatementWithBodyImpl<CHILD extends ProtobufStatem
     }
 
     @Override
-    public Optional<? extends ProtobufTree.WithIndex> getDirectChildByIndex(long index){
+    public Optional<ProtobufTree.WithIndex> getDirectChildByIndex(long index){
         return getDirectChildByIndex(children, index);
     }
 
@@ -191,7 +204,7 @@ sealed abstract class ProtobufStatementWithBodyImpl<CHILD extends ProtobufStatem
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getDirectChildByNameAndType(String name, Class<V> clazz){
+    public <V extends ProtobufTree> Optional<V> getDirectChildByNameAndType(String name, Class<V> clazz){
         return getDirectChildByNameAndType(children, name, clazz);
     }
 
@@ -221,18 +234,18 @@ sealed abstract class ProtobufStatementWithBodyImpl<CHILD extends ProtobufStatem
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getDirectChildByIndexAndType(long index, Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getDirectChildByIndexAndType(long index, Class<V> clazz) {
         return getDirectChildByIndexAndType(children, index, clazz);
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getAnyChildByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getAnyChildByType(Class<V> clazz) {
         return getAnyChildrenByType(clazz)
                 .findFirst();
     }
 
     @Override
-    public <V extends WithName> Optional<? extends V> getAnyChildByNameAndType(String name, Class<V> clazz) {
+    public <V extends WithName> Optional<V> getAnyChildByNameAndType(String name, Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getAnyChildrenByNameAndType(children, name, clazz)
                 .findFirst();
     }
@@ -257,7 +270,7 @@ sealed abstract class ProtobufStatementWithBodyImpl<CHILD extends ProtobufStatem
     }
 
     @Override
-    public <V extends ProtobufTree> Stream<? extends V> getAnyChildrenByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Stream<V> getAnyChildrenByType(Class<V> clazz) {
         return getAnyChildrenByType(children, clazz);
     }
 
@@ -292,7 +305,7 @@ sealed abstract class ProtobufStatementWithBodyImpl<CHILD extends ProtobufStatem
     }
 
     @Override
-    public <V extends WithName> Stream<? extends V> getAnyChildrenByNameAndType(String name, Class<V> clazz) {
+    public <V extends WithName> Stream<V> getAnyChildrenByNameAndType(String name, Class<V> clazz) {
         return getAnyChildrenByNameAndType(children, name, clazz);
     }
 

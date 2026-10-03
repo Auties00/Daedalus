@@ -1,7 +1,5 @@
 package com.github.auties00.daedalus.protobuf.compiler.typeReference;
 
-import com.github.auties00.daedalus.protobuf.model.ProtobufType;
-
 import java.util.Objects;
 
 /**
@@ -15,7 +13,8 @@ import java.util.Objects;
  * </p>
  * <p>
  * Unresolved type references are never attributed ({@link #isAttributed()} always returns {@code false})
- * and have an unknown Protocol Buffer type ({@link #protobufType()} returns {@link ProtobufType#UNKNOWN}).
+ * and have no Protocol Buffer type, as they are not {@linkplain ProtobufValueTypeReference value types}
+ * until they are resolved.
  * </p>
  *
  * @param name the unresolved type name as it appears in the Protocol Buffer definition, must not be null
@@ -23,11 +22,6 @@ import java.util.Objects;
 public record ProtobufUnresolvedTypeReference(String name) implements ProtobufObjectTypeReference {
     public ProtobufUnresolvedTypeReference(String name) {
         this.name = Objects.requireNonNull(name, "name cannot be null");
-    }
-
-    @Override
-    public ProtobufType protobufType() {
-        return ProtobufType.UNKNOWN;
     }
 
     @Override

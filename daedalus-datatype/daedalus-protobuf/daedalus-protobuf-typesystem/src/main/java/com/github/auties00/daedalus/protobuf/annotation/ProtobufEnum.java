@@ -1,6 +1,7 @@
 package com.github.auties00.daedalus.protobuf.annotation;
 
 import com.github.auties00.daedalus.protobuf.model.ProtobufEnumType;
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.typesystem.annotation.TypeDefaultValue;
 import com.github.auties00.daedalus.typesystem.annotation.TypeDeserializer;
 import com.github.auties00.daedalus.typesystem.annotation.TypeSerializer;
@@ -30,8 +31,14 @@ import java.lang.annotation.Target;
  * When using {@link TypeSerializer}/{@link TypeDeserializer}, the serializer
  * converts an instance to its {@code int} index and the deserializer creates an instance
  * from an {@code int} index.
- * For sealed interfaces and sealed abstract classes, the permitted subtypes must each
- * be annotated with {@link ProtobufEnum} individually.
+ * For sealed interfaces and sealed abstract classes, the values are encoded through the
+ * sealed parent: its permitted subtypes do not need to be annotated with {@link ProtobufEnum},
+ * and if they are, they are treated as part of the parent instead of as enums of their own.
+ *
+ * <p>Only the {@link TypeSerializer}/{@link TypeDeserializer} approach can represent every
+ * index: with {@link Constant}, an index that has no constant cannot be decoded, so it is kept
+ * in the unknown fields of the message, like the unknown values of a Java enum. Prefer it for
+ * open enums, whose fields may hold any index.
  *
  * <p>Protobuf does not allow {@code ENUM} as a map key type in {@link ProtobufMessage.MapField}.
  * To use an enum as a map key, declare the key type as {@code ProtobufType.INT32}
@@ -304,6 +311,16 @@ public @interface ProtobufEnum {
     String protoName() default "";
 
     /**
+     * Specifies the Protocol Buffer version or edition that this enum conforms to.
+     *
+     * <p>This is used to resolve {@code VERSION_DEFAULT} values in feature
+     * attributes such as {@link ProtobufEnumType}.
+     *
+     * @return the protobuf version, defaulting to {@link ProtobufVersion#DEFAULT_VERSION}
+     */
+    ProtobufVersion version() default ProtobufVersion.PROTOBUF_2;
+
+    /**
      * Specifies the names that are reserved and cannot be used in the context
      * where this annotation is applied. Reserved names are typically used
      * to ensure compatibility or avoid conflicts in Protobuf definitions.
@@ -368,5 +385,25 @@ public @interface ProtobufEnum {
          * @return the index of the constant, between {@link ProtobufEnum#MIN_CONSTANT_INDEX} and {@link ProtobufEnum#MAX_CONSTANT_INDEX}
          */
         int index();
+
+        /**
+         * Overrides the name of the constant used during text serialization and
+         * deserialization (JSON, textproto).
+         * If empty, the name of the annotated field is used.
+         *
+         * @return the custom name of the constant, or empty for the default
+         */
+        String name() default "";
+
+        /**
+         * Returns the list of mixin classes associated with this constant.
+         *
+         * <p>Global mixins, such as the ones that support the types of the JDK standard
+         * library, apply without being listed here. A listed mixin takes precedence over
+         * them.
+         *
+         * @return an array of mixin classes
+         */
+        Class<?>[] mixins() default {};
     }
 }

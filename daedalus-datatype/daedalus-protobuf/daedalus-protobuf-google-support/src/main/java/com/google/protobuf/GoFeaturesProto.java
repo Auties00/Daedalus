@@ -2,9 +2,24 @@ package com.google.protobuf;
 
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
-import com.github.auties00.daedalus.protobuf.annotation.ProtobufReservedRange;
 
+import java.util.Optional;
+
+/**
+ * Holder of the Daedalus models declared by {@code google/protobuf/go_features.proto}.
+ *
+ * <p>These models represent the Go specific feature set carried by the
+ * {@code (pb.go)} extension of {@link DescriptorProtos.FeatureSet}.
+ *
+ * <p>The models mirror the {@code proto2} definitions of the official protobuf
+ * distribution field by field, including field numbers, wire types, field
+ * presence and repeated field encodings. This class only scopes the nested
+ * types and cannot be instantiated.
+ */
 public final class GoFeaturesProto {
+    /**
+     * Prevents the instantiation of this holder class.
+     */
     private GoFeaturesProto() {}
 
     /**
@@ -56,7 +71,7 @@ public final class GoFeaturesProto {
         /**
          * <p>Protobuf type {@code pb.GoFeatures.OptimizeModeFeature}
          */
-        @ProtobufMessage(reservedRanges = {@ProtobufReservedRange(min = 1, max = 536870911)})
+        @ProtobufMessage
         public static final class OptimizeModeFeature {
 
             /**
@@ -89,7 +104,7 @@ public final class GoFeaturesProto {
          * <p><code>bool legacy_unmarshal_json_enum = 1;</code>
          */
         @ProtobufMessage.BoolField(index = 1)
-        boolean legacyUnmarshalJsonEnum;
+        Boolean legacyUnmarshalJsonEnum;
 
         /**
          * One of OPEN, HYBRID or OPAQUE.
@@ -111,8 +126,20 @@ public final class GoFeaturesProto {
         @ProtobufMessage.EnumField(index = 4)
         GoFeaturesProto.GoFeatures.OptimizeModeFeature.OptimizeMode optimizeMode;
 
+        /**
+         * Constructs a new {@code GoFeatures} with the specified field values.
+         *
+         * @param legacyUnmarshalJsonEnum the value of the {@code legacy_unmarshal_json_enum} field, or {@code null} if the
+         *                                field is not set
+         * @param apiLevel the value of the {@code api_level} field, or {@code null} if the
+         *                 field is not set
+         * @param stripEnumPrefix the value of the {@code strip_enum_prefix} field, or {@code null} if the
+         *                        field is not set
+         * @param optimizeMode the value of the {@code optimize_mode} field, or {@code null} if the
+         *                     field is not set
+         */
         GoFeatures(
-                boolean legacyUnmarshalJsonEnum,
+                Boolean legacyUnmarshalJsonEnum,
                 GoFeaturesProto.GoFeatures.APILevel apiLevel,
                 GoFeaturesProto.GoFeatures.StripEnumPrefix stripEnumPrefix,
                 GoFeaturesProto.GoFeatures.OptimizeModeFeature.OptimizeMode optimizeMode
@@ -123,20 +150,44 @@ public final class GoFeaturesProto {
             this.optimizeMode = optimizeMode;
         }
 
-        public boolean legacyUnmarshalJsonEnum() {
-            return legacyUnmarshalJsonEnum;
+        /**
+         * Returns the value of the {@code legacy_unmarshal_json_enum} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code legacy_unmarshal_json_enum}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> legacyUnmarshalJsonEnum() {
+            return Optional.ofNullable(legacyUnmarshalJsonEnum);
         }
 
-        public GoFeaturesProto.GoFeatures.APILevel apiLevel() {
-            return apiLevel;
+        /**
+         * Returns the value of the {@code api_level} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code api_level}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<GoFeaturesProto.GoFeatures.APILevel> apiLevel() {
+            return Optional.ofNullable(apiLevel);
         }
 
-        public GoFeaturesProto.GoFeatures.StripEnumPrefix stripEnumPrefix() {
-            return stripEnumPrefix;
+        /**
+         * Returns the value of the {@code strip_enum_prefix} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code strip_enum_prefix}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<GoFeaturesProto.GoFeatures.StripEnumPrefix> stripEnumPrefix() {
+            return Optional.ofNullable(stripEnumPrefix);
         }
 
-        public GoFeaturesProto.GoFeatures.OptimizeModeFeature.OptimizeMode optimizeMode() {
-            return optimizeMode;
+        /**
+         * Returns the value of the {@code optimize_mode} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code optimize_mode}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<GoFeaturesProto.GoFeatures.OptimizeModeFeature.OptimizeMode> optimizeMode() {
+            return Optional.ofNullable(optimizeMode);
         }
     }
 }

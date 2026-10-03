@@ -18,7 +18,7 @@ import java.util.Objects;
  *
  * @param declaration the message declaration statement, must not be null
  */
-public record ProtobufMessageTypeReference(ProtobufMessageStatement declaration) implements ProtobufObjectTypeReference {
+public record ProtobufMessageTypeReference(ProtobufMessageStatement declaration) implements ProtobufObjectTypeReference, ProtobufValueTypeReference {
     public ProtobufMessageTypeReference {
         Objects.requireNonNull(declaration, "declaration cannot be null");
     }

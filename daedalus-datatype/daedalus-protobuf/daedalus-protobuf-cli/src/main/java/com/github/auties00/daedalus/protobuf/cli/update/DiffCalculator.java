@@ -6,6 +6,7 @@ import com.github.difflib.UnifiedDiffUtils;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.SequencedCollection;
 
 /**
  * Computes unified diffs between original and updated Java source files.
@@ -17,7 +18,7 @@ public final class DiffCalculator {
     private final int contextLines;
 
     /**
-     * Constructs a diff calculator with the specified number of context lines.
+     * Constructs a diff size with the specified number of context lines.
      *
      * @param contextLines the number of unchanged lines to show around each change
      */
@@ -26,7 +27,7 @@ public final class DiffCalculator {
     }
 
     /**
-     * Constructs a diff calculator with the default of 3 context lines.
+     * Constructs a diff size with the default of 3 context lines.
      */
     public DiffCalculator() {
         this(3);
@@ -38,9 +39,9 @@ public final class DiffCalculator {
      * @param filePath the file path to display in the diff header
      * @param originalSource the original source text
      * @param updatedSource the updated source text
-     * @return the list of unified diff lines, or an empty list if there are no changes
+     * @return the unified diff lines, or an empty collection if there are no changes
      */
-    public List<String> computeDiff(Path filePath, String originalSource, String updatedSource) {
+    public SequencedCollection<String> computeDiff(Path filePath, String originalSource, String updatedSource) {
         if (originalSource.equals(updatedSource)) {
             return List.of();
         }

@@ -22,14 +22,14 @@ import java.util.Objects;
  *
  * @see ProtobufGroupStatement
  */
-public record ProtobufGroupTypeReference(ProtobufGroupStatement declaration) implements ProtobufObjectTypeReference {
+public record ProtobufGroupTypeReference(ProtobufGroupStatement declaration) implements ProtobufObjectTypeReference, ProtobufValueTypeReference {
     public ProtobufGroupTypeReference {
         Objects.requireNonNull(declaration, "declaration cannot be null");
     }
 
     @Override
     public ProtobufType protobufType() {
-        return ProtobufType.GROUP;
+        return ProtobufType.MESSAGE;
     }
 
     @Override

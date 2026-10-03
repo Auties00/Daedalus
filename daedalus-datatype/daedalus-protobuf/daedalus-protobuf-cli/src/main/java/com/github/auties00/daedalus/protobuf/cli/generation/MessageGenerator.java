@@ -14,6 +14,7 @@ import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufLiteral
 import com.github.auties00.daedalus.protobuf.compiler.tree.*;
 import com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig;
 import com.github.auties00.daedalus.protobuf.cli.model.TypeForm;
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,16 +25,38 @@ import java.util.List;
  * <p>Supports all five type forms: {@link TypeForm#RECORD}, {@link TypeForm#CLASS},
  * {@link TypeForm#INTERFACE}, {@link TypeForm#SEALED_CLASS}, and
  * {@link TypeForm#SEALED_INTERFACE}.
+ *
+ * <p>Every generated {@code @ProtobufMessage} annotation declares the {@code version}
+ * of the {@code .proto} file that declares the message, unless it is proto2, which is
+ * the default of the annotation. A {@code oneof} is declared as a single field whose type
+ * is a sealed interface nested in the message, as described in {@link OneOfGenerator}, and
+ * a message that holds a case of a {@code oneof} may implement its interface.
+ *
+ * <p>The presence of a field determines the Java type of the field and the type of its
+ * accessor, as described in {@link PropertyGenerator}. The type forms differ in how an
+ * accessor can be declared:
+ * <ul>
+ * <li>{@link TypeForm#CLASS} and {@link TypeForm#SEALED_CLASS} declare package private
+ *     fields, which the generated Spec class reads directly, and public accessors that
+ *     return an {@code Optional}, or one of its primitive specializations, for a field
+ *     that can be unset;
+ * <li>{@link TypeForm#RECORD} declares the field as a record component, whose accessor
+ *     must return the type of the component, so a field that can be unset is returned
+ *     as a nullable boxed value instead of an {@code Optional};
+ * <li>{@link TypeForm#INTERFACE} and {@link TypeForm#SEALED_INTERFACE} declare the field
+ *     as an annotated abstract method, which the annotation processor implements, so it
+ *     also returns the nullable boxed value of a field that can be unset.
+ * </ul>
  */
 public final class MessageGenerator {
     private final SchemaConfig config;
     private final PropertyGenerator propertyGenerator;
     private final NamingStrategy naming;
     private final EnumGenerator enumGenerator;
-    private final OneofGenerator oneofGenerator;
     private final GroupGenerator groupGenerator;
     private final BuilderGenerator builderGenerator;
     private final UnknownFieldsGenerator unknownFieldsGenerator;
+    private final OneOfGenerator oneOfGenerator;
 
     /**
      * Constructs a message generator with the given config and collaborating generators.
@@ -42,24 +65,25 @@ public final class MessageGenerator {
      * @param propertyGenerator the property generator for field annotations
      * @param naming the naming strategy
      * @param enumGenerator the enum generator for nested enums
-     * @param oneofGenerator the oneof generator for oneof fields
      * @param groupGenerator the group generator for nested groups
      * @param builderGenerator the builder generator for builder constructors
      * @param unknownFieldsGenerator the unknown fields generator
+     * @param oneOfGenerator the oneof generator, which collects the members of a message
      */
     public MessageGenerator(SchemaConfig config, PropertyGenerator propertyGenerator,
                              NamingStrategy naming, EnumGenerator enumGenerator,
-                             OneofGenerator oneofGenerator, GroupGenerator groupGenerator,
+                             GroupGenerator groupGenerator,
                              BuilderGenerator builderGenerator,
-                             UnknownFieldsGenerator unknownFieldsGenerator) {
+                             UnknownFieldsGenerator unknownFieldsGenerator,
+                             OneOfGenerator oneOfGenerator) {
         this.config = config;
         this.propertyGenerator = propertyGenerator;
         this.naming = naming;
         this.enumGenerator = enumGenerator;
-        this.oneofGenerator = oneofGenerator;
         this.groupGenerator = groupGenerator;
         this.builderGenerator = builderGenerator;
         this.unknownFieldsGenerator = unknownFieldsGenerator;
+        this.oneOfGenerator = oneOfGenerator;
     }
 
     /**
@@ -78,9 +102,9 @@ public final class MessageGenerator {
 
         var typeForm = resolveTypeForm(protoFqn);
         var typeName = naming.toTypeName(message.name());
-        var fields = collectFields(message);
+        var fields = oneOfGenerator.collectMembers(message);
 
-        addImports(cu, fields);
+        addImports(cu, message, fields, typeForm);
 
         switch (typeForm) {
             case RECORD -> generateRecord(cu, message, typeName, protoFqn, fields);
@@ -131,13 +155,18 @@ public final class MessageGenerator {
             }
         }
 
-        generateNestedTypes(cu, message, javaPackage, protoFqn);
+        if (!cu.getTypes().isEmpty()) {
+            addOneOfDeclarations(cu.getType(0), fields);
+            generateNestedTypes(cu, cu.getType(0), message, javaPackage, protoFqn);
+        }
 
         return cu;
     }
 
     /**
-     * Generates a nested type declaration for a nested proto message.
+     * Generates a nested type declaration for a nested proto message, together with the
+     * types nested in it, and adds the imports they need to the compilation unit of the
+     * parent type.
      *
      * @param parentType the parent type declaration to add the nested type into
      * @param message the nested proto message statement
@@ -146,35 +175,30 @@ public final class MessageGenerator {
     public void generateNested(TypeDeclaration<?> parentType, ProtobufMessageStatement message, String protoFqn) {
         var typeForm = resolveTypeForm(protoFqn);
         var typeName = naming.toTypeName(message.name());
-        var fields = collectFields(message);
+        var fields = oneOfGenerator.collectMembers(message);
 
-        switch (typeForm) {
-            case RECORD -> {
-                var record = createRecordDeclaration(typeName, protoFqn, message, fields);
-                record.addModifier(Modifier.Keyword.STATIC);
-                parentType.addMember(record);
-            }
-            case CLASS -> {
-                var classDecl = createClassDeclaration(typeName, protoFqn, message, fields);
-                classDecl.addModifier(Modifier.Keyword.STATIC);
-                parentType.addMember(classDecl);
-            }
-            case INTERFACE -> {
-                var interfaceDecl = createInterfaceDeclaration(typeName, protoFqn, message, fields);
-                interfaceDecl.addModifier(Modifier.Keyword.STATIC);
-                parentType.addMember(interfaceDecl);
-            }
-            default -> {
-                var record = createRecordDeclaration(typeName, protoFqn, message, fields);
-                record.addModifier(Modifier.Keyword.STATIC);
-                parentType.addMember(record);
-            }
-        }
+        TypeDeclaration<?> nestedType = switch (typeForm) {
+            case CLASS -> createClassDeclaration(typeName, protoFqn, message, fields);
+            case INTERFACE -> createInterfaceDeclaration(typeName, protoFqn, message, fields);
+            case RECORD, SEALED_CLASS, SEALED_INTERFACE -> createRecordDeclaration(typeName, protoFqn, message, fields);
+        };
+        nestedType.addModifier(Modifier.Keyword.STATIC);
+        addOneOfDeclarations(nestedType, fields);
+        parentType.addMember(nestedType);
+
+        parentType.findCompilationUnit().ifPresent(cu -> {
+            var nestedTypeForm = typeForm == TypeForm.CLASS || typeForm == TypeForm.INTERFACE ? typeForm : TypeForm.RECORD;
+            addImports(cu, message, fields, nestedTypeForm);
+            var javaPackage = cu.getPackageDeclaration()
+                    .map(packageDeclaration -> packageDeclaration.getNameAsString())
+                    .orElse("");
+            generateNestedTypes(cu, nestedType, message, javaPackage, protoFqn);
+        });
     }
 
     private void generateRecord(CompilationUnit cu, ProtobufMessageStatement message,
                                 String typeName, String protoFqn,
-                                List<ProtobufFieldStatement> fields) {
+                                List<MessageMember> fields) {
         var record = createRecordDeclaration(typeName, protoFqn, message, fields);
         record.addModifier(Modifier.Keyword.PUBLIC);
         cu.addType(record);
@@ -182,7 +206,7 @@ public final class MessageGenerator {
 
     private RecordDeclaration createRecordDeclaration(String typeName, String protoFqn,
                                                       ProtobufMessageStatement message,
-                                                      List<ProtobufFieldStatement> fields) {
+                                                      List<MessageMember> fields) {
         var components = new NodeList<Parameter>();
         for (var field : fields) {
             components.add(propertyGenerator.createRecordComponent(field));
@@ -200,36 +224,29 @@ public final class MessageGenerator {
         );
 
         record.addAnnotation(createMessageAnnotation(protoFqn, message));
+        oneOfGenerator.implementedInterfaces(message).forEach(record::addImplementedType);
         return record;
     }
 
     private void generateClass(CompilationUnit cu, ProtobufMessageStatement message,
                                String typeName, String protoFqn,
-                               List<ProtobufFieldStatement> fields) {
+                               List<MessageMember> fields) {
         var classDecl = createClassDeclaration(typeName, protoFqn, message, fields);
         classDecl.addModifier(Modifier.Keyword.PUBLIC, Modifier.Keyword.FINAL);
         cu.addType(classDecl);
-        cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufAccessor");
     }
 
     private ClassOrInterfaceDeclaration createClassDeclaration(String typeName, String protoFqn,
                                                                ProtobufMessageStatement message,
-                                                               List<ProtobufFieldStatement> fields) {
+                                                               List<MessageMember> fields) {
         var classDecl = new ClassOrInterfaceDeclaration();
         classDecl.setName(typeName);
         classDecl.setInterface(false);
         classDecl.addAnnotation(createMessageAnnotation(protoFqn, message));
+        oneOfGenerator.implementedInterfaces(message).forEach(classDecl::addImplementedType);
 
         for (var field : fields) {
-            var fieldName = propertyGenerator.resolveFieldName(field);
-            var javaType = propertyGenerator.resolveJavaType(field);
-
-            var fieldDecl = classDecl.addField(javaType, fieldName, Modifier.Keyword.PRIVATE, Modifier.Keyword.FINAL);
-            fieldDecl.getVariable(0).getParentNode().ifPresent(parent -> {
-                if (parent instanceof FieldDeclaration fd) {
-                    fd.addAnnotation(propertyGenerator.createPropertyAnnotation(field));
-                }
-            });
+            classDecl.addMember(propertyGenerator.createField(field));
         }
 
         var constructorParams = new NodeList<Parameter>();
@@ -252,19 +269,7 @@ public final class MessageGenerator {
         constructor.setBody(constructorBody);
 
         for (var field : fields) {
-            var fieldName = propertyGenerator.resolveFieldName(field);
-            var javaType = propertyGenerator.resolveJavaType(field);
-            var index = field.index().value().longValueExact();
-
-            var accessor = classDecl.addMethod(fieldName, Modifier.Keyword.PUBLIC);
-            accessor.setType(javaType);
-            accessor.addAnnotation(new NormalAnnotationExpr(
-                    new Name("ProtobufAccessor"),
-                    new NodeList<>(new MemberValuePair("index", new LongLiteralExpr(String.valueOf(index))))
-            ));
-            accessor.setBody(new BlockStmt().addStatement(
-                    new ReturnStmt(new NameExpr(fieldName))
-            ));
+            classDecl.addMember(propertyGenerator.createAccessor(field));
         }
 
         return classDecl;
@@ -272,7 +277,7 @@ public final class MessageGenerator {
 
     private void generateInterface(CompilationUnit cu, ProtobufMessageStatement message,
                                    String typeName, String protoFqn,
-                                   List<ProtobufFieldStatement> fields) {
+                                   List<MessageMember> fields) {
         var interfaceDecl = createInterfaceDeclaration(typeName, protoFqn, message, fields);
         interfaceDecl.addModifier(Modifier.Keyword.PUBLIC);
         cu.addType(interfaceDecl);
@@ -280,7 +285,7 @@ public final class MessageGenerator {
 
     private ClassOrInterfaceDeclaration createInterfaceDeclaration(String typeName, String protoFqn,
                                                                     ProtobufMessageStatement message,
-                                                                    List<ProtobufFieldStatement> fields) {
+                                                                    List<MessageMember> fields) {
         var interfaceDecl = new ClassOrInterfaceDeclaration();
         interfaceDecl.setName(typeName);
         interfaceDecl.setInterface(true);
@@ -293,7 +298,7 @@ public final class MessageGenerator {
             var method = interfaceDecl.addMethod(fieldName);
             method.setType(javaType);
             method.removeBody();
-            method.addAnnotation(propertyGenerator.createPropertyAnnotation(field));
+            method.addAnnotation(propertyGenerator.createFieldAnnotation(field));
         }
 
         return interfaceDecl;
@@ -301,7 +306,7 @@ public final class MessageGenerator {
 
     private void generateSealedClass(CompilationUnit cu, ProtobufMessageStatement message,
                                      String typeName, String protoFqn,
-                                     List<ProtobufFieldStatement> fields) {
+                                     List<MessageMember> fields) {
         var classDecl = new ClassOrInterfaceDeclaration();
         classDecl.setName(typeName);
         classDecl.setInterface(false);
@@ -309,15 +314,7 @@ public final class MessageGenerator {
         classDecl.addAnnotation(createMessageAnnotation(protoFqn, message));
 
         for (var field : fields) {
-            var fieldName = propertyGenerator.resolveFieldName(field);
-            var javaType = propertyGenerator.resolveJavaType(field);
-
-            var fieldDecl = classDecl.addField(javaType, fieldName, Modifier.Keyword.PRIVATE, Modifier.Keyword.FINAL);
-            fieldDecl.getVariable(0).getParentNode().ifPresent(parent -> {
-                if (parent instanceof FieldDeclaration fd) {
-                    fd.addAnnotation(propertyGenerator.createPropertyAnnotation(field));
-                }
-            });
+            classDecl.addMember(propertyGenerator.createField(field));
         }
 
         var constructorParams = new NodeList<Parameter>();
@@ -339,21 +336,8 @@ public final class MessageGenerator {
         constructor.setParameters(constructorParams);
         constructor.setBody(constructorBody);
 
-        cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufAccessor");
         for (var field : fields) {
-            var fieldName = propertyGenerator.resolveFieldName(field);
-            var javaType = propertyGenerator.resolveJavaType(field);
-            var index = field.index().value().longValueExact();
-
-            var accessor = classDecl.addMethod(fieldName, Modifier.Keyword.PUBLIC);
-            accessor.setType(javaType);
-            accessor.addAnnotation(new NormalAnnotationExpr(
-                    new Name("ProtobufAccessor"),
-                    new NodeList<>(new MemberValuePair("index", new LongLiteralExpr(String.valueOf(index))))
-            ));
-            accessor.setBody(new BlockStmt().addStatement(
-                    new ReturnStmt(new NameExpr(fieldName))
-            ));
+            classDecl.addMember(propertyGenerator.createAccessor(field));
         }
 
         var defaultSubtype = "Default" + typeName;
@@ -363,7 +347,7 @@ public final class MessageGenerator {
         subtypeDecl.setInterface(false);
         subtypeDecl.addModifier(Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
         subtypeDecl.addExtendedType(typeName);
-        subtypeDecl.addAnnotation(new MarkerAnnotationExpr("ProtobufMessage"));
+        subtypeDecl.addAnnotation(createSubtypeAnnotation(message));
 
         var subtypeConstructor = subtypeDecl.addConstructor(Modifier.Keyword.PUBLIC);
         var superArgs = new NodeList<Expression>();
@@ -390,7 +374,7 @@ public final class MessageGenerator {
 
     private void generateSealedInterface(CompilationUnit cu, ProtobufMessageStatement message,
                                          String typeName, String protoFqn,
-                                         List<ProtobufFieldStatement> fields) {
+                                         List<MessageMember> fields) {
         var interfaceDecl = new ClassOrInterfaceDeclaration();
         interfaceDecl.setName(typeName);
         interfaceDecl.setInterface(true);
@@ -404,7 +388,7 @@ public final class MessageGenerator {
             var method = interfaceDecl.addMethod(fieldName);
             method.setType(javaType);
             method.removeBody();
-            method.addAnnotation(propertyGenerator.createPropertyAnnotation(field));
+            method.addAnnotation(propertyGenerator.createFieldAnnotation(field));
         }
 
         var defaultSubtype = "Default" + typeName;
@@ -430,32 +414,50 @@ public final class MessageGenerator {
                 null
         );
         recordDecl.addModifier(Modifier.Keyword.STATIC);
-        recordDecl.addAnnotation(new MarkerAnnotationExpr("ProtobufMessage"));
+        recordDecl.addAnnotation(createSubtypeAnnotation(message));
 
         interfaceDecl.addMember(recordDecl);
         cu.addType(interfaceDecl);
     }
 
-    private void generateNestedTypes(CompilationUnit cu, ProtobufMessageStatement message,
-                                     String javaPackage, String parentProtoFqn) {
-        var primaryType = cu.getTypes().isEmpty() ? null : cu.getType(0);
-        if (primaryType == null) {
-            return;
+    /**
+     * Adds the sealed interfaces of the {@code oneof} declarations of a message, together
+     * with the records that wrap their cases, to the type that declares the message.
+     *
+     * @param type the type that declares the message
+     * @param members the members of the message
+     */
+    private void addOneOfDeclarations(TypeDeclaration<?> type, List<MessageMember> members) {
+        for (var member : members) {
+            if (member instanceof MessageMember.OneOf oneOf) {
+                type.addMember(oneOf.declaration().clone());
+            }
         }
+    }
 
+    /**
+     * Generates the messages, enums and groups nested in a proto message, adding them as
+     * members of the type that declares the message.
+     *
+     * @param cu the compilation unit that contains the declaring type, which receives
+     *           the imports of the nested types
+     * @param declaringType the type that declares the message
+     * @param message the proto message statement
+     * @param javaPackage the target Java package
+     * @param parentProtoFqn the fully qualified proto name of the message
+     */
+    private void generateNestedTypes(CompilationUnit cu, TypeDeclaration<?> declaringType,
+                                     ProtobufMessageStatement message,
+                                     String javaPackage, String parentProtoFqn) {
         message.getDirectChildrenByType(ProtobufMessageStatement.class).forEach(nested -> {
             var nestedFqn = parentProtoFqn + "." + nested.name();
-            generateNested(primaryType, nested, nestedFqn);
+            generateNested(declaringType, nested, nestedFqn);
         });
 
         message.getDirectChildrenByType(ProtobufEnumStatement.class).forEach(nested -> {
             var nestedFqn = parentProtoFqn + "." + nested.name();
-            enumGenerator.generateNested(primaryType, nested, nestedFqn);
+            enumGenerator.generateNested(declaringType, nested, nestedFqn);
         });
-
-        message.getDirectChildrenByType(ProtobufOneofStatement.class).forEach(oneof ->
-                oneofGenerator.generate(primaryType, oneof)
-        );
 
         message.getDirectChildrenByType(ProtobufGroupStatement.class).forEach(group -> {
             var nestedFqn = parentProtoFqn + "." + group.name();
@@ -463,13 +465,19 @@ public final class MessageGenerator {
             if (!groupCu.getTypes().isEmpty()) {
                 var groupType = groupCu.getType(0);
                 groupType.addModifier(Modifier.Keyword.STATIC);
-                primaryType.addMember(groupType);
+                declaringType.addMember(groupType);
+                groupCu.getImports().forEach(cu::addImport);
             }
         });
     }
 
     private AnnotationExpr createMessageAnnotation(String protoFqn, ProtobufMessageStatement message) {
         var pairs = new ArrayList<MemberValuePair>();
+
+        var version = resolveVersion(message);
+        if (version != ProtobufVersion.DEFAULT_VERSION) {
+            pairs.add(createVersionPair(version));
+        }
 
         if (protoFqn != null && !protoFqn.isEmpty()) {
             pairs.add(new MemberValuePair("protoName", new StringLiteralExpr(protoFqn)));
@@ -500,8 +508,8 @@ public final class MessageGenerator {
                 values.add(new NormalAnnotationExpr(
                         new Name("ProtobufReservedRange"),
                         new NodeList<>(
-                                new MemberValuePair("min", new LongLiteralExpr(String.valueOf(range[0]))),
-                                new MemberValuePair("max", new LongLiteralExpr(String.valueOf(range[1])))
+                                new MemberValuePair("min", new IntegerLiteralExpr(String.valueOf(range[0]))),
+                                new MemberValuePair("max", new IntegerLiteralExpr(String.valueOf(range[1])))
                         )
                 ));
             }
@@ -518,10 +526,6 @@ public final class MessageGenerator {
         );
     }
 
-    private List<ProtobufFieldStatement> collectFields(ProtobufMessageStatement message) {
-        return new ArrayList<>(message.getDirectChildrenByType(ProtobufFieldStatement.class).toList());
-    }
-
     private List<String> collectReservedNames(ProtobufMessageStatement message) {
         var names = new ArrayList<String>();
         message.getDirectChildrenByType(ProtobufReservedStatement.class).forEach(reserved ->
@@ -534,60 +538,112 @@ public final class MessageGenerator {
         return names;
     }
 
-    private List<Long> collectReservedIndexes(ProtobufMessageStatement message) {
-        var indexes = new ArrayList<Long>();
+    private List<Integer> collectReservedIndexes(ProtobufMessageStatement message) {
+        var indexes = new ArrayList<Integer>();
         message.getDirectChildrenByType(ProtobufReservedStatement.class).forEach(reserved ->
                 reserved.expressions().forEach(expr -> {
                     if (expr instanceof ProtobufIntegerExpression intExpr) {
-                        indexes.add(intExpr.value().value().longValueExact());
+                        indexes.add((int) intExpr.value().value());
                     }
                 })
         );
         return indexes;
     }
 
-    private List<long[]> collectReservedRanges(ProtobufMessageStatement message) {
-        var ranges = new ArrayList<long[]>();
+    private List<int[]> collectReservedRanges(ProtobufMessageStatement message) {
+        var ranges = new ArrayList<int[]>();
         message.getDirectChildrenByType(ProtobufReservedStatement.class).forEach(reserved ->
                 reserved.expressions().forEach(expr -> {
                     if (expr instanceof ProtobufIntegerRangeExpression rangeExpr) {
                         var range = rangeExpr.value();
-                        var lower = range.lowerBound().value().longValueExact();
+                        var lower = (int) range.lowerBound().value();
                         var upper = range.upperBound()
-                                .map(u -> u.value().longValueExact())
-                                .orElse(536_870_911L);
-                        ranges.add(new long[]{lower, upper});
+                                .map(u -> (int) u.value())
+                                .orElse(536_870_911);
+                        ranges.add(new int[]{lower, upper});
                     }
                 })
         );
         return ranges;
     }
 
-    private void addImports(CompilationUnit cu, List<ProtobufFieldStatement> fields) {
+    /**
+     * Adds the imports needed by the declaration of a message to a compilation unit.
+     *
+     * <p>The imports cover the {@code @ProtobufMessage} annotation and its attributes,
+     * the declarations and annotations of the fields of the message and, for the type
+     * forms that declare accessors, the {@code Optional} types they return.
+     *
+     * @param cu the compilation unit to add the imports to
+     * @param message the proto message statement
+     * @param fields the fields of the message
+     * @param typeForm the type form used to declare the message
+     */
+    private void addImports(CompilationUnit cu, ProtobufMessageStatement message,
+                            List<MessageMember> fields, TypeForm typeForm) {
         cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage");
-        cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage.ProtobufProperty");
-        cu.addImport("com.github.auties00.daedalus.protobuf.model.ProtobufType");
 
-        var hasReservedRanges = false;
-        var hasMap = false;
-        var hasList = false;
+        if (resolveVersion(message) != ProtobufVersion.DEFAULT_VERSION) {
+            cu.addImport("com.github.auties00.daedalus.protobuf.model.ProtobufVersion");
+        }
 
+        if (!collectReservedRanges(message).isEmpty()) {
+            cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufReservedRange");
+        }
+
+        var hasAccessors = typeForm == TypeForm.CLASS || typeForm == TypeForm.SEALED_CLASS;
         for (var field : fields) {
-            if (field.type() instanceof com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufMapTypeReference) {
-                hasMap = true;
+            propertyGenerator.requiredImports(field).forEach(cu::addImport);
+            if (hasAccessors) {
+                propertyGenerator.requiredAccessorImports(field).forEach(cu::addImport);
             }
-            if (field.modifier() == ProtobufModifier.REPEATED
-                    && !(field.type() instanceof com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufMapTypeReference)) {
-                hasList = true;
-            }
+        }
+    }
+
+    /**
+     * Returns the version or edition of the {@code .proto} file that declares a message.
+     *
+     * @param message the proto message statement
+     * @return the version of the enclosing document
+     */
+    private ProtobufVersion resolveVersion(ProtobufMessageStatement message) {
+        return message.document()
+                .version();
+    }
+
+    /**
+     * Creates the {@code @ProtobufMessage} annotation of the default subtype generated
+     * for a sealed message.
+     *
+     * <p>The subtype inherits the fields of the sealed message, so it declares the same
+     * {@code version}, which determines how the presence and encoding of those fields
+     * are resolved.
+     *
+     * @param message the proto message statement
+     * @return the annotation expression
+     */
+    private AnnotationExpr createSubtypeAnnotation(ProtobufMessageStatement message) {
+        var version = resolveVersion(message);
+        if (version == ProtobufVersion.DEFAULT_VERSION) {
+            return new MarkerAnnotationExpr("ProtobufMessage");
         }
 
-        if (hasMap) {
-            cu.addImport("java.util.Map");
-        }
-        if (hasList) {
-            cu.addImport("java.util.List");
-        }
+        return new NormalAnnotationExpr(
+                new Name("ProtobufMessage"),
+                new NodeList<>(createVersionPair(version))
+        );
+    }
+
+    /**
+     * Creates the {@code version} attribute of a {@code @ProtobufMessage} annotation.
+     *
+     * @param version the version or edition of the message
+     * @return the attribute
+     */
+    private MemberValuePair createVersionPair(ProtobufVersion version) {
+        return new MemberValuePair("version", new FieldAccessExpr(
+                new NameExpr("ProtobufVersion"), version.name()
+        ));
     }
 
     private TypeForm resolveTypeForm(String protoFqn) {

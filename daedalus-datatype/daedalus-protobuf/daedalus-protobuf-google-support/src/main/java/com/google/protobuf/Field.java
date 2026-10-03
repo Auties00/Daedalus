@@ -1,5 +1,6 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 import java.util.Collections;
@@ -16,7 +17,7 @@ import java.util.SequencedCollection;
  *
  * <p>Protobuf type {@code com.google.protobuf.Field}
  */
-@ProtobufMessage
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
 public final class Field {
 
     /**
@@ -24,7 +25,7 @@ public final class Field {
      *
      * <p>Protobuf enum {@code com.google.protobuf.Field.Kind}
      */
-    @ProtobufEnum
+    @ProtobufEnum(version = ProtobufVersion.PROTOBUF_3)
     public enum Kind {
         /**
          * Field type unknown.
@@ -146,7 +147,7 @@ public final class Field {
      *
      * <p>Protobuf enum {@code com.google.protobuf.Field.Cardinality}
      */
-    @ProtobufEnum
+    @ProtobufEnum(version = ProtobufVersion.PROTOBUF_3)
     public enum Cardinality {
         /**
          * For fields with unknown cardinality.
@@ -255,6 +256,20 @@ public final class Field {
     @ProtobufMessage.StringField(index = 11)
     String defaultValue;
 
+    /**
+     * Constructs a new {@code Field} with the specified field values.
+     *
+     * @param kind the value of the {@code kind} field
+     * @param cardinality the value of the {@code cardinality} field
+     * @param number the value of the {@code number} field
+     * @param name the value of the {@code name} field
+     * @param typeUrl the value of the {@code type_url} field
+     * @param oneofIndex the value of the {@code oneof_index} field
+     * @param packed the value of the {@code packed} field
+     * @param options the values of the repeated {@code options} field
+     * @param jsonName the value of the {@code json_name} field
+     * @param defaultValue the value of the {@code default_value} field
+     */
     Field(
             Field.Kind kind,
             Field.Cardinality cardinality,
@@ -279,42 +294,121 @@ public final class Field {
         this.defaultValue = defaultValue;
     }
 
+    /**
+     * Returns the value of the {@code kind} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code kind} field
+     */
     public Field.Kind kind() {
         return kind;
     }
 
+    /**
+     * Returns the value of the {@code cardinality} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code cardinality} field
+     */
     public Field.Cardinality cardinality() {
         return cardinality;
     }
 
+    /**
+     * Returns the value of the {@code number} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code number} field
+     */
     public int number() {
         return number;
     }
 
+    /**
+     * Returns the value of the {@code name} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code name} field
+     */
     public String name() {
         return name;
     }
 
+    /**
+     * Returns the value of the {@code type_url} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code type_url} field
+     */
     public String typeUrl() {
         return typeUrl;
     }
 
+    /**
+     * Returns the value of the {@code oneof_index} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code oneof_index} field
+     */
     public int oneofIndex() {
         return oneofIndex;
     }
 
+    /**
+     * Returns the value of the {@code packed} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code packed} field
+     */
     public boolean packed() {
         return packed;
     }
 
+    /**
+     * Returns an unmodifiable view of the values of the repeated
+     * {@code options} field.
+     *
+     * @return an unmodifiable view of the values of the {@code options} field,
+     *         in encounter order
+     */
     public SequencedCollection<Option> options() {
         return Collections.unmodifiableSequencedCollection(options);
     }
 
+    /**
+     * Returns the value of the {@code json_name} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code json_name} field
+     */
     public String jsonName() {
         return jsonName;
     }
 
+    /**
+     * Returns the value of the {@code default_value} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code default_value} field
+     */
     public String defaultValue() {
         return defaultValue;
     }

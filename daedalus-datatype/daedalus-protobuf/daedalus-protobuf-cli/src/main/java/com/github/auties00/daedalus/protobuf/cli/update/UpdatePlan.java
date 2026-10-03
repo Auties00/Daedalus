@@ -7,6 +7,7 @@ import com.github.auties00.daedalus.protobuf.cli.model.SourceChange;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.SequencedCollection;
 
 /**
  * Represents the planned set of changes to apply during an update operation.
@@ -36,7 +37,7 @@ public final class UpdatePlan {
      * @param updateConflicts any conflicts detected for this update
      */
     public void addUpdate(MatchResult matchResult, SourceChange sourceChange,
-                           List<Conflict> updateConflicts) {
+                           SequencedCollection<Conflict> updateConflicts) {
         updates.add(new PlannedUpdate(matchResult, sourceChange, updateConflicts));
         conflicts.addAll(updateConflicts);
     }
@@ -51,30 +52,30 @@ public final class UpdatePlan {
     }
 
     /**
-     * Returns the list of planned updates.
+     * Returns the planned updates.
      *
-     * @return an unmodifiable list of planned updates
+     * @return an unmodifiable collection of planned updates
      */
-    public List<PlannedUpdate> updates() {
-        return Collections.unmodifiableList(updates);
+    public SequencedCollection<PlannedUpdate> updates() {
+        return Collections.unmodifiableSequencedCollection(updates);
     }
 
     /**
-     * Returns the list of proto types that could not be matched.
+     * Returns the proto types that could not be matched.
      *
-     * @return an unmodifiable list of unmatched proto FQNs
+     * @return an unmodifiable collection of unmatched proto FQNs
      */
-    public List<String> unmatchedProtoTypes() {
-        return Collections.unmodifiableList(unmatchedProtoTypes);
+    public SequencedCollection<String> unmatchedProtoTypes() {
+        return Collections.unmodifiableSequencedCollection(unmatchedProtoTypes);
     }
 
     /**
      * Returns all conflicts across all planned updates.
      *
-     * @return an unmodifiable list of conflicts
+     * @return an unmodifiable collection of conflicts
      */
-    public List<Conflict> conflicts() {
-        return Collections.unmodifiableList(conflicts);
+    public SequencedCollection<Conflict> conflicts() {
+        return Collections.unmodifiableSequencedCollection(conflicts);
     }
 
     /**
@@ -105,7 +106,7 @@ public final class UpdatePlan {
     public record PlannedUpdate(
             MatchResult matchResult,
             SourceChange sourceChange,
-            List<Conflict> conflicts
+            SequencedCollection<Conflict> conflicts
     ) {
     }
 }

@@ -4,7 +4,6 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 
 /**
  * Represents an integer value in a Protocol Buffer definition.
@@ -27,14 +26,14 @@ public record ProtobufInteger(long value) implements ProtobufNumber {
     }
 
     @Override
-    public OptionalLong toFieldIndex() {
+    public OptionalInt toMessageFieldIndex() {
         return value >= ProtobufMessage.MIN_FIELD_INDEX && value <= ProtobufMessage.MAX_FIELD_INDEX
-                ? OptionalLong.of(value)
-                : OptionalLong.empty();
+                ? OptionalInt.of((int) value)
+                : OptionalInt.empty();
     }
 
     @Override
-    public OptionalInt toEnumConstant() {
+    public OptionalInt toEnumConstantIndex() {
         return value >= ProtobufEnum.MIN_CONSTANT_INDEX && value <= ProtobufEnum.MAX_CONSTANT_INDEX
                 ? OptionalInt.of((int) value)
                 : OptionalInt.empty();

@@ -67,12 +67,13 @@ public final class ProtobufExtendStatement
     private ProtobufTypeReference declaration;
 
     /**
-     * Constructs a new extend statement at the specified line number.
+     * Constructs a new extend statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param document the enclosing document
+     * @param range the source range covering this statement
      */
-    public ProtobufExtendStatement(int line) {
-        super(line);
+    public ProtobufExtendStatement(ProtobufDocumentTree document, ProtobufTreeSourceRange range) {
+        super(document, range);
     }
 
     @Override

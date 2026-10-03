@@ -4,4 +4,5 @@ module com.github.auties00.daedalus.protobuf.google {
 
     exports com.google.protobuf;
     exports com.google.protobuf.compiler;
+    exports com.github.auties00.daedalus.protobuf.support.google;
 }

@@ -1,5 +1,6 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 import com.github.auties00.daedalus.protobuf.model.ProtobufType;
 import java.util.Map;
@@ -21,8 +22,8 @@ import java.util.Map;
  *
  * <p>Protobuf type {@code com.google.protobuf.Struct}
  */
-@ProtobufMessage
-public final class Struct {
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
+public final class Struct implements Value.Kind {
 
     /**
      * Unordered map of dynamically typed values.
@@ -32,10 +33,20 @@ public final class Struct {
     @ProtobufMessage.MapField(index = 1, mapKeyType = ProtobufType.STRING, mapValueType = ProtobufType.MESSAGE)
     Map<String, Value> fields;
 
+    /**
+     * Constructs a new {@code Struct} with the specified field values.
+     *
+     * @param fields the entries of the {@code fields} map field
+     */
     Struct(Map<String, Value> fields) {
         this.fields = fields;
     }
 
+    /**
+     * Returns the entries of the {@code fields} map field.
+     *
+     * @return the entries of the {@code fields} map field
+     */
     public Map<String, Value> fields() {
         return fields;
     }

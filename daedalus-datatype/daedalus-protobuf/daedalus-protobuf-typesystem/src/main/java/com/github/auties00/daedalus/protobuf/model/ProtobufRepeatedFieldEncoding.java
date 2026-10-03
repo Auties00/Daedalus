@@ -65,4 +65,15 @@ public enum ProtobufRepeatedFieldEncoding {
     public static Optional<ProtobufRepeatedFieldEncoding> of(String token) {
         return Optional.ofNullable(VALUES.get(token));
     }
+
+    public ProtobufRepeatedFieldEncoding resolve(ProtobufVersion version) {
+        if (this != VERSION_DEFAULT) {
+            return this;
+        } else {
+            return switch (version) {
+                case PROTOBUF_2 -> EXPANDED;
+                case PROTOBUF_3, EDITION_2023, EDITION_2024 -> PACKED;
+            };
+        }
+    }
 }

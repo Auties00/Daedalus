@@ -1,7 +1,8 @@
 package com.github.auties00.daedalus.protobuf.io.writer.binary;
 
+import com.github.auties00.daedalus.typesystem.util.BinaryUtils;
 import com.github.auties00.daedalus.protobuf.exception.ProtobufSerializationException;
-import com.github.auties00.daedalus.protobuf.io.ProtobufIODataType;
+import com.github.auties00.daedalus.typesystem.model.BinaryDataType;
 import com.github.auties00.daedalus.protobuf.io.writer.ProtobufBinaryWriter;
 
 import java.lang.foreign.MemorySegment;
@@ -17,7 +18,7 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
     }
 
     @Override
-    public void writeRawByte(byte entry) {
+    public void writeRawByte(byte entry) throws ProtobufSerializationException {
         try {
             memorySegment.set(ValueLayout.JAVA_BYTE, position, entry);
             position++;
@@ -27,7 +28,7 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
     }
 
     @Override
-    public void writeRawBytes(byte[] entry, int offset, int length) {
+    public void writeRawBytes(byte[] entry, int offset, int length) throws ProtobufSerializationException {
         try {
             MemorySegment.copy(
                     entry,
@@ -44,12 +45,12 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
     }
 
     @Override
-    public void writeRawBuffer(ByteBuffer entry) {
+    public void writeRawBuffer(ByteBuffer entry) throws ProtobufSerializationException {
         writeRawMemorySegment(MemorySegment.ofBuffer(entry));
     }
 
     @Override
-    public void writeRawMemorySegment(MemorySegment entry) {
+    public void writeRawMemorySegment(MemorySegment entry) throws ProtobufSerializationException {
         try {
             var length = entry.byteSize();
             MemorySegment.copy(
@@ -66,9 +67,9 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
     }
 
     @Override
-    public void writeRawFixedInt32(int entry) {
+    public void writeRawFixedInt32(int entry) throws ProtobufSerializationException {
         try {
-            memorySegment.set(ValueLayout.JAVA_INT_UNALIGNED, position, entry);
+            BinaryUtils.writeIntLE(memorySegment, position, entry);
             position += Integer.BYTES;
         } catch (IndexOutOfBoundsException _) {
             throw ProtobufSerializationException.underflow();
@@ -76,9 +77,9 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
     }
 
     @Override
-    public void writeRawFixedInt64(long entry) {
+    public void writeRawFixedInt64(long entry) throws ProtobufSerializationException {
         try {
-            memorySegment.set(ValueLayout.JAVA_LONG_UNALIGNED, position, entry);
+            BinaryUtils.writeLongLE(memorySegment, position, entry);
             position += Long.BYTES;
         } catch (IndexOutOfBoundsException _) {
             throw ProtobufSerializationException.underflow();
@@ -86,9 +87,9 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
     }
 
     @Override
-    public void writeRawFloat(float entry) {
+    public void writeRawFloat(float entry) throws ProtobufSerializationException {
         try {
-            memorySegment.set(ValueLayout.JAVA_FLOAT_UNALIGNED, position, entry);
+            BinaryUtils.writeFloatLE(memorySegment, position, entry);
             position += Float.BYTES;
         } catch (IndexOutOfBoundsException _) {
             throw ProtobufSerializationException.underflow();
@@ -96,9 +97,9 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
     }
 
     @Override
-    public void writeRawDouble(double entry) {
+    public void writeRawDouble(double entry) throws ProtobufSerializationException {
         try {
-            memorySegment.set(ValueLayout.JAVA_DOUBLE_UNALIGNED, position, entry);
+            BinaryUtils.writeDoubleLE(memorySegment, position, entry);
             position += Double.BYTES;
         } catch (IndexOutOfBoundsException _) {
             throw ProtobufSerializationException.underflow();
@@ -106,73 +107,81 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
     }
 
     @Override
-    public void writeRawVarInt32(int entry) {
-        position += putVarInt32LE(memorySegment, position, entry);
+    public void writeRawVarInt32(int entry) throws ProtobufSerializationException {
+        try {
+            position += putVarInt32LE(memorySegment, position, entry);
+        } catch (IndexOutOfBoundsException _) {
+            throw ProtobufSerializationException.underflow();
+        }
     }
 
     @Override
-    public void writeRawVarInt64(long entry) {
-        position += putVarInt64LE(memorySegment, position, entry);
+    public void writeRawVarInt64(long entry) throws ProtobufSerializationException {
+        try {
+            position += putVarInt64LE(memorySegment, position, entry);
+        } catch (IndexOutOfBoundsException _) {
+            throw ProtobufSerializationException.underflow();
+        }
     }
 
     @Override
-    public void writeRawPackedFixedInt32(int[] input) {
+    public void writeRawPackedFixedInt32(int[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawFixedInt32(value);
         }
     }
 
     @Override
-    public void writeRawPackedFixedInt64(long[] input) {
+    public void writeRawPackedFixedInt64(long[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawFixedInt64(value);
         }
     }
 
     @Override
-    public void writeRawPackedFloat(float[] input) {
+    public void writeRawPackedFloat(float[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawFloat(value);
         }
     }
 
     @Override
-    public void writeRawPackedDouble(double[] input) {
+    public void writeRawPackedDouble(double[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawDouble(value);
         }
     }
 
     @Override
-    public void writeRawPackedVarInt32(int[] input) {
+    public void writeRawPackedVarInt32(int[] input) throws ProtobufSerializationException {
         for (var value : input) {
-            position += putVarInt32LE(memorySegment, position, value);
+            writeRawVarInt32(value);
         }
     }
 
     @Override
-    public void writeRawPackedZigZagVarInt32(int[] input) {
+    public void writeRawPackedZigZagVarInt32(int[] input) throws ProtobufSerializationException {
         for (var value : input) {
-            position += putVarInt32LE(memorySegment, position, (value << 1) ^ (value >> 31));
+            writeRawZigZagVarInt32(value);
         }
     }
 
     @Override
-    public void writeRawPackedVarInt64(long[] input) {
+    public void writeRawPackedVarInt64(long[] input) throws ProtobufSerializationException {
         for (var value : input) {
-            position += putVarInt64LE(memorySegment, position, value);
+            writeRawVarInt64(value);
         }
     }
 
     @Override
-    public void writeRawPackedZigZagVarInt64(long[] input) {
+    public void writeRawPackedZigZagVarInt64(long[] input) throws ProtobufSerializationException {
         for (var value : input) {
-            position += putVarInt64LE(memorySegment, position, (value << 1) ^ (value >> 63));
+            writeRawVarInt64((value << 1) ^ (value >> 63));
         }
     }
 
     @Override
-    public void writeRawPackedBool(boolean[] input) {
+    public void writeRawPackedBool(boolean[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawByte(value ? (byte) 1 : (byte) 0);
         }
@@ -184,8 +193,8 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
     }
 
     @Override
-    public ProtobufIODataType rawDataTypePreference() {
-        return ProtobufIODataType.MEMORY_SEGMENT;
+    public BinaryDataType rawDataTypePreference() {
+        return BinaryDataType.MEMORY_SEGMENT;
     }
 
     @Override
@@ -200,7 +209,7 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
                 var size = VARINT32_SIZE_TABLE[nlz];
                 var loCont = VARINT32_LO_CONT_TABLE[nlz];
                 var scattered = Long.expand(value & 0xFFFFFFFFL, VARINT32_PAYLOAD_BITS);
-                segment.set(INT64_LE_LAYOUT, offset, scattered | loCont);
+                BinaryUtils.writeLongLE(segment, offset, scattered | loCont);
                 return size;
             }
 
@@ -230,8 +239,8 @@ public final class ProtobufBinaryMemorySegmentWriter extends ProtobufBinaryWrite
             var hiCont = VARINT64_HI_CONT_TABLE[nlz];
             var lo = Long.expand(value, INT64_PEXT_MASK_LOW);
             var hi = Long.expand(value >>> 56, VARINT64_HI_PAYLOAD_BITS);
-            segment.set(INT64_LE_LAYOUT, offset, lo | loCont);
-            segment.set(INT64_LE_LAYOUT, offset + 8, hi | hiCont);
+            BinaryUtils.writeLongLE(segment, offset, lo | loCont);
+            BinaryUtils.writeLongLE(segment, offset + 8, hi | hiCont);
             return size;
         }
 

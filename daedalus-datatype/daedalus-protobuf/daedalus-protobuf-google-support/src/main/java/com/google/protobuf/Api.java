@@ -1,8 +1,10 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.SequencedCollection;
 
 /**
@@ -23,7 +25,7 @@ import java.util.SequencedCollection;
  *
  * <p>Protobuf type {@code com.google.protobuf.Api}
  */
-@ProtobufMessage
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
 public final class Api {
 
     /**
@@ -110,6 +112,19 @@ public final class Api {
     @ProtobufMessage.StringField(index = 8)
     String edition;
 
+    /**
+     * Constructs a new {@code Api} with the specified field values.
+     *
+     * @param name the value of the {@code name} field
+     * @param methods the values of the repeated {@code methods} field
+     * @param options the values of the repeated {@code options} field
+     * @param version the value of the {@code version} field
+     * @param sourceContext the value of the {@code source_context} field, or {@code null} if the
+     *                      field is not set
+     * @param mixins the values of the repeated {@code mixins} field
+     * @param syntax the value of the {@code syntax} field
+     * @param edition the value of the {@code edition} field
+     */
     Api(
             String name,
             List<Method> methods,
@@ -130,34 +145,93 @@ public final class Api {
         this.edition = edition;
     }
 
+    /**
+     * Returns the value of the {@code name} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code name} field
+     */
     public String name() {
         return name;
     }
 
+    /**
+     * Returns an unmodifiable view of the values of the repeated
+     * {@code methods} field.
+     *
+     * @return an unmodifiable view of the values of the {@code methods} field,
+     *         in encounter order
+     */
     public SequencedCollection<Method> methods() {
         return Collections.unmodifiableSequencedCollection(methods);
     }
 
+    /**
+     * Returns an unmodifiable view of the values of the repeated
+     * {@code options} field.
+     *
+     * @return an unmodifiable view of the values of the {@code options} field,
+     *         in encounter order
+     */
     public SequencedCollection<Option> options() {
         return Collections.unmodifiableSequencedCollection(options);
     }
 
+    /**
+     * Returns the value of the {@code version} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code version} field
+     */
     public String version() {
         return version;
     }
 
-    public SourceContext sourceContext() {
-        return sourceContext;
+    /**
+     * Returns the value of the {@code source_context} field, if present.
+     *
+     * @return an {@code Optional} containing the value of the {@code source_context}
+     *         field, or an empty {@code Optional} if the field is not set
+     */
+    public Optional<SourceContext> sourceContext() {
+        return Optional.ofNullable(sourceContext);
     }
 
+    /**
+     * Returns an unmodifiable view of the values of the repeated
+     * {@code mixins} field.
+     *
+     * @return an unmodifiable view of the values of the {@code mixins} field,
+     *         in encounter order
+     */
     public SequencedCollection<Mixin> mixins() {
         return Collections.unmodifiableSequencedCollection(mixins);
     }
 
+    /**
+     * Returns the value of the {@code syntax} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code syntax} field
+     */
     public Syntax syntax() {
         return syntax;
     }
 
+    /**
+     * Returns the value of the {@code edition} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code edition} field
+     */
     public String edition() {
         return edition;
     }

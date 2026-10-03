@@ -1,8 +1,11 @@
 package com.github.auties00.daedalus.processor.graph;
 
+import com.github.auties00.daedalus.processor.model.DaedalusConverterParametersElement;
 import com.github.auties00.daedalus.processor.model.DaedalusMethodElement;
 
 import javax.lang.model.type.TypeMirror;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * A node in the converter graph representing a type transformation.
@@ -43,6 +46,15 @@ sealed interface DaedalusConverterNode {
     DaedalusMethodElement arc();
 
     /**
+     * Returns the companion parameters annotations that a use
+     * site must supply to perform the transformation.
+     *
+     * @return the annotation names, empty if the transformation declares no annotated
+     *         parameter
+     */
+    List<DaedalusConverterParametersElement> parametersAnnotations();
+
+    /**
      * A serializer node representing a value-to-wire transformation, with an
      * optional size calculation method.
      *
@@ -59,7 +71,9 @@ sealed interface DaedalusConverterNode {
         private final TypeMirror from;
         private final TypeMirror to;
         private final DaedalusMethodElement arc;
+        private final List<DaedalusConverterParametersElement> arcParametersAnnotations;
         private DaedalusMethodElement sizer;
+        private List<DaedalusConverterParametersElement> parametersAnnotations;
 
         /**
          * Constructs a new serializer node with the given types and converter method.
@@ -67,11 +81,15 @@ sealed interface DaedalusConverterNode {
          * @param from the value type being serialized
          * @param to the wire-format target type
          * @param arc the serializer method
+         * @param arcParametersAnnotations the companion parameters annotations
+         *        required to invoke {@code arc}
          */
-        Serializer(TypeMirror from, TypeMirror to, DaedalusMethodElement arc) {
+        Serializer(TypeMirror from, TypeMirror to, DaedalusMethodElement arc, List<DaedalusConverterParametersElement> arcParametersAnnotations) {
             this.from = from;
             this.to = to;
             this.arc = arc;
+            this.arcParametersAnnotations = arcParametersAnnotations;
+            this.parametersAnnotations = arcParametersAnnotations;
         }
 
         /**
@@ -99,6 +117,17 @@ sealed interface DaedalusConverterNode {
         }
 
         /**
+         * {@inheritDoc}
+         *
+         * <p>The returned annotations are required either by the serializer method or
+         * by its sizer.
+         */
+        @Override
+        public List<DaedalusConverterParametersElement> parametersAnnotations() {
+            return parametersAnnotations;
+        }
+
+        /**
          * Returns the size calculation method registered for this serializer's
          * source type, or {@code null} if none has been attached yet.
          *
@@ -112,9 +141,18 @@ sealed interface DaedalusConverterNode {
          * Sets the size calculation method for this serializer's source type.
          *
          * @param sizer the sizer to attach
+         * @param sizerParametersAnnotations the companion
+         *        parameters annotations required to invoke {@code sizer}
          */
-        public void setSizer(DaedalusMethodElement sizer) {
+        public void setSizer(DaedalusMethodElement sizer, List<DaedalusConverterParametersElement> sizerParametersAnnotations) {
             this.sizer = sizer;
+            var annotations = new ArrayList<>(arcParametersAnnotations);
+            for (var annotation : sizerParametersAnnotations) {
+                if (!annotations.contains(annotation)) {
+                    annotations.add(annotation);
+                }
+            }
+            this.parametersAnnotations = List.copyOf(annotations);
         }
     }
 
@@ -124,11 +162,14 @@ sealed interface DaedalusConverterNode {
      * @param from the wire-format source type
      * @param to the value type being deserialized
      * @param arc the deserializer method
+     * @param parametersAnnotations the companion parameters annotations
+     *        required to invoke {@code arc}
      */
     record Deserializer(
             TypeMirror from,
             TypeMirror to,
-            DaedalusMethodElement arc
+            DaedalusMethodElement arc,
+            List<DaedalusConverterParametersElement> parametersAnnotations
     ) implements DaedalusConverterNode {
 
     }

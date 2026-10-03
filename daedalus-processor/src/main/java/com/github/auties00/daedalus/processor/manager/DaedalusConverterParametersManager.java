@@ -1,0 +1,375 @@
+package com.github.auties00.daedalus.processor.manager;
+
+import com.github.auties00.daedalus.processor.model.DaedalusConverterArgument;
+import com.github.auties00.daedalus.processor.model.DaedalusConverterParametersElement;
+import com.github.auties00.daedalus.processor.model.DaedalusMethodElement;
+import com.github.auties00.daedalus.processor.util.DaedalusMixinInstanceUtils;
+import com.palantir.javapoet.CodeBlock;
+
+import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.*;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.ElementFilter;
+import javax.lang.model.util.SimpleAnnotationValueVisitor14;
+import java.util.*;
+
+/**
+ * A manager for the additional parameters of converter methods, and for the arguments
+ * that use sites pass to them.
+ *
+ * <p>A method annotated with {@code @TypeSerializer}, {@code @TypeDeserializer} or
+ * {@code @TypeSize} receives the value to convert either as its receiver, when it is an
+ * instance method, or as its first parameter, when it is a static method or a
+ * constructor. Every parameter after that one is an additional parameter, which is
+ * either:
+ * <ul>
+ * <li>an injected parameter, whose type is one of the reader or writer types supplied by
+ *     a data format, and whose argument is passed by the generated code of that format;
+ * <li>an annotated parameter, whose argument is a compile time constant supplied by the
+ *     companion parameters annotation applied to the use site.
+ * </ul>
+ *
+ * <p>The companion parameters annotation of a converter is generated for the type that
+ * declares it, in the same package, and is named after that type followed by
+ * {@value #ANNOTATION_SUFFIX}: the annotated parameters of the {@code InstantMixin}
+ * converters, for example, are supplied by {@code @InstantMixinParameters}. It declares
+ * one element per annotated parameter, with the same name and type.
+ */
+public final class DaedalusConverterParametersManager {
+    /**
+     * The suffix appended to the simple name of a type to obtain the simple name of its
+     * companion parameters annotation.
+     */
+    public static final String ANNOTATION_SUFFIX = "Parameters";
+
+    /**
+     * The annotation processing environment used to read annotation values.
+     */
+    private final ProcessingEnvironment processingEnv;
+
+    /**
+     * The type utility used for type comparisons.
+     */
+    private final DaedalusTypeManager types;
+
+    /**
+     * The reader and writer types supplied by the data formats.
+     */
+    private final Set<TypeMirror> injectedTypes;
+
+    /**
+     * Constructs a new parameters manager.
+     *
+     * @param processingEnv the annotation processing environment
+     * @param types the type utility
+     * @param injectedTypes the reader and writer types supplied by the data formats, whose
+     *        parameters are injected by the generated code instead of being supplied by
+     *        the companion parameters annotation
+     */
+    public DaedalusConverterParametersManager(ProcessingEnvironment processingEnv, DaedalusTypeManager types, Set<TypeMirror> injectedTypes) {
+        this.processingEnv = processingEnv;
+        this.types = types;
+        this.injectedTypes = injectedTypes;
+    }
+
+    /**
+     * Returns the additional parameters of the given converter method, which are all its
+     * parameters except the one that receives the value to convert.
+     *
+     * @param method the converter method
+     * @return the additional parameters, in declaration order
+     */
+    public List<? extends VariableElement> getAdditionalParameters(ExecutableElement method) {
+        var parameters = method.getParameters();
+        var mandatory = DaedalusMixinInstanceUtils.receivesValueAsFirstParameter(method) ? 1 : 0;
+        return parameters.size() <= mandatory ? List.of() : parameters.subList(mandatory, parameters.size());
+    }
+
+    /**
+     * Returns the additional parameters of the given converter method whose arguments are
+     * supplied by its companion parameters annotation.
+     *
+     * @param method the converter method
+     * @return the annotated parameters, in declaration order
+     */
+    public List<? extends VariableElement> getAnnotatedParameters(ExecutableElement method) {
+        return getAdditionalParameters(method)
+                .stream()
+                .filter(parameter -> !isInjected(parameter))
+                .toList();
+    }
+
+    /**
+     * Returns the companion parameters annotation of the type that declares the given
+     * converter method.
+     *
+     * <p>The annotation is {@linkplain DaedalusConverterParametersElement.Concrete concrete}
+     * if its type already exists, for example because the converter is loaded from a
+     * dependency, and {@linkplain DaedalusConverterParametersElement.Synthetic synthetic}
+     * if it is generated by the current round.
+     *
+     * @param method the converter method
+     * @return the companion parameters annotation
+     */
+    public DaedalusConverterParametersElement getAnnotation(ExecutableElement method) {
+        var qualifiedName = getAnnotationName(method);
+        var annotationType = processingEnv.getElementUtils().getTypeElement(qualifiedName);
+        if (annotationType != null && annotationType.getKind() == ElementKind.ANNOTATION_TYPE) {
+            return DaedalusConverterParametersElement.of(annotationType);
+        }
+
+        return DaedalusConverterParametersElement.of(qualifiedName);
+    }
+
+    /**
+     * Returns the qualified name of the companion parameters annotation of the type that
+     * declares the given converter method.
+     *
+     * @param method the converter method
+     * @return the qualified annotation name
+     */
+    private String getAnnotationName(ExecutableElement method) {
+        var owner = types.getEnclosingTypeElement(method.getEnclosingElement());
+        var packageName = types.getPackageName(owner);
+        var simpleName = getAnnotationSimpleName(owner);
+        return packageName.isEmpty() ? simpleName : packageName + "." + simpleName;
+    }
+
+    /**
+     * Returns the simple name of the companion parameters annotation of the given type.
+     *
+     * @param owner the type that declares the converters
+     * @return the simple annotation name
+     */
+    public String getAnnotationSimpleName(TypeElement owner) {
+        return owner.getSimpleName() + ANNOTATION_SUFFIX;
+    }
+
+    /**
+     * Returns the companion parameters annotation that must be applied to a use site of
+     * the given converter method, if the method declares any annotated parameter.
+     *
+     * <p>Synthetic methods never declare annotated parameters.
+     *
+     * @param method the converter method, or {@code null}
+     * @return the companion parameters annotation, or an empty {@code Optional} if the
+     *         method is {@code null}, synthetic or declares no annotated parameter
+     */
+    public Optional<DaedalusConverterParametersElement> getRequiredAnnotation(DaedalusMethodElement method) {
+        if (method == null) {
+            return Optional.empty();
+        }
+
+        return method.element()
+                .filter(element -> !getAnnotatedParameters(element).isEmpty())
+                .map(this::getAnnotation);
+    }
+
+    /**
+     * Returns the annotations applied to the given use site, any of which may be the
+     * companion parameters annotation of a converter.
+     *
+     * <p>Annotations whose type cannot be resolved are ignored.
+     *
+     * @param useSite the element that uses the converters
+     * @return the applied annotations
+     */
+    public Set<DaedalusConverterParametersElement> getSuppliedAnnotations(Element useSite) {
+        var result = new HashSet<DaedalusConverterParametersElement>();
+        for (var annotation : useSite.getAnnotationMirrors()) {
+            if (annotation.getAnnotationType().asElement() instanceof TypeElement annotationElement
+                    && annotationElement.getKind() == ElementKind.ANNOTATION_TYPE) {
+                result.add(DaedalusConverterParametersElement.of(annotationElement));
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Returns the arguments that the given use site passes to the additional parameters
+     * of the given converter method.
+     *
+     * <p>An annotated parameter receives the value of the element with the same name of
+     * the companion parameters annotation applied to the use site, or, if the annotation
+     * declares no such element, of the element at the same position among the annotated
+     * parameters, as the parameter names of a method loaded from a class file are not
+     * always available.
+     *
+     * @param method the converter method, or {@code null}
+     * @param useSite the element that uses the converter
+     * @return the arguments, in declaration order, empty if {@code method} is
+     *         {@code null}, synthetic or declares no additional parameter
+     * @throws IllegalStateException if {@code method} declares an annotated parameter and
+     *         {@code useSite} is not annotated with its companion parameters annotation
+     */
+    public List<DaedalusConverterArgument> getArguments(DaedalusMethodElement method, Element useSite) {
+        if (method == null || method.element().isEmpty()) {
+            return List.of();
+        }
+
+        var element = method.element().get();
+        var parameters = getAdditionalParameters(element);
+        if (parameters.isEmpty()) {
+            return List.of();
+        }
+
+        Map<? extends ExecutableElement, ? extends AnnotationValue> values = null;
+        List<ExecutableElement> valueElements = null;
+        var annotatedIndex = 0;
+        var results = new ArrayList<DaedalusConverterArgument>(parameters.size());
+        for (var parameter : parameters) {
+            var name = parameter.getSimpleName().toString();
+            if (isInjected(parameter)) {
+                results.add(new DaedalusConverterArgument.Injected(name, parameter.asType()));
+                continue;
+            }
+
+            if (values == null) {
+                var annotation = findAnnotation(useSite, getAnnotation(element))
+                        .orElseThrow(() -> new IllegalStateException("Internal bug: %s is not annotated with the parameters of %s".formatted(useSite, method)));
+                values = processingEnv.getElementUtils().getElementValuesWithDefaults(annotation);
+                valueElements = ElementFilter.methodsIn(annotation.getAnnotationType().asElement().getEnclosedElements());
+            }
+
+            var valueElement = valueElements.stream()
+                    .filter(entry -> entry.getSimpleName().contentEquals(name))
+                    .findFirst()
+                    .orElse(valueElements.get(annotatedIndex));
+            var expression = toExpression(values.get(valueElement), parameter.asType());
+            results.add(new DaedalusConverterArgument.Value(name, expression));
+            annotatedIndex++;
+        }
+        return results;
+    }
+
+    /**
+     * Returns whether the argument of the given parameter is injected by the generated
+     * code of a data format.
+     *
+     * @param parameter the parameter
+     * @return {@code true} if the type of the parameter is a supplied reader or writer type
+     */
+    public boolean isInjected(VariableElement parameter) {
+        for (var injectedType : injectedTypes) {
+            if (types.isSameType(parameter.asType(), injectedType, true)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns the mirror of the given companion parameters annotation applied to the
+     * given element.
+     *
+     * @param element the annotated element
+     * @param parametersAnnotation the companion parameters annotation
+     * @return the annotation mirror, or an empty {@code Optional} if it is not applied
+     */
+    private Optional<? extends AnnotationMirror> findAnnotation(Element element, DaedalusConverterParametersElement parametersAnnotation) {
+        return element.getAnnotationMirrors()
+                .stream()
+                .filter(annotation -> annotation.getAnnotationType().asElement() instanceof TypeElement annotationElement
+                        && annotationElement.getQualifiedName().contentEquals(parametersAnnotation.qualifiedName()))
+                .findFirst();
+    }
+
+    /**
+     * Returns the Java source expression that evaluates to the given annotation value.
+     *
+     * @param value the annotation value
+     * @param type the type of the parameter that receives the value
+     * @return the expression
+     */
+    private String toExpression(AnnotationValue value, TypeMirror type) {
+        return value.accept(new SimpleAnnotationValueVisitor14<String, TypeMirror>() {
+            @Override
+            public String visitBoolean(boolean value, TypeMirror type) {
+                return Boolean.toString(value);
+            }
+
+            @Override
+            public String visitByte(byte value, TypeMirror type) {
+                return "(byte) " + value;
+            }
+
+            @Override
+            public String visitChar(char value, TypeMirror type) {
+                return "'\\u%04x'".formatted((int) value);
+            }
+
+            @Override
+            public String visitShort(short value, TypeMirror type) {
+                return "(short) " + value;
+            }
+
+            @Override
+            public String visitInt(int value, TypeMirror type) {
+                return Integer.toString(value);
+            }
+
+            @Override
+            public String visitLong(long value, TypeMirror type) {
+                return value + "L";
+            }
+
+            @Override
+            public String visitFloat(float value, TypeMirror type) {
+                if (Float.isNaN(value)) {
+                    return "Float.NaN";
+                }
+
+                if (Float.isInfinite(value)) {
+                    return value > 0 ? "Float.POSITIVE_INFINITY" : "Float.NEGATIVE_INFINITY";
+                }
+
+                return value + "F";
+            }
+
+            @Override
+            public String visitDouble(double value, TypeMirror type) {
+                if (Double.isNaN(value)) {
+                    return "Double.NaN";
+                }
+
+                if (Double.isInfinite(value)) {
+                    return value > 0 ? "Double.POSITIVE_INFINITY" : "Double.NEGATIVE_INFINITY";
+                }
+
+                return value + "D";
+            }
+
+            @Override
+            public String visitString(String value, TypeMirror type) {
+                return CodeBlock.of("$S", value).toString();
+            }
+
+            @Override
+            public String visitType(TypeMirror value, TypeMirror type) {
+                return types.erase(value) + ".class";
+            }
+
+            @Override
+            public String visitEnumConstant(VariableElement value, TypeMirror type) {
+                var enumType = (TypeElement) value.getEnclosingElement();
+                return enumType.getQualifiedName() + "." + value.getSimpleName();
+            }
+
+            @Override
+            public String visitArray(List<? extends AnnotationValue> values, TypeMirror type) {
+                var componentType = ((ArrayType) type).getComponentType();
+                var elements = new StringJoiner(", ", "new " + types.erase(componentType) + "[]{", "}");
+                for (var element : values) {
+                    elements.add(toExpression(element, componentType));
+                }
+                return elements.toString();
+            }
+
+            @Override
+            protected String defaultAction(Object value, TypeMirror type) {
+                throw new IllegalStateException("Internal bug: unexpected annotation value " + value + " for a parameter of type " + type);
+            }
+        }, type);
+    }
+}

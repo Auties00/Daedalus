@@ -10,25 +10,27 @@
 
 package com.github.auties00.daedalus.protobuf.io.reader;
 
+import com.github.auties00.daedalus.typesystem.util.BinaryUtils;
 import com.github.auties00.daedalus.protobuf.exception.ProtobufDeserializationException;
-import com.github.auties00.daedalus.protobuf.io.ProtobufIODataType;
+import com.github.auties00.daedalus.typesystem.model.BinaryDataType;
 import com.github.auties00.daedalus.protobuf.io.reader.binary.ProtobufBinaryByteArrayReader;
 import com.github.auties00.daedalus.protobuf.io.reader.binary.ProtobufBinaryDirectByteBufferReader;
 import com.github.auties00.daedalus.protobuf.io.reader.binary.ProtobufBinaryMemorySegmentReader;
 import com.github.auties00.daedalus.protobuf.io.reader.binary.ProtobufBinaryStreamReader;
 import com.github.auties00.daedalus.protobuf.io.writer.ProtobufBinaryWriter;
+import com.github.auties00.daedalus.protobuf.model.ProtobufUnknownFields;
 import com.github.auties00.daedalus.protobuf.model.ProtobufUnknownValue;
 import com.github.auties00.daedalus.protobuf.model.ProtobufWireType;
+import com.github.auties00.daedalus.typesystem.util.CharsetUtils;
 import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.VectorSpecies;
 
 import java.io.InputStream;
 import java.lang.foreign.MemorySegment;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.HashMap;
+import java.nio.charset.StandardCharsets;
+import java.util.function.Supplier;
 
 /**
  * An abstract reader for Protocol Buffer binary wire format.
@@ -40,17 +42,7 @@ import java.util.HashMap;
  * @see ProtobufBinaryWriter
  */
 public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
-    protected static final VarHandle ARRAY_AS_INT16_LE = MethodHandles.byteArrayViewVarHandle(short[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle ARRAY_AS_INT32_LE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle ARRAY_AS_INT64_LE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle ARRAY_AS_FLOAT_LE = MethodHandles.byteArrayViewVarHandle(float[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle ARRAY_AS_DOUBLE_LE = MethodHandles.byteArrayViewVarHandle(double[].class, ByteOrder.LITTLE_ENDIAN);
 
-    protected static final VarHandle BUFFER_AS_INT16_LE = MethodHandles.byteBufferViewVarHandle(short[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle BUFFER_AS_INT32_LE = MethodHandles.byteBufferViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle BUFFER_AS_INT64_LE = MethodHandles.byteBufferViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle BUFFER_AS_FLOAT_LE = MethodHandles.byteBufferViewVarHandle(float[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle BUFFER_AS_DOUBLE_LE = MethodHandles.byteBufferViewVarHandle(double[].class, ByteOrder.LITTLE_ENDIAN);
 
     protected static final long MSB8 = 0x80808080_80808080L;
     protected static final int MSB4 = 0x80808080;
@@ -126,10 +118,10 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
         while (end - ptr >= 31 * 32) {
             long acc0 = 0, acc1 = 0, acc2 = 0, acc3 = 0;
             for (var i = 0; i < 31; i++) {
-                acc0 += (~(long) (long) ARRAY_AS_INT64_LE.get(buf, ptr) & MSB8) >>> 7;
-                acc1 += (~(long) (long) ARRAY_AS_INT64_LE.get(buf, ptr + 8) & MSB8) >>> 7;
-                acc2 += (~(long) (long) ARRAY_AS_INT64_LE.get(buf, ptr + 16) & MSB8) >>> 7;
-                acc3 += (~(long) (long) ARRAY_AS_INT64_LE.get(buf, ptr + 24) & MSB8) >>> 7;
+                acc0 += (~BinaryUtils.readLongLE(buf, ptr) & MSB8) >>> 7;
+                acc1 += (~BinaryUtils.readLongLE(buf, ptr + 8) & MSB8) >>> 7;
+                acc2 += (~BinaryUtils.readLongLE(buf, ptr + 16) & MSB8) >>> 7;
+                acc3 += (~BinaryUtils.readLongLE(buf, ptr + 24) & MSB8) >>> 7;
                 ptr += 32;
             }
             count += (int) ((acc0 * LO_BYTES) >>> 56);
@@ -139,13 +131,13 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
         }
 
         while (end - ptr >= Long.BYTES) {
-            var word = (long) ARRAY_AS_INT64_LE.get(buf, ptr);
+            var word = BinaryUtils.readLongLE(buf, ptr);
             count += Long.bitCount(~word & MSB8);
             ptr += Long.BYTES;
         }
 
         if (end - ptr >= Integer.BYTES) {
-            var word = (int) ARRAY_AS_INT32_LE.get(buf, ptr);
+            var word = BinaryUtils.readIntLE(buf, ptr);
             count += Integer.bitCount(~word & MSB4);
             ptr += Integer.BYTES;
         }
@@ -160,15 +152,14 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
     }
 
     protected static int countVarInts(ByteBuffer bb) {
-        var end = bb.remaining();
         if (bb.hasArray()) {
-            return countVarInts(bb.array(), bb.arrayOffset(), end);
+            return countVarInts(bb.array(), bb.arrayOffset() + bb.position(), bb.remaining());
         }
 
         var order = bb.order();
         bb.order(ByteOrder.LITTLE_ENDIAN);
         try {
-            int count = 0, ptr = 0;
+            int count = 0, ptr = bb.position(), end = bb.limit();
 
             while (end - ptr >= 31 * 32) {
                 long acc0 = 0, acc1 = 0, acc2 = 0, acc3 = 0;
@@ -208,10 +199,41 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
     }
 
     protected int wireType;
-    protected long index;
+    protected int index;
+
+    /**
+     * The number of groups opened by {@link #readStartGroupField(int)} that were not closed
+     * yet by {@link #readEndGroupField(int)}.
+     *
+     * <p>An end group tag is only valid while a group is open: one read at depth {@code 0}
+     * closes a group that was never opened, so the input is malformed.
+     */
+    private int groupDepth;
+
+    /**
+     * The default maximum number of messages and groups that can be nested inside each other,
+     * which is the same as the default recursion limit of the official protobuf library.
+     */
+    public static final int DEFAULT_RECURSION_LIMIT = 100;
+
+    /**
+     * The maximum number of messages and groups that can be nested inside each other.
+     */
+    private int recursionLimit = DEFAULT_RECURSION_LIMIT;
+
+    /**
+     * The number of messages and groups that enclose the field being read, counting the ones
+     * read by the readers that this reader was created from.
+     *
+     * <p>Decoding a nested message or group recurses, so a malicious input that nests them
+     * deeply enough could overflow the stack: entering one more level than
+     * {@link #recursionLimit} fails instead.
+     */
+    private int recursionDepth;
 
     protected ProtobufBinaryReader() {
-        resetPropertyTag();
+        this.wireType = -1;
+        this.index = -1;
     }
 
     public static ProtobufBinaryReader fromBytes(byte[] bytes) {
@@ -258,22 +280,26 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
 
     public static ProtobufBinaryReader fromMemorySegment(MemorySegment segment) {
         var heapBase = segment.heapBase();
-        return heapBase.isPresent() && heapBase.get() instanceof byte[] array
-                ? new ProtobufBinaryByteArrayReader(array, 0, array.length)
-                : new ProtobufBinaryMemorySegmentReader(segment);
+        if (heapBase.isPresent() && heapBase.get() instanceof byte[] array) {
+            // The address of a heap segment is its offset in the backing array
+            var offset = (int) segment.address();
+            return new ProtobufBinaryByteArrayReader(array, offset, offset + (int) segment.byteSize());
+        } else {
+            return new ProtobufBinaryMemorySegmentReader(segment);
+        }
     }
 
-    public int propertyWireType() {
+    public int fieldWireType() {
         return wireType;
     }
 
-    public long propertyIndex() {
+    public int fieldIndex() {
         return index;
     }
 
-    public boolean readPropertyTag() {
+    public boolean nextFieldTag() throws ProtobufDeserializationException {
         if (wireType != -1 || index != -1) {
-            throw ProtobufDeserializationException.invalidPropertyState("a property tag was already read");
+            throw ProtobufDeserializationException.fieldTagAlreadyRead();
         } else if (isFinished()) {
             return false;
         } else {
@@ -282,21 +308,26 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
             this.index = rawTag >>> 3;
             if (index == 0) {
                 throw ProtobufDeserializationException.invalidFieldIndex(index);
+            } else if (wireType != ProtobufWireType.WIRE_TYPE_END_OBJECT) {
+                return true;
+            } else if (groupDepth == 0) {
+                throw ProtobufDeserializationException.unmatchedEndGroup(index);
+            } else {
+                return false;
             }
-            return wireType != ProtobufWireType.WIRE_TYPE_END_OBJECT;
         }
     }
 
-    public void resetPropertyTag() {
+    public void resetFieldTag() throws ProtobufDeserializationException {
         if (wireType == -1 || index == -1) {
-            throw ProtobufDeserializationException.invalidPropertyState("no property tag");
+            throw ProtobufDeserializationException.missingFieldTag();
         } else {
             this.wireType = -1;
             this.index = -1;
         }
     }
 
-    public int readLengthDelimitedPropertyLength() {
+    public int readLengthDelimitedFieldLength() throws ProtobufDeserializationException {
         var length = readRawVarInt32();
         if (length < 0) {
             throw ProtobufDeserializationException.negativeLength(length);
@@ -305,408 +336,506 @@ public abstract non-sealed class ProtobufBinaryReader extends ProtobufReader {
         }
     }
 
-    public ProtobufBinaryReader readLengthDelimitedProperty() {
+    /**
+     * Returns the maximum number of messages and groups that can be nested inside each other.
+     *
+     * @return the recursion limit, which is {@value #DEFAULT_RECURSION_LIMIT} unless changed
+     */
+    public int recursionLimit() {
+        return recursionLimit;
+    }
+
+    /**
+     * Sets the maximum number of messages and groups that can be nested inside each other.
+     *
+     * <p>Like the recursion limit of the official protobuf library, it protects the decoder from
+     * inputs that nest messages deeply enough to overflow the stack, so it should only be raised
+     * for trusted inputs. The readers created by this reader for nested messages inherit it.
+     *
+     * @param recursionLimit the new recursion limit
+     * @throws IllegalArgumentException if {@code recursionLimit} is negative
+     */
+    public void setRecursionLimit(int recursionLimit) {
+        if (recursionLimit < 0) {
+            throw new IllegalArgumentException("recursionLimit cannot be negative: " + recursionLimit);
+        }
+        this.recursionLimit = recursionLimit;
+    }
+
+    /**
+     * Enters one more level of nesting.
+     *
+     * @throws ProtobufDeserializationException if the new level exceeds the recursion limit
+     */
+    private void enterNestedLevel() throws ProtobufDeserializationException {
+        if (recursionDepth >= recursionLimit) {
+            throw ProtobufDeserializationException.recursionLimitExceeded(recursionLimit);
+        }
+        recursionDepth++;
+    }
+
+    public ProtobufBinaryReader readLengthDelimitedField() throws ProtobufDeserializationException {
         if (wireType != ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED) {
             throw ProtobufDeserializationException.invalidWireType(wireType);
+        } else if (recursionDepth >= recursionLimit) {
+            throw ProtobufDeserializationException.recursionLimitExceeded(recursionLimit);
         } else {
-            var size = readLengthDelimitedPropertyLength();
+            var size = readLengthDelimitedFieldLength();
             var result = readRawLengthDelimited(size);
-            resetPropertyTag();
+            // The nested message is one level deeper than the one that holds it
+            result.recursionLimit = recursionLimit;
+            result.recursionDepth = recursionDepth + 1;
+            resetFieldTag();
             return result;
         }
     }
 
-    public void readStartGroupProperty(long groupIndex) {
-        if ((wireType == -1 && !readPropertyTag()) || wireType != ProtobufWireType.WIRE_TYPE_START_OBJECT || index != groupIndex) {
+    public void readStartGroupField(int groupIndex) throws ProtobufDeserializationException {
+        if ((wireType == -1 && !nextFieldTag()) || wireType != ProtobufWireType.WIRE_TYPE_START_OBJECT || index != groupIndex) {
             throw ProtobufDeserializationException.invalidStartObject(groupIndex);
         } else {
-            resetPropertyTag();
+            enterNestedLevel();
+            resetFieldTag();
+            groupDepth++;
         }
     }
 
-    public void readEndGroupProperty(long groupIndex) {
+    public void readEndGroupField(int groupIndex) throws ProtobufDeserializationException {
         if (wireType != ProtobufWireType.WIRE_TYPE_END_OBJECT) {
             throw ProtobufDeserializationException.malformedGroup();
         } else if (index != groupIndex) {
             throw ProtobufDeserializationException.invalidEndObject(index, groupIndex);
         } else {
-            resetPropertyTag();
+            resetFieldTag();
+            groupDepth--;
+            recursionDepth--;
         }
     }
 
-    public float readFloatProperty() {
+    public float readFloatField() throws ProtobufDeserializationException {
         if (wireType != ProtobufWireType.WIRE_TYPE_FIXED32) {
             throw ProtobufDeserializationException.invalidWireType(wireType);
         } else {
             var result = readRawFloat();
-            resetPropertyTag();
+            resetFieldTag();
             return result;
         }
     }
 
-    public double readDoubleProperty() {
+    public double readDoubleField() throws ProtobufDeserializationException {
         if (wireType != ProtobufWireType.WIRE_TYPE_FIXED64) {
             throw ProtobufDeserializationException.invalidWireType(wireType);
         } else {
             var result = readRawDouble();
-            resetPropertyTag();
+            resetFieldTag();
             return result;
         }
     }
 
-    public boolean readBoolProperty() {
+    public boolean readBoolField() throws ProtobufDeserializationException {
         if (wireType != ProtobufWireType.WIRE_TYPE_VAR_INT) {
             throw ProtobufDeserializationException.invalidWireType(wireType);
         } else {
             var result = readRawBool();
-            resetPropertyTag();
+            resetFieldTag();
             return result;
         }
     }
 
-    public int readInt32Property() {
+    public String readStringField(boolean validateUtf8) throws ProtobufDeserializationException {
+        if (wireType != ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED) {
+            throw ProtobufDeserializationException.invalidWireType(wireType);
+        }
+        var length = readLengthDelimitedFieldLength();
+        var result = readRawString(length, validateUtf8);
+        resetFieldTag();
+        return result;
+    }
+
+    @SuppressWarnings("preview")
+    public Supplier<String> readLazyStringField(boolean validateUtf8) throws ProtobufDeserializationException {
+        if (wireType != ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED) {
+            throw ProtobufDeserializationException.invalidWireType(wireType);
+        }
+        var length = readLengthDelimitedFieldLength();
+        // The bytes are always copied: the input could be reused or released before the value is decoded
+        var source = readRawBytes(length);
+        if (validateUtf8 && !CharsetUtils.isValidUtf8(source)) {
+            throw ProtobufDeserializationException.invalidUtf8();
+        }
+        resetFieldTag();
+        return LazyConstant.of(() -> new String(source, StandardCharsets.UTF_8));
+    }
+
+    public String readRawString(int size, boolean validateUtf8) throws ProtobufDeserializationException {
+        var source = readRawBytes(size);
+        if (validateUtf8 && !CharsetUtils.isValidUtf8(source)) {
+            throw ProtobufDeserializationException.invalidUtf8();
+        }
+        return new String(source, StandardCharsets.UTF_8);
+    }
+
+    public byte[] readBytesField() throws ProtobufDeserializationException {
+        if (wireType != ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED) {
+            throw ProtobufDeserializationException.invalidWireType(wireType);
+        }
+        var length = readLengthDelimitedFieldLength();
+        var result = readRawBytes(length);
+        resetFieldTag();
+        return result;
+    }
+
+    public int readInt32Field() throws ProtobufDeserializationException {
         return readVarInt32();
     }
 
-    public int readUInt32Property() {
+    public int readUInt32Field() throws ProtobufDeserializationException {
         return readVarInt32();
     }
 
-    private int readVarInt32() {
+    private int readVarInt32() throws ProtobufDeserializationException {
         if (wireType != ProtobufWireType.WIRE_TYPE_VAR_INT) {
             throw ProtobufDeserializationException.invalidWireType(wireType);
         } else {
             var result = readRawVarInt32();
-            resetPropertyTag();
+            resetFieldTag();
             return result;
         }
     }
 
-    public int readSInt32Property() {
+    public int readSInt32Field() throws ProtobufDeserializationException {
         if (wireType != ProtobufWireType.WIRE_TYPE_VAR_INT) {
             throw ProtobufDeserializationException.invalidWireType(wireType);
         } else {
-            return readRawZigZagVarInt32();
+            var result = readRawZigZagVarInt32();
+            resetFieldTag();
+            return result;
         }
     }
 
-    public long readInt64Property() {
+    public long readInt64Field() throws ProtobufDeserializationException {
         return readVarInt64();
     }
 
-    public long readUInt64Property() {
+    public long readUInt64Field() throws ProtobufDeserializationException {
         return readVarInt64();
     }
 
-    private long readVarInt64() {
+    private long readVarInt64() throws ProtobufDeserializationException {
         if (wireType != ProtobufWireType.WIRE_TYPE_VAR_INT) {
             throw ProtobufDeserializationException.invalidWireType(wireType);
         } else {
             var result = readRawVarInt64();
-            resetPropertyTag();
+            resetFieldTag();
             return result;
         }
     }
 
-    public long readSInt64Property() {
+    public long readSInt64Field() throws ProtobufDeserializationException {
         if (wireType != ProtobufWireType.WIRE_TYPE_VAR_INT) {
             throw ProtobufDeserializationException.invalidWireType(wireType);
         } else {
             var result = readRawZigZagVarInt64();
-            resetPropertyTag();
+            resetFieldTag();
             return result;
         }
     }
 
-    public int readFixed32Property() {
+    public int readFixed32Field() throws ProtobufDeserializationException {
         return readFixed32();
     }
 
-    public int readSFixed32Property() {
+    public int readSFixed32Field() throws ProtobufDeserializationException {
         return readFixed32();
     }
 
-    private int readFixed32() {
+    private int readFixed32() throws ProtobufDeserializationException {
         if (wireType != ProtobufWireType.WIRE_TYPE_FIXED32) {
             throw ProtobufDeserializationException.invalidWireType(wireType);
         } else {
             var result = readRawFixedInt32();
-            resetPropertyTag();
+            resetFieldTag();
             return result;
         }
     }
 
-    public long readFixed64Property() {
+    public long readFixed64Field() throws ProtobufDeserializationException {
         return readFixed64();
     }
 
-    public long readSFixed64Property() {
+    public long readSFixed64Field() throws ProtobufDeserializationException {
         return readFixed64();
     }
 
-    private long readFixed64() {
+    private long readFixed64() throws ProtobufDeserializationException {
         if (wireType != ProtobufWireType.WIRE_TYPE_FIXED64) {
             throw ProtobufDeserializationException.invalidWireType(wireType);
         } else {
             var result = readRawFixedInt64();
-            resetPropertyTag();
+            resetFieldTag();
             return result;
         }
     }
 
-    public ProtobufUnknownValue readUnknownProperty() {
-        return switch (wireType) {
+    public ProtobufUnknownValue.Binary readUnknownField() throws ProtobufDeserializationException {
+        // A group resets the field tag when its end tag is read
+        if (wireType == ProtobufWireType.WIRE_TYPE_START_OBJECT) {
+            var result = new ProtobufUnknownFields();
+            var index = this.index;
+            readStartGroupField(index);
+            while (nextFieldTag()) {
+                var key = this.index;
+                var value = readUnknownField();
+                result.add(key, value);
+            }
+            readEndGroupField(index);
+            return new ProtobufUnknownValue.Binary.Group(result);
+        }
+
+        var result = switch (wireType) {
             case ProtobufWireType.WIRE_TYPE_FIXED32 -> {
                 var value = readRawFixedInt32();
-                yield new ProtobufUnknownValue.Fixed32(value);
+                yield new ProtobufUnknownValue.Binary.Fixed32(value);
             }
             case ProtobufWireType.WIRE_TYPE_FIXED64 -> {
                 var value = readRawFixedInt64();
-                yield new ProtobufUnknownValue.Fixed64(value);
+                yield new ProtobufUnknownValue.Binary.Fixed64(value);
             }
             case ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED -> {
-                var size = readLengthDelimitedPropertyLength();
+                var size = readLengthDelimitedFieldLength();
                 yield switch (rawDataTypePreference()) {
                     case BYTE_ARRAY -> {
                         var bytes = readRawBytes(size);
-                        yield new ProtobufUnknownValue.LengthDelimited.ByteArrayBacked(bytes);
+                        yield new ProtobufUnknownValue.Binary.LengthDelimited.ByteArrayBacked(bytes);
                     }
                     case BYTE_BUFFER -> {
                         var buffer = readRawBuffer(size);
-                        yield new ProtobufUnknownValue.LengthDelimited.ByteBufferBacked(buffer);
+                        yield new ProtobufUnknownValue.Binary.LengthDelimited.ByteBufferBacked(buffer);
                     }
                     case MEMORY_SEGMENT -> {
                         var segment = readRawMemorySegment(size);
-                        yield new ProtobufUnknownValue.LengthDelimited.MemorySegmentBacked(segment);
+                        yield new ProtobufUnknownValue.Binary.LengthDelimited.MemorySegmentBacked(segment);
                     }
                 };
             }
-            case ProtobufWireType.WIRE_TYPE_START_OBJECT -> {
-                var result = new HashMap<Long, ProtobufUnknownValue>();
-                var index = this.index;
-                while (readPropertyTag()) {
-                    var key = this.index;
-                    var value = readUnknownProperty();
-                    result.put(key, value);
-                }
-                readEndGroupProperty(index);
-                yield new ProtobufUnknownValue.Group(result);
-            }
             case ProtobufWireType.WIRE_TYPE_VAR_INT -> {
                 var value = readRawVarInt64();
-                yield new ProtobufUnknownValue.VarInt(value);
+                yield new ProtobufUnknownValue.Binary.VarInt(value);
             }
             default -> throw ProtobufDeserializationException.invalidWireType(wireType);
         };
+        resetFieldTag();
+        return result;
     }
 
-    public float[] readPackedFloatProperty() {
+    public float[] readPackedFloatField() throws ProtobufDeserializationException {
         var result = switch (wireType) {
             case ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED -> readRawPackedFloat();
             case ProtobufWireType.WIRE_TYPE_FIXED32 -> new float[]{readRawFloat()};
             default -> throw ProtobufDeserializationException.invalidWireType(wireType);
         };
-        resetPropertyTag();
+        resetFieldTag();
         return result;
     }
 
-    public double[] readPackedDoubleProperty() {
+    public double[] readPackedDoubleField() throws ProtobufDeserializationException {
         var result = switch (wireType) {
             case ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED -> readRawPackedDouble();
             case ProtobufWireType.WIRE_TYPE_FIXED64 -> new double[]{readRawDouble()};
             default -> throw ProtobufDeserializationException.invalidWireType(wireType);
         };
-        resetPropertyTag();
+        resetFieldTag();
         return result;
     }
 
-    public int[] readPackedInt32Property() {
+    public int[] readPackedInt32Field() throws ProtobufDeserializationException {
         return readPackedVarInt32();
     }
 
-    public int[] readPackedUInt32Property() {
+    public int[] readPackedUInt32Field() throws ProtobufDeserializationException {
         return readPackedVarInt32();
     }
 
-    private int[] readPackedVarInt32() {
+    private int[] readPackedVarInt32() throws ProtobufDeserializationException {
         var result = switch (wireType) {
             case ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED -> readRawPackedVarInt32();
             case ProtobufWireType.WIRE_TYPE_VAR_INT -> new int[]{readRawVarInt32()};
             default -> throw ProtobufDeserializationException.invalidWireType(wireType);
         };
-        resetPropertyTag();
+        resetFieldTag();
         return result;
     }
 
-    public int[] readPackedSInt32Property() {
+    public int[] readPackedSInt32Field() throws ProtobufDeserializationException {
         var result = switch (wireType) {
             case ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED -> readRawPackedZigZagVarInt32();
             case ProtobufWireType.WIRE_TYPE_VAR_INT -> new int[]{readRawZigZagVarInt32()};
             default -> throw ProtobufDeserializationException.invalidWireType(wireType);
         };
-        resetPropertyTag();
+        resetFieldTag();
         return result;
     }
 
-    public long[] readPackedInt64Property() {
+    public long[] readPackedInt64Field() throws ProtobufDeserializationException {
         return readPackedVarInt64();
     }
 
-    public long[] readPackedUInt64Property() {
+    public long[] readPackedUInt64Field() throws ProtobufDeserializationException {
         return readPackedVarInt64();
     }
 
-    private long[] readPackedVarInt64() {
+    private long[] readPackedVarInt64() throws ProtobufDeserializationException {
         var result = switch (wireType) {
             case ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED -> readRawPackedVarInt64();
             case ProtobufWireType.WIRE_TYPE_VAR_INT -> new long[]{readRawVarInt64()};
             default -> throw ProtobufDeserializationException.invalidWireType(wireType);
         };
-        resetPropertyTag();
+        resetFieldTag();
         return result;
     }
 
-    public long[] readPackedSInt64Property() {
+    public long[] readPackedSInt64Field() throws ProtobufDeserializationException {
         var result = switch (wireType) {
             case ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED -> readRawPackedZigZagVarInt64();
             case ProtobufWireType.WIRE_TYPE_VAR_INT -> new long[]{readRawZigZagVarInt64()};
             default -> throw ProtobufDeserializationException.invalidWireType(wireType);
         };
-        resetPropertyTag();
+        resetFieldTag();
         return result;
     }
 
-    public boolean[] readPackedBoolProperty() {
+    public boolean[] readPackedBoolField() throws ProtobufDeserializationException {
         var result = switch (wireType) {
             case ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED -> readRawPackedBool();
-            case ProtobufWireType.WIRE_TYPE_VAR_INT -> new boolean[]{readBoolProperty()};
+            case ProtobufWireType.WIRE_TYPE_VAR_INT -> new boolean[]{readRawBool()};
             default -> throw ProtobufDeserializationException.invalidWireType(wireType);
         };
-        resetPropertyTag();
+        resetFieldTag();
         return result;
     }
 
-    public int[] readPackedFixed32Property() {
+    public int[] readPackedFixed32Field() throws ProtobufDeserializationException {
         return readPackedFixed32();
     }
 
-    public int[] readPackedSFixed32Property() {
+    public int[] readPackedSFixed32Field() throws ProtobufDeserializationException {
         return readPackedFixed32();
     }
 
-    private int[] readPackedFixed32() {
+    private int[] readPackedFixed32() throws ProtobufDeserializationException {
         var result = switch (wireType) {
             case ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED -> readRawPackedFixedInt32();
             case ProtobufWireType.WIRE_TYPE_FIXED32 -> new int[]{readRawFixedInt32()};
             default -> throw ProtobufDeserializationException.invalidWireType(wireType);
         };
-        resetPropertyTag();
+        resetFieldTag();
         return result;
     }
 
-    public long[] readPackedFixed64Property() {
+    public long[] readPackedFixed64Field() throws ProtobufDeserializationException {
         return readPackedFixed64();
     }
 
-    public long[] readPackedSFixed64Property() {
+    public long[] readPackedSFixed64Field() throws ProtobufDeserializationException {
         return readPackedFixed64();
     }
 
-    private long[] readPackedFixed64() {
+    private long[] readPackedFixed64() throws ProtobufDeserializationException {
         var result = switch (wireType) {
             case ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED -> readRawPackedFixedInt64();
             case ProtobufWireType.WIRE_TYPE_FIXED64 -> new long[]{readRawFixedInt64()};
             default -> throw ProtobufDeserializationException.invalidWireType(wireType);
         };
-        resetPropertyTag();
+        resetFieldTag();
         return result;
     }
 
-    public void skipUnknownProperty() {
+    public void skipUnknownField() throws ProtobufDeserializationException {
         switch (wireType) {
             case ProtobufWireType.WIRE_TYPE_VAR_INT -> {
                 readRawVarInt64();
-                resetPropertyTag();
+                resetFieldTag();
             }
             case ProtobufWireType.WIRE_TYPE_FIXED32 -> {
                 skipRawBytes(Integer.BYTES);
-                resetPropertyTag();
+                resetFieldTag();
             }
             case ProtobufWireType.WIRE_TYPE_FIXED64 -> {
                 skipRawBytes(Long.BYTES);
-                resetPropertyTag();
+                resetFieldTag();
             }
             case ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED -> {
-                skipRawBytes(readLengthDelimitedPropertyLength());
-                resetPropertyTag();
+                skipRawBytes(readLengthDelimitedFieldLength());
+                resetFieldTag();
             }
             case ProtobufWireType.WIRE_TYPE_START_OBJECT -> {
                 var index = this.index;
-                while (readPropertyTag()) {
-                    skipUnknownProperty();
+                readStartGroupField(index);
+                while (nextFieldTag()) {
+                    skipUnknownField();
                 }
-                readEndGroupProperty(index);
+                readEndGroupField(index);
             }
             default -> throw ProtobufDeserializationException.invalidWireType(wireType);
         }
     }
 
-    public int readRawZigZagVarInt32() {
+    public int readRawZigZagVarInt32() throws ProtobufDeserializationException {
         var value = readRawVarInt32();
         var unsigned = Integer.toUnsignedLong(value);
         return (int) ((unsigned >> 1) ^ (-(unsigned & 1)));
     }
 
-    public long readRawZigZagVarInt64() {
+    public long readRawZigZagVarInt64() throws ProtobufDeserializationException {
         var value = readRawVarInt64();
         return (value >>> 1) ^ (-(value & 1));
     }
 
-    public abstract byte readRawByte();
+    public abstract byte readRawByte() throws ProtobufDeserializationException;
 
-    public abstract byte[] readRawBytes(int size);
+    public abstract byte[] readRawBytes(int size) throws ProtobufDeserializationException;
 
-    public abstract void skipRawBytes(int size);
+    public abstract void skipRawBytes(int size) throws ProtobufDeserializationException;
 
-    public abstract ByteBuffer readRawBuffer(int size);
+    public abstract ByteBuffer readRawBuffer(int size) throws ProtobufDeserializationException;
 
-    public abstract MemorySegment readRawMemorySegment(int size);
+    public abstract MemorySegment readRawMemorySegment(int size) throws ProtobufDeserializationException;
 
-    public abstract int readRawFixedInt32();
+    public abstract int readRawFixedInt32() throws ProtobufDeserializationException;
 
-    public abstract long readRawFixedInt64();
+    public abstract long readRawFixedInt64() throws ProtobufDeserializationException;
 
-    public abstract float readRawFloat();
+    public abstract float readRawFloat() throws ProtobufDeserializationException;
 
-    public abstract double readRawDouble();
+    public abstract double readRawDouble() throws ProtobufDeserializationException;
 
-    public abstract int readRawVarInt32();
+    public abstract int readRawVarInt32() throws ProtobufDeserializationException;
 
-    public abstract long readRawVarInt64();
+    public abstract long readRawVarInt64() throws ProtobufDeserializationException;
 
-    public abstract boolean readRawBool();
+    public abstract boolean readRawBool() throws ProtobufDeserializationException;
 
-    public abstract int[] readRawPackedFixedInt32();
+    public abstract int[] readRawPackedFixedInt32() throws ProtobufDeserializationException;
 
-    public abstract long[] readRawPackedFixedInt64();
+    public abstract long[] readRawPackedFixedInt64() throws ProtobufDeserializationException;
 
-    public abstract float[] readRawPackedFloat();
+    public abstract float[] readRawPackedFloat() throws ProtobufDeserializationException;
 
-    public abstract double[] readRawPackedDouble();
+    public abstract double[] readRawPackedDouble() throws ProtobufDeserializationException;
 
-    public abstract int[] readRawPackedVarInt32();
+    public abstract int[] readRawPackedVarInt32() throws ProtobufDeserializationException;
 
-    public abstract int[] readRawPackedZigZagVarInt32();
+    public abstract int[] readRawPackedZigZagVarInt32() throws ProtobufDeserializationException;
 
-    public abstract long[] readRawPackedVarInt64();
+    public abstract long[] readRawPackedVarInt64() throws ProtobufDeserializationException;
 
-    public abstract long[] readRawPackedZigZagVarInt64();
+    public abstract long[] readRawPackedZigZagVarInt64() throws ProtobufDeserializationException;
 
-    public abstract boolean[] readRawPackedBool();
+    public abstract boolean[] readRawPackedBool() throws ProtobufDeserializationException;
 
-    public abstract ProtobufBinaryReader readRawLengthDelimited(long size);
+    public abstract ProtobufBinaryReader readRawLengthDelimited(long size) throws ProtobufDeserializationException;
 
-    public abstract boolean isFinished();
+    public abstract boolean isFinished() throws ProtobufDeserializationException;
 
-    public abstract ProtobufIODataType rawDataTypePreference();
+    public abstract BinaryDataType rawDataTypePreference();
 }

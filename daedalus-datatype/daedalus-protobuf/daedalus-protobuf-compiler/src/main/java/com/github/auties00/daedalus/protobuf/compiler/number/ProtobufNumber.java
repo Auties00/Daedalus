@@ -4,7 +4,6 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
 import java.util.OptionalInt;
-import java.util.OptionalLong;
 
 /**
  * Represents a numeric value in a Protocol Buffer definition.
@@ -31,12 +30,12 @@ public sealed interface ProtobufNumber
      * <p>
      * Field indexes must be in the range [{@link ProtobufMessage#MIN_FIELD_INDEX},
      * {@link ProtobufMessage#MAX_FIELD_INDEX}]. If this number is outside
-     * this range or cannot be represented as a long integer, an empty optional is returned.
+     * this range or cannot be represented as a 32-bit integer, an empty optional is returned.
      * </p>
      *
-     * @return an {@link OptionalLong} containing the field index if valid, or empty otherwise
+     * @return an {@link OptionalInt} containing the field index if valid, or empty otherwise
      */
-    OptionalLong toFieldIndex();
+    OptionalInt toMessageFieldIndex();
 
     /**
      * Attempts to convert this number to a valid Protocol Buffer enum constant value.
@@ -48,5 +47,5 @@ public sealed interface ProtobufNumber
      *
      * @return an {@link OptionalInt} containing the enum constant value if valid, or empty otherwise
      */
-    OptionalInt toEnumConstant();
+    OptionalInt toEnumConstantIndex();
 }

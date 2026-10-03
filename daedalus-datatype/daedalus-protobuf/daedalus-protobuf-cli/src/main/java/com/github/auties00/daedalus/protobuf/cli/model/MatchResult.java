@@ -2,7 +2,7 @@ package com.github.auties00.daedalus.protobuf.cli.model;
 
 import com.github.auties00.daedalus.protobuf.cli.update.ScannedType;
 
-import java.util.List;
+import java.util.SequencedCollection;
 
 /**
  * Represents the result of matching a proto type definition to an existing Java type.
@@ -13,13 +13,13 @@ import java.util.List;
  * @param scannedType the matched Java type from the source scan
  * @param protoFqn the fully-qualified proto name that was matched against
  * @param confidence the match confidence score, between {@code 0.0} and {@code 1.0}
- * @param reasons the list of reasons contributing to the match score
+ * @param reasons the reasons contributing to the match score
  */
 public record MatchResult(
         ScannedType scannedType,
         String protoFqn,
         double confidence,
-        List<String> reasons
+        SequencedCollection<String> reasons
 ) implements Comparable<MatchResult> {
 
     /**

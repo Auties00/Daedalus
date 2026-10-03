@@ -1,7 +1,9 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
 import com.google.protobuf.DescriptorProtos;
-import com.google.protobuf.ServiceDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosServiceDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosServiceOptionsBuilder;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufBoolExpression;
 
 import java.util.Objects;
 
@@ -72,12 +74,13 @@ public final class ProtobufServiceStatement
     private String name;
 
     /**
-     * Constructs a new service statement at the specified line number.
+     * Constructs a new service statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param document the enclosing document
+     * @param range the source range covering this statement
      */
-    public ProtobufServiceStatement(int line) {
-        super(line);
+    public ProtobufServiceStatement(ProtobufDocumentTree document, ProtobufTreeSourceRange range) {
+        super(document, range);
     }
 
     @Override
@@ -85,10 +88,56 @@ public final class ProtobufServiceStatement
         var methods = getDirectChildrenByType(ProtobufMethodStatement.class)
                 .map(ProtobufMethodStatement::toDescriptor)
                 .toList();
-        return new ServiceDescriptorProtoBuilder()
+        var builder = new DescriptorProtosServiceDescriptorProtoBuilder()
                 .name(name())
-                .method(methods)
-                .build();
+                .method(methods);
+        var serviceOptions = buildServiceOptions();
+        if (serviceOptions != null) {
+            builder.options(serviceOptions);
+        }
+        return builder.build();
+    }
+
+    private DescriptorProtosServiceOptionsBuilder buildServiceOptions() {
+        var optionStatements = getDirectChildrenByType(ProtobufOptionStatement.class).toList();
+        if (optionStatements.isEmpty()) {
+            return null;
+        }
+        var builder = new DescriptorProtosServiceOptionsBuilder();
+        var applied = false;
+        for (var option : optionStatements) {
+            if (!option.hasName() || !option.hasValue() || option.name().segments().size() != 1) {
+                continue;
+            }
+            var segment = option.name().segments().getFirst();
+            if (segment.isExtension()) {
+                continue;
+            }
+            var value = option.value();
+            switch (segment.name()) {
+                case "deprecated" -> {
+                    if (value instanceof ProtobufBoolExpression(var deprecated)) {
+                        builder.deprecated(deprecated);
+                        applied = true;
+                    }
+                }
+                default -> {
+                    // Unknown or unsupported service option
+                }
+            }
+        }
+        var features = ProtobufTreeFeatures.featureSet(this);
+        if (features != null) {
+            builder.features(features);
+            applied = true;
+        }
+        var unknownExtensions = ProtobufTreeFeatures.collectUnknownExtensions(this);
+        if (!unknownExtensions.isEmpty()) {
+            builder.unknownFields(unknownExtensions);
+            applied = true;
+        }
+        // uninterpreted_option (999) is not derivable from the AST
+        return applied ? builder : null;
     }
 
     @Override

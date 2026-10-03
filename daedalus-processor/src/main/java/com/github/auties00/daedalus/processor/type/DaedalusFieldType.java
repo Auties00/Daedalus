@@ -1,12 +1,11 @@
 package com.github.auties00.daedalus.processor.type;
 
+import com.github.auties00.daedalus.processor.model.DaedalusMixins;
 import com.github.auties00.daedalus.processor.model.DaedalusConverterElement;
 
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 /**
  * A property type that supports converter management for serialization and deserialization.
@@ -59,15 +58,16 @@ public interface DaedalusFieldType {
     String descriptorDefaultValue();
 
     /**
-     * Returns the mixin types associated with this property type.
+     * Returns the mixins that apply to this property type.
      *
      * <p>Mixins provide additional serialization, deserialization, and default value
-     * logic. They are used by the builder mixin resolver to discover
+     * logic. Their tiers decide which converters the property uses, and every applicable
+     * mixin is scanned by the builder mixin resolver to discover
      * {@code @TypeBuilder.Mixin} methods applicable to this field.
      *
-     * @return an unmodifiable set of mixin type elements
+     * @return the mixins of the property
      */
-    Set<TypeElement> mixins();
+    DaedalusMixins mixins();
 
     /**
      * Returns the nested field types whose converters should also be attributed

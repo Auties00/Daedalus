@@ -1,7 +1,8 @@
 package com.github.auties00.daedalus.protobuf.io.writer.binary;
 
+import com.github.auties00.daedalus.typesystem.util.BinaryUtils;
 import com.github.auties00.daedalus.protobuf.exception.ProtobufSerializationException;
-import com.github.auties00.daedalus.protobuf.io.ProtobufIODataType;
+import com.github.auties00.daedalus.typesystem.model.BinaryDataType;
 import com.github.auties00.daedalus.protobuf.io.writer.ProtobufBinaryWriter;
 
 import java.lang.foreign.MemorySegment;
@@ -16,7 +17,7 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
     }
 
     @Override
-    public void writeRawByte(byte entry) {
+    public void writeRawByte(byte entry) throws ProtobufSerializationException {
         try {
             buffer.put(entry);
         } catch (BufferOverflowException _) {
@@ -25,7 +26,7 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
     }
 
     @Override
-    public void writeRawBytes(byte[] entry, int offset, int length) {
+    public void writeRawBytes(byte[] entry, int offset, int length) throws ProtobufSerializationException {
         try {
             buffer.put(entry, offset, length);
         } catch (BufferOverflowException _) {
@@ -34,7 +35,7 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
     }
 
     @Override
-    public void writeRawBuffer(ByteBuffer entry) {
+    public void writeRawBuffer(ByteBuffer entry) throws ProtobufSerializationException {
         try {
             buffer.put(entry.duplicate());
         } catch (BufferOverflowException _) {
@@ -43,7 +44,7 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
     }
 
     @Override
-    public void writeRawMemorySegment(MemorySegment entry) {
+    public void writeRawMemorySegment(MemorySegment entry) throws ProtobufSerializationException {
         try {
             buffer.put(entry.asByteBuffer());
         } catch (BufferOverflowException _) {
@@ -52,10 +53,10 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
     }
 
     @Override
-    public void writeRawFixedInt32(int value) {
+    public void writeRawFixedInt32(int value) throws ProtobufSerializationException {
         try {
             var position = buffer.position();
-            BUFFER_AS_INT32_LE.set(buffer, position, value);
+            BinaryUtils.writeIntLE(buffer, position, value);
             buffer.position(position + Integer.BYTES);
         } catch (IndexOutOfBoundsException _) {
             throw ProtobufSerializationException.underflow();
@@ -63,10 +64,10 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
     }
 
     @Override
-    public void writeRawFixedInt64(long value) {
+    public void writeRawFixedInt64(long value) throws ProtobufSerializationException {
         try {
             var position = buffer.position();
-            BUFFER_AS_INT64_LE.set(buffer, position, value);
+            BinaryUtils.writeLongLE(buffer, position, value);
             buffer.position(position + Long.BYTES);
         } catch (IndexOutOfBoundsException _) {
             throw ProtobufSerializationException.underflow();
@@ -74,10 +75,10 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
     }
 
     @Override
-    public void writeRawFloat(float entry) {
+    public void writeRawFloat(float entry) throws ProtobufSerializationException {
         try {
             var position = buffer.position();
-            BUFFER_AS_FLOAT_LE.set(buffer, position, entry);
+            BinaryUtils.writeFloatLE(buffer, position, entry);
             buffer.position(position + Float.BYTES);
         } catch (IndexOutOfBoundsException _) {
             throw ProtobufSerializationException.underflow();
@@ -85,10 +86,10 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
     }
 
     @Override
-    public void writeRawDouble(double entry) {
+    public void writeRawDouble(double entry) throws ProtobufSerializationException {
         try {
             var position = buffer.position();
-            BUFFER_AS_DOUBLE_LE.set(buffer, position, entry);
+            BinaryUtils.writeDoubleLE(buffer, position, entry);
             buffer.position(position + Double.BYTES);
         } catch (IndexOutOfBoundsException _) {
             throw ProtobufSerializationException.underflow();
@@ -96,79 +97,83 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
     }
 
     @Override
-    public void writeRawVarInt32(int entry) {
-        var pos = buffer.position();
-        buffer.position(pos + putVarInt32LE(buffer, pos, entry));
+    public void writeRawVarInt32(int entry) throws ProtobufSerializationException {
+        try {
+            var pos = buffer.position();
+            buffer.position(pos + putVarInt32LE(buffer, pos, entry));
+        } catch (IndexOutOfBoundsException _) {
+            throw ProtobufSerializationException.underflow();
+        }
     }
 
     @Override
-    public void writeRawVarInt64(long entry) {
-        var pos = buffer.position();
-        buffer.position(pos + putVarInt64LE(buffer, pos, entry));
+    public void writeRawVarInt64(long entry) throws ProtobufSerializationException {
+        try {
+            var pos = buffer.position();
+            buffer.position(pos + putVarInt64LE(buffer, pos, entry));
+        } catch (IndexOutOfBoundsException _) {
+            throw ProtobufSerializationException.underflow();
+        }
     }
 
     @Override
-    public void writeRawPackedFixedInt32(int[] input) {
+    public void writeRawPackedFixedInt32(int[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawFixedInt32(value);
         }
     }
 
     @Override
-    public void writeRawPackedFixedInt64(long[] input) {
+    public void writeRawPackedFixedInt64(long[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawFixedInt64(value);
         }
     }
 
     @Override
-    public void writeRawPackedFloat(float[] input) {
+    public void writeRawPackedFloat(float[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawFloat(value);
         }
     }
 
     @Override
-    public void writeRawPackedDouble(double[] input) {
+    public void writeRawPackedDouble(double[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawDouble(value);
         }
     }
 
     @Override
-    public void writeRawPackedVarInt32(int[] input) {
+    public void writeRawPackedVarInt32(int[] input) throws ProtobufSerializationException {
         for (var value : input) {
-            var pos = buffer.position();
-            buffer.position(pos + putVarInt32LE(buffer, pos, value));
+            writeRawVarInt32(value);
         }
     }
 
     @Override
-    public void writeRawPackedZigZagVarInt32(int[] input) {
+    public void writeRawPackedZigZagVarInt32(int[] input) throws ProtobufSerializationException {
         for (var value : input) {
-            var pos = buffer.position();
-            buffer.position(pos + putVarInt32LE(buffer, pos, (value << 1) ^ (value >> 31)));
+            writeRawZigZagVarInt32(value);
         }
     }
 
     @Override
-    public void writeRawPackedVarInt64(long[] input) {
+    public void writeRawPackedVarInt64(long[] input) throws ProtobufSerializationException {
         for (var value : input) {
-            var pos = buffer.position();
-            buffer.position(pos + putVarInt64LE(buffer, pos, value));
+            writeRawVarInt64(value);
         }
     }
 
     @Override
-    public void writeRawPackedZigZagVarInt64(long[] input) {
+    public void writeRawPackedZigZagVarInt64(long[] input) throws ProtobufSerializationException {
         for (var value : input) {
-            var pos = buffer.position();
-            buffer.position(pos + putVarInt64LE(buffer, pos, (value << 1) ^ (value >> 63)));
+            writeRawVarInt64((value << 1) ^ (value >> 63));
         }
     }
 
     @Override
-    public void writeRawPackedBool(boolean[] input) {
+    public void writeRawPackedBool(boolean[] input) throws ProtobufSerializationException {
         for (var value : input) {
             writeRawByte(value ? (byte) 1 : (byte) 0);
         }
@@ -181,8 +186,8 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
     }
 
     @Override
-    public ProtobufIODataType rawDataTypePreference() {
-        return ProtobufIODataType.BYTE_BUFFER;
+    public BinaryDataType rawDataTypePreference() {
+        return BinaryDataType.BYTE_BUFFER;
     }
 
     @Override
@@ -197,7 +202,7 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
                 var size = VARINT32_SIZE_TABLE[nlz];
                 var loCont = VARINT32_LO_CONT_TABLE[nlz];
                 var scattered = Long.expand(value & 0xFFFFFFFFL, VARINT32_PAYLOAD_BITS);
-                BUFFER_AS_INT64_LE.set(buffer, offset, scattered | loCont);
+                BinaryUtils.writeLongLE(buffer, offset, scattered | loCont);
                 return size;
             }
 
@@ -227,8 +232,8 @@ public final class ProtobufBinaryByteBufferWriter extends ProtobufBinaryWriter<B
             var hiCont = VARINT64_HI_CONT_TABLE[nlz];
             var lo = Long.expand(value, INT64_PEXT_MASK_LOW);
             var hi = Long.expand(value >>> 56, VARINT64_HI_PAYLOAD_BITS);
-            BUFFER_AS_INT64_LE.set(buffer, offset, lo | loCont);
-            BUFFER_AS_INT64_LE.set(buffer, offset + 8, hi | hiCont);
+            BinaryUtils.writeLongLE(buffer, offset, lo | loCont);
+            BinaryUtils.writeLongLE(buffer, offset + 8, hi | hiCont);
             return size;
         }
 

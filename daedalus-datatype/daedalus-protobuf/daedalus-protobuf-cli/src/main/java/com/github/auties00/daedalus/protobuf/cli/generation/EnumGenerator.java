@@ -9,6 +9,8 @@ import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufLiteral
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufEnumConstantStatement;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufEnumStatement;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufReservedStatement;
+import com.github.auties00.daedalus.protobuf.model.ProtobufEnumType;
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Modifier;
 import com.github.javaparser.ast.NodeList;
@@ -31,6 +33,11 @@ import java.util.List;
  * <p>When {@code generateDefaultValue} is enabled in the configuration,
  * the first enum constant (by declaration order) is annotated with
  * {@code @ProtobufDefaultValue}.
+ *
+ * <p>Every generated {@code @ProtobufEnum} annotation declares the {@code version} of
+ * the {@code .proto} file that declares the enum, unless it is proto2, which is the
+ * default of the annotation, and declares whether the enum is open or closed in its
+ * {@code type} attribute when that differs from the default of the version.
  */
 public final class EnumGenerator {
     private final SchemaConfig config;
@@ -63,10 +70,7 @@ public final class EnumGenerator {
             cu.setPackageDeclaration(javaPackage);
         }
 
-        cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum");
-        if (generateDefaultValue) {
-            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufDefaultValue");
-        }
+        addImports(cu, enumStmt);
 
         var enumForm = resolveEnumForm(protoFqn);
         var constantMode = resolveConstantMode(protoFqn);
@@ -85,7 +89,8 @@ public final class EnumGenerator {
     }
 
     /**
-     * Generates a nested enum type declaration inside a parent type.
+     * Generates a nested enum type declaration inside a parent type, and adds the
+     * imports it needs to the compilation unit of the parent type.
      *
      * @param parentType the parent type to add the nested enum into
      * @param enumStmt the proto enum statement
@@ -96,6 +101,8 @@ public final class EnumGenerator {
         var constants = collectConstants(enumStmt);
         var constantMode = resolveConstantMode(protoFqn);
         var enumForm = resolveEnumForm(protoFqn);
+        parentType.findCompilationUnit()
+                .ifPresent(cu -> addImports(cu, enumStmt));
 
         if (enumForm == EnumForm.JAVA_ENUM) {
             var enumDecl = createJavaEnumDeclaration(enumStmt, typeName, protoFqn, constants, constantMode);
@@ -138,7 +145,7 @@ public final class EnumGenerator {
             var isFirst = true;
             for (var constant : constants) {
                 var name = naming.toEnumConstantName(constant.name());
-                var index = constant.index().value().intValueExact();
+                var index = (int) constant.index().value();
                 var entry = new EnumConstantDeclaration(name);
                 entry.addAnnotation(new NormalAnnotationExpr(
                         new Name("ProtobufEnum.Constant"),
@@ -154,7 +161,7 @@ public final class EnumGenerator {
             var isFirst = true;
             for (var constant : constants) {
                 var name = naming.toEnumConstantName(constant.name());
-                var index = constant.index().value().intValueExact();
+                var index = (int) constant.index().value();
                 var entry = new EnumConstantDeclaration(name);
                 entry.addArgument(new IntegerLiteralExpr(String.valueOf(index)));
                 if (isFirst && generateDefaultValue) {
@@ -224,7 +231,7 @@ public final class EnumGenerator {
         if (constantMode == EnumConstantMode.CONSTANT_ANNOTATION) {
             for (var constant : constants) {
                 var name = naming.toEnumConstantName(constant.name());
-                var index = constant.index().value().intValueExact();
+                var index = (int) constant.index().value();
 
                 var field = classDecl.addField(typeName, name,
                         Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
@@ -295,7 +302,7 @@ public final class EnumGenerator {
         if (constantMode == EnumConstantMode.CONSTANT_ANNOTATION) {
             for (var constant : constants) {
                 var name = naming.toEnumConstantName(constant.name());
-                var index = constant.index().value().intValueExact();
+                var index = (int) constant.index().value();
 
                 var field = record.addField(typeName, name,
                         Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
@@ -351,7 +358,7 @@ public final class EnumGenerator {
             for (var constant : constants) {
                 var name = naming.toEnumConstantName(constant.name());
                 var subtypeName = naming.toTypeName(constant.name());
-                var index = constant.index().value().intValueExact();
+                var index = (int) constant.index().value();
 
                 var record = new RecordDeclaration(
                         new NodeList<>(),
@@ -393,7 +400,7 @@ public final class EnumGenerator {
             for (var constant : constants) {
                 var subtypeName = naming.toTypeName(constant.name());
                 var name = naming.toEnumConstantName(constant.name());
-                var index = constant.index().value().intValueExact();
+                var index = (int) constant.index().value();
 
                 var record = new RecordDeclaration(
                         new NodeList<>(),
@@ -430,7 +437,7 @@ public final class EnumGenerator {
             var switchEntries = new StringBuilder("return switch (index) {\n");
             for (var constant : constants) {
                 var name = naming.toEnumConstantName(constant.name());
-                var index = constant.index().value().intValueExact();
+                var index = (int) constant.index().value();
                 switchEntries.append("            case ").append(index).append(" -> ").append(name).append(";\n");
             }
             switchEntries.append("            default -> null;\n        }");
@@ -472,7 +479,7 @@ public final class EnumGenerator {
             for (var constant : constants) {
                 var name = naming.toEnumConstantName(constant.name());
                 var subtypeName = naming.toTypeName(constant.name()) + "Impl";
-                var index = constant.index().value().intValueExact();
+                var index = (int) constant.index().value();
 
                 var subtype = new ClassOrInterfaceDeclaration();
                 subtype.setName(subtypeName);
@@ -512,7 +519,7 @@ public final class EnumGenerator {
             for (var constant : constants) {
                 var name = naming.toEnumConstantName(constant.name());
                 var subtypeName = naming.toTypeName(constant.name()) + "Impl";
-                var index = constant.index().value().intValueExact();
+                var index = (int) constant.index().value();
 
                 var subtype = new ClassOrInterfaceDeclaration();
                 subtype.setName(subtypeName);
@@ -544,7 +551,7 @@ public final class EnumGenerator {
             var switchEntries = new StringBuilder("return switch (index) {\n");
             for (var constant : constants) {
                 var name = naming.toEnumConstantName(constant.name());
-                var index = constant.index().value().intValueExact();
+                var index = (int) constant.index().value();
                 switchEntries.append("            case ").append(index).append(" -> ").append(name).append(";\n");
             }
             switchEntries.append("            default -> null;\n        }");
@@ -556,30 +563,100 @@ public final class EnumGenerator {
         cu.addType(classDecl);
     }
 
+    /**
+     * Adds the imports needed by the {@code @ProtobufEnum} annotation of an enum, and by
+     * the annotations of its constants, to a compilation unit.
+     *
+     * @param cu the compilation unit to add the imports to
+     * @param enumStmt the proto enum statement
+     */
+    private void addImports(CompilationUnit cu, ProtobufEnumStatement enumStmt) {
+        cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum");
+        if (generateDefaultValue) {
+            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufDefaultValue");
+        }
+
+        if (resolveVersion(enumStmt) != ProtobufVersion.DEFAULT_VERSION) {
+            cu.addImport("com.github.auties00.daedalus.protobuf.model.ProtobufVersion");
+        }
+
+        if (hasEnumTypeAttribute(enumStmt)) {
+            cu.addImport("com.github.auties00.daedalus.protobuf.model.ProtobufEnumType");
+        }
+
+        var hasReservedRanges = enumStmt.getDirectChildrenByType(ProtobufReservedStatement.class)
+                .anyMatch(reserved -> reserved.expressions()
+                        .stream()
+                        .anyMatch(expression -> expression instanceof ProtobufIntegerRangeExpression));
+        if (hasReservedRanges) {
+            cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufReservedRange");
+        }
+    }
+
+    /**
+     * Returns the version or edition of the {@code .proto} file that declares an enum.
+     *
+     * @param enumStmt the proto enum statement
+     * @return the version of the enclosing document
+     */
+    private ProtobufVersion resolveVersion(ProtobufEnumStatement enumStmt) {
+        return enumStmt.document()
+                .version();
+    }
+
+    /**
+     * Returns whether the {@code @ProtobufEnum} annotation of an enum must declare the
+     * {@code type} attribute.
+     *
+     * <p>The attribute is declared when the enum is open or closed while the default of
+     * its version is the opposite, which can only happen in an edition that sets the
+     * {@code features.enum_type} feature.
+     *
+     * @param enumStmt the proto enum statement
+     * @return {@code true} if the attribute must be declared, otherwise {@code false}
+     */
+    private boolean hasEnumTypeAttribute(ProtobufEnumStatement enumStmt) {
+        var defaultType = ProtobufEnumType.VERSION_DEFAULT.resolve(resolveVersion(enumStmt));
+        return enumStmt.enumType() != defaultType;
+    }
+
     private AnnotationExpr createEnumAnnotation(String protoFqn, ProtobufEnumStatement enumStmt) {
         var pairs = new ArrayList<MemberValuePair>();
+
+        var version = resolveVersion(enumStmt);
+        if (version != ProtobufVersion.DEFAULT_VERSION) {
+            pairs.add(new MemberValuePair("version", new FieldAccessExpr(
+                    new NameExpr("ProtobufVersion"), version.name()
+            )));
+        }
 
         if (protoFqn != null && !protoFqn.isEmpty()) {
             pairs.add(new MemberValuePair("protoName", new StringLiteralExpr(protoFqn)));
         }
 
+        if (hasEnumTypeAttribute(enumStmt)) {
+            pairs.add(new MemberValuePair("type", new FieldAccessExpr(
+                    new NameExpr("ProtobufEnumType"), enumStmt.enumType().name()
+            )));
+        }
+
         var reservedNames = new ArrayList<String>();
         var reservedIndexes = new ArrayList<Integer>();
-        var reservedRanges = new ArrayList<long[]>();
+        var reservedRanges = new ArrayList<int[]>();
 
         enumStmt.getDirectChildrenByType(ProtobufReservedStatement.class).forEach(reserved ->
                 reserved.expressions().forEach(expr -> {
                     if (expr instanceof ProtobufLiteralExpression literal) {
                         reservedNames.add(literal.value());
                     } else if (expr instanceof ProtobufIntegerExpression intExpr) {
-                        reservedIndexes.add(intExpr.value().value().intValueExact());
+                        reservedIndexes.add((int) intExpr.value().value());
                     } else if (expr instanceof ProtobufIntegerRangeExpression rangeExpr) {
                         var range = rangeExpr.value();
-                        var lower = range.lowerBound().value().longValueExact();
+                        var lower = (int) range.lowerBound().value();
                         var upper = range.upperBound()
-                                .map(u -> u.value().longValueExact())
-                                .orElse(536_870_911L);
-                        reservedRanges.add(new long[]{lower, upper});
+                                .map(u -> (int) u.value())
+                                .orElse(536_870_911);
+                        reservedRanges.add(new int[]{lower, upper});
                     }
                 })
         );
@@ -606,8 +683,8 @@ public final class EnumGenerator {
                 values.add(new NormalAnnotationExpr(
                         new Name("ProtobufReservedRange"),
                         new NodeList<>(
-                                new MemberValuePair("min", new LongLiteralExpr(String.valueOf(range[0]))),
-                                new MemberValuePair("max", new LongLiteralExpr(String.valueOf(range[1])))
+                                new MemberValuePair("min", new IntegerLiteralExpr(String.valueOf(range[0]))),
+                                new MemberValuePair("max", new IntegerLiteralExpr(String.valueOf(range[1])))
                         )
                 ));
             }
@@ -621,8 +698,29 @@ public final class EnumGenerator {
         return new NormalAnnotationExpr(new Name("ProtobufEnum"), new NodeList<>(pairs));
     }
 
+    /**
+     * Returns the constants of an enum in declaration order.
+     *
+     * <p>The first constant of an open enum is its default value, which must have index
+     * {@code 0}. Proto3 and the editions already require the first constant of an open
+     * enum to have index {@code 0}, but, if it does not, the first constant with index
+     * {@code 0} is moved before the others, so that the generated enum is accepted by
+     * the annotation processor.
+     *
+     * @param enumStmt the proto enum statement
+     * @return a mutable list of the constants of the enum
+     */
     private List<ProtobufEnumConstantStatement> collectConstants(ProtobufEnumStatement enumStmt) {
-        return new ArrayList<>(enumStmt.getDirectChildrenByType(ProtobufEnumConstantStatement.class).toList());
+        var constants = new ArrayList<>(enumStmt.getDirectChildrenByType(ProtobufEnumConstantStatement.class).toList());
+        if (enumStmt.enumType() == ProtobufEnumType.OPEN && !constants.isEmpty() && constants.getFirst().index().value() != 0) {
+            for (var i = 1; i < constants.size(); i++) {
+                if (constants.get(i).index().value() == 0) {
+                    constants.addFirst(constants.remove(i));
+                    break;
+                }
+            }
+        }
+        return constants;
     }
 
     private EnumForm resolveEnumForm(String protoFqn) {

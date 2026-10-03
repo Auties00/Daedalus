@@ -1,5 +1,6 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
 /**
@@ -8,7 +9,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  *
  * <p>Protobuf type {@code com.google.protobuf.SourceContext}
  */
-@ProtobufMessage
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
 public final class SourceContext {
 
     /**
@@ -20,10 +21,23 @@ public final class SourceContext {
     @ProtobufMessage.StringField(index = 1)
     String fileName;
 
+    /**
+     * Constructs a new {@code SourceContext} with the specified field values.
+     *
+     * @param fileName the value of the {@code file_name} field
+     */
     SourceContext(String fileName) {
         this.fileName = fileName;
     }
 
+    /**
+     * Returns the value of the {@code file_name} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code file_name} field
+     */
     public String fileName() {
         return fileName;
     }

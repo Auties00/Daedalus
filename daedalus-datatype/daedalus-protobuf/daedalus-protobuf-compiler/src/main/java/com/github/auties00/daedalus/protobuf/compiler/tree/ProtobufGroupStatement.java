@@ -1,7 +1,12 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
-import com.google.protobuf.DescriptorProtos;
-import com.google.protobuf.DescriptorProtoBuilder;
+import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufIntegerRange;
+import com.google.protobuf.*;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufBoolExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerRangeExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufLiteralExpression;
 import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufOptionExpression;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.ProtobufGroupTypeReference;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufInteger;
@@ -77,6 +82,7 @@ public final class ProtobufGroupStatement
         extends ProtobufStatementImpl
         implements ProtobufStatement, ProtobufTree.WithName, ProtobufTree.WithIndex, ProtobufTree.WithOptions, ProtobufTree.WithBody<ProtobufGroupChild>, ProtobufTree.WithType, ProtobufTree.WithModifier, ProtobufOptionDefinition,
                    ProtobufMessageChild, ProtobufOneofChild, ProtobufGroupChild, ProtobufExtendChild, ProtobufTree.WithDescriptor {
+    private final ProtobufDocumentTree document;
     private ProtobufModifier modifier;
     private ProtobufTypeReference type;
     private String name;
@@ -86,15 +92,27 @@ public final class ProtobufGroupStatement
     private final SequencedMap<String, ProtobufOptionExpression> options;
 
     /**
-     * Constructs a new group field statement at the specified line number.
+     * Constructs a new group field statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param document the enclosing document
+     * @param range the source range covering this statement
      */
-    public ProtobufGroupStatement(int line) {
-        super(line);
+    public ProtobufGroupStatement(ProtobufDocumentTree document, ProtobufTreeSourceRange range) {
+        super(range);
+        this.document = document;
         this.children = new ArrayList<>();
         this.reference = new ProtobufGroupTypeReference(this);
         this.options = new LinkedHashMap<>();
+    }
+
+    /**
+     * Returns the {@link ProtobufDocumentTree} that encloses this group.
+     *
+     * @return the enclosing document
+     */
+    @Override
+    public ProtobufDocumentTree document() {
+        return document;
     }
 
     @Override
@@ -102,10 +120,154 @@ public final class ProtobufGroupStatement
         var fields = getDirectChildrenByType(ProtobufFieldStatement.class)
                 .map(ProtobufFieldStatement::toDescriptor)
                 .toList();
-        return new DescriptorProtoBuilder()
+        var nestedMessages = getDirectChildrenByType(ProtobufMessageStatement.class)
+                .map(ProtobufMessageStatement::toDescriptor)
+                .toList();
+        var nestedEnums = getDirectChildrenByType(ProtobufEnumStatement.class)
+                .map(ProtobufEnumStatement::toDescriptor)
+                .toList();
+        var oneofs = getDirectChildrenByType(ProtobufOneofStatement.class)
+                .map(ProtobufOneofStatement::toDescriptor)
+                .toList();
+        var extensionFields = getDirectChildrenByType(ProtobufExtendStatement.class)
+                .flatMap(ext -> ext.getDirectChildrenByType(ProtobufFieldStatement.class))
+                .map(ProtobufFieldStatement::toDescriptor)
+                .toList();
+
+        var reservedRanges = new ArrayList<DescriptorProtos.DescriptorProto.ReservedRange>();
+        var reservedNames = new ArrayList<String>();
+        getDirectChildrenByType(ProtobufReservedStatement.class)
+                .flatMap(reserved -> reserved.expressions().stream())
+                .forEachOrdered(reservedExpression -> {
+                    switch (reservedExpression) {
+                        case ProtobufIntegerExpression integerExpression -> integerExpression.value()
+                                .toMessageFieldIndex()
+                                .ifPresent(index -> {
+                                    var range = new DescriptorProtoDescriptorProtosReservedRangeBuilder()
+                                            .start(index)
+                                            .end(index + 1)
+                                            .build();
+                                    reservedRanges.add(range);
+                                });
+
+                        case ProtobufIntegerRangeExpression rangeExpression -> {
+                            var min = rangeExpression.value()
+                                    .lowerBound()
+                                    .toMessageFieldIndex();
+                            var max = switch (rangeExpression.value()) {
+                                case ProtobufIntegerRange.LowerBounded _ -> OptionalInt.of(ProtobufMessage.MAX_FIELD_INDEX);
+                                case ProtobufIntegerRange.Bounded(var _, var upperBound) -> upperBound.toMessageFieldIndex();
+                            };
+                            if (min.isPresent() && max.isPresent()) {
+                                var range = new DescriptorProtoDescriptorProtosReservedRangeBuilder()
+                                        .start(min.getAsInt())
+                                        .end(max.getAsInt() + 1)
+                                        .build();
+                                reservedRanges.add(range);
+                            }
+                        }
+
+                        case ProtobufLiteralExpression literalExpression -> reservedNames.add(literalExpression.value());
+                    }
+                });
+
+        var extensionRanges = new ArrayList<DescriptorProtos.DescriptorProto.ExtensionRange>();
+        getDirectChildrenByType(ProtobufExtensionsStatement.class)
+                .flatMap(extensions -> extensions.expressions().stream())
+                .forEachOrdered(extensionsExpression -> {
+                    switch (extensionsExpression) {
+                        case ProtobufIntegerExpression integerExpression -> integerExpression.value()
+                                .toMessageFieldIndex()
+                                .ifPresent(index -> {
+                                    var range = new DescriptorProtoDescriptorProtosExtensionRangeBuilder()
+                                            .start(index)
+                                            .end(index + 1)
+                                            .build();
+                                    extensionRanges.add(range);
+                                });
+
+                        case ProtobufIntegerRangeExpression rangeExpression -> {
+                            var min = rangeExpression.value()
+                                    .lowerBound()
+                                    .toMessageFieldIndex();
+                            var max = switch (rangeExpression.value()) {
+                                case ProtobufIntegerRange.LowerBounded _ -> OptionalInt.of(ProtobufMessage.MAX_FIELD_INDEX);
+                                case ProtobufIntegerRange.Bounded(var _, var upperBound) -> upperBound.toMessageFieldIndex();
+                            };
+                            if (min.isPresent() && max.isPresent()) {
+                                var range = new DescriptorProtoDescriptorProtosExtensionRangeBuilder()
+                                        .start(min.getAsInt())
+                                        .end(max.getAsInt() + 1)
+                                        .build();
+                                extensionRanges.add(range);
+                            }
+                        }
+                    }
+                });
+
+        var builder = new DescriptorProtosDescriptorProtoBuilder()
                 .name(name())
                 .field(fields)
-                .build();
+                .nestedType(nestedMessages)
+                .enumType(nestedEnums)
+                .oneofDecl(oneofs)
+                .extension(extensionFields)
+                .reservedRange(reservedRanges)
+                .reservedName(reservedNames)
+                .extensionRange(extensionRanges);
+        var messageOptions = buildGroupMessageOptions();
+        if (messageOptions != null) {
+            builder.options(messageOptions);
+        }
+        return builder.build();
+    }
+
+    private DescriptorProtosMessageOptionsBuilder buildGroupMessageOptions() {
+        if (options.isEmpty()) {
+            return null;
+        }
+        var builder = new DescriptorProtosMessageOptionsBuilder();
+        for (var option : options.values()) {
+            if (option.name().segments().size() != 1) {
+                continue;
+            }
+            var segment = option.name().segments().getFirst();
+            if (segment.isExtension()) {
+                continue;
+            }
+            var value = option.value();
+            switch (segment.name()) {
+                case "message_set_wire_format" -> {
+                    if (value instanceof ProtobufBoolExpression(var messageSetWireFormat)) {
+                        builder.messageSetWireFormat(messageSetWireFormat);
+                    }
+                }
+                case "no_standard_descriptor_accessor" -> {
+                    if (value instanceof ProtobufBoolExpression(var noStandaredDescriptorAccessor)) {
+                        builder.noStandardDescriptorAccessor(noStandaredDescriptorAccessor);
+                    }
+                }
+                case "deprecated" -> {
+                    if (value instanceof ProtobufBoolExpression(var deprecated)) {
+                        builder.deprecated(deprecated);
+                    }
+                }
+                case "map_entry" -> {
+                    if (value instanceof ProtobufBoolExpression(var mapEntry)) {
+                        builder.mapEntry(mapEntry);
+                    }
+                }
+                case "deprecated_legacy_json_field_conflicts" -> {
+                    if (value instanceof ProtobufBoolExpression(var deprecatedLegacyJsonFieldConflicts)) {
+                        builder.deprecatedLegacyJsonFieldConflicts(deprecatedLegacyJsonFieldConflicts);
+                    }
+                }
+                default -> {
+                    // Unknown or unsupported group option
+                }
+            }
+        }
+        return builder;
     }
 
     @Override
@@ -228,55 +390,55 @@ public final class ProtobufGroupStatement
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getDirectChildByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getDirectChildByType(Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getDirectChildrenByType(children, clazz)
                 .findFirst();
     }
 
     @Override
-    public <V extends ProtobufTree> Stream<? extends V> getDirectChildrenByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Stream<V> getDirectChildrenByType(Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getDirectChildrenByType(children, clazz);
     }
 
     @Override
-    public Optional<? extends WithName> getDirectChildByName(String name) {
+    public Optional<WithName> getDirectChildByName(String name) {
         return ProtobufStatementWithBodyImpl.getDirectChildByName(children, name);
     }
 
     @Override
-    public Optional<? extends WithIndex> getDirectChildByIndex(long index) {
+    public Optional<WithIndex> getDirectChildByIndex(long index) {
         return ProtobufStatementWithBodyImpl.getDirectChildByIndex(children, index);
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getDirectChildByNameAndType(String name, Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getDirectChildByNameAndType(String name, Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getDirectChildByNameAndType(children, name, clazz);
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getDirectChildByIndexAndType(long index, Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getDirectChildByIndexAndType(long index, Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getDirectChildByIndexAndType(children, index, clazz);
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getAnyChildByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getAnyChildByType(Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getAnyChildrenByType(children, clazz)
                 .findFirst();
     }
 
     @Override
-    public <V extends WithName> Optional<? extends V> getAnyChildByNameAndType(String name, Class<V> clazz) {
+    public <V extends WithName> Optional<V> getAnyChildByNameAndType(String name, Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getAnyChildrenByNameAndType(children, name, clazz)
                 .findFirst();
     }
 
     @Override
-    public <V extends ProtobufTree> Stream<? extends V> getAnyChildrenByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Stream<V> getAnyChildrenByType(Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getAnyChildrenByType(children, clazz);
     }
 
     @Override
-    public <V extends WithName> Stream<? extends V> getAnyChildrenByNameAndType(String name, Class<V> clazz) {
+    public <V extends WithName> Stream<V> getAnyChildrenByNameAndType(String name, Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getAnyChildrenByNameAndType(children, name, clazz);
     }
 

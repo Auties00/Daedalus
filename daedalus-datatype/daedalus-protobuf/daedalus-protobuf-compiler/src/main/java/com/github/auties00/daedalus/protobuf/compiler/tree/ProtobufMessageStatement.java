@@ -1,10 +1,23 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufIntegerRange;
+import com.google.protobuf.DescriptorProtoDescriptorProtosExtensionRangeBuilder;
+import com.google.protobuf.DescriptorProtoDescriptorProtosReservedRangeBuilder;
 import com.google.protobuf.DescriptorProtos;
-import com.google.protobuf.DescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosExtensionRangeOptionsBuilder;
+import com.google.protobuf.DescriptorProtosMessageOptionsBuilder;
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufBoolExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufEnumConstantExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerRangeExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufLiteralExpression;
 import com.github.auties00.daedalus.protobuf.model.ProtobufJsonCompatibility;
 
+import java.util.ArrayList;
 import java.util.Objects;
+import java.util.OptionalInt;
 
 /**
  * Represents a message type declaration in the Protocol Buffer AST.
@@ -72,12 +85,13 @@ public final class ProtobufMessageStatement
     private ProtobufTreeVisibility visibility;
 
     /**
-     * Constructs a new message statement at the specified line number.
+     * Constructs a new message statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param document the enclosing document
+     * @param range the source range covering this statement
      */
-    public ProtobufMessageStatement(int line) {
-        super(line);
+    public ProtobufMessageStatement(ProtobufDocumentTree document, ProtobufTreeSourceRange range) {
+        super(document, range);
         this.visibility = ProtobufTreeVisibility.NONE;
     }
 
@@ -122,13 +136,227 @@ public final class ProtobufMessageStatement
         var oneofs = getDirectChildrenByType(ProtobufOneofStatement.class)
                 .map(ProtobufOneofStatement::toDescriptor)
                 .toList();
-        return new DescriptorProtoBuilder()
+        var extensionFields = getDirectChildrenByType(ProtobufExtendStatement.class)
+                .flatMap(ext -> ext.getDirectChildrenByType(ProtobufFieldStatement.class))
+                .map(ProtobufFieldStatement::toDescriptor)
+                .toList();
+
+        var reservedRanges = new ArrayList<DescriptorProtos.DescriptorProto.ReservedRange>();
+        var reservedNames = new ArrayList<String>();
+        getDirectChildrenByType(ProtobufReservedStatement.class)
+                .flatMap(reserved -> reserved.expressions().stream())
+                .forEachOrdered(reservedExpression -> {
+                    switch (reservedExpression) {
+                        case ProtobufIntegerExpression integerExpression -> integerExpression.value()
+                                .toMessageFieldIndex()
+                                .ifPresent(index -> {
+                                    var range = new DescriptorProtoDescriptorProtosReservedRangeBuilder()
+                                            .start(index)
+                                            .end(index + 1)
+                                            .build();
+                                    reservedRanges.add(range);
+                                });
+
+                        case ProtobufIntegerRangeExpression rangeExpression -> {
+                            var min = rangeExpression.value()
+                                    .lowerBound()
+                                    .toMessageFieldIndex();
+                            var max = switch (rangeExpression.value()) {
+                                case ProtobufIntegerRange.LowerBounded _ -> OptionalInt.of(ProtobufMessage.MAX_FIELD_INDEX);
+                                case ProtobufIntegerRange.Bounded(var _, var upperBound) -> upperBound.toMessageFieldIndex();
+                            };
+                            if (min.isPresent() && max.isPresent()) {
+                                var range = new DescriptorProtoDescriptorProtosReservedRangeBuilder()
+                                        .start(min.getAsInt())
+                                        .end(max.getAsInt() + 1)
+                                        .build();
+                                reservedRanges.add(range);
+                            }
+                        }
+
+                        case ProtobufLiteralExpression literalExpression -> reservedNames.add(literalExpression.value());
+                    }
+                });
+
+        var extensionRanges = new ArrayList<DescriptorProtos.DescriptorProto.ExtensionRange>();
+        getDirectChildrenByType(ProtobufExtensionsStatement.class)
+                .forEachOrdered(extensions -> {
+                    var extensionRangeOptions = buildExtensionRangeOptions(extensions);
+                    for (var extensionsExpression : extensions.expressions()) {
+                        switch (extensionsExpression) {
+                            case ProtobufIntegerExpression integerExpression -> integerExpression.value()
+                                    .toMessageFieldIndex()
+                                    .ifPresent(index -> {
+                                        var rangeBuilder = new DescriptorProtoDescriptorProtosExtensionRangeBuilder()
+                                                .start(index)
+                                                .end(index + 1);
+                                        if (extensionRangeOptions != null) {
+                                            rangeBuilder.options(extensionRangeOptions);
+                                        }
+                                        extensionRanges.add(rangeBuilder.build());
+                                    });
+
+                            case ProtobufIntegerRangeExpression rangeExpression -> {
+                                var min = rangeExpression.value()
+                                        .lowerBound()
+                                        .toMessageFieldIndex();
+                                var max = switch (rangeExpression.value()) {
+                                    case ProtobufIntegerRange.LowerBounded _ -> OptionalInt.of(ProtobufMessage.MAX_FIELD_INDEX);
+                                    case ProtobufIntegerRange.Bounded(var _, var upperBound) -> upperBound.toMessageFieldIndex();
+                                };
+                                if (min.isPresent() && max.isPresent()) {
+                                    var rangeBuilder = new DescriptorProtoDescriptorProtosExtensionRangeBuilder()
+                                            .start(min.getAsInt())
+                                            .end(max.getAsInt() + 1);
+                                    if (extensionRangeOptions != null) {
+                                        rangeBuilder.options(extensionRangeOptions);
+                                    }
+                                    extensionRanges.add(rangeBuilder.build());
+                                }
+                            }
+                        }
+                    }
+                });
+
+
+        var builder = new DescriptorProtosDescriptorProtoBuilder()
                 .name(name())
                 .field(fields)
                 .nestedType(nestedMessages)
                 .enumType(nestedEnums)
                 .oneofDecl(oneofs)
-                .build();
+                .extension(extensionFields)
+                .reservedRange(reservedRanges)
+                .reservedName(reservedNames)
+                .extensionRange(extensionRanges);
+        var messageOptions = buildMessageOptions();
+        if (messageOptions != null) {
+            builder.options(messageOptions);
+        }
+        switch (visibility) {
+            case EXPORT -> builder.visibility(DescriptorProtos.SymbolVisibility.VISIBILITY_EXPORT);
+            case LOCAL -> builder.visibility(DescriptorProtos.SymbolVisibility.VISIBILITY_LOCAL);
+            case NONE -> {
+                // Leave unset so the descriptor reflects no explicit visibility
+            }
+        }
+        return builder.build();
+    }
+
+    /**
+     * Builds an {@link DescriptorProtos.ExtensionRangeOptions} descriptor from the
+     * options declared on the given {@link ProtobufExtensionsStatement}.
+     *
+     * <p>Only the {@code verification} enum field is currently mapped. The
+     * {@code declaration}, {@code features}, and {@code uninterpreted_option}
+     * fields have no AST representation and are therefore ignored.
+     *
+     * @param extensions the extensions statement whose options should be mapped
+     * @return the builder of the populated {@code ExtensionRangeOptions}, or
+     *         {@code null} when the statement has no recognised options
+     */
+    private DescriptorProtosExtensionRangeOptionsBuilder buildExtensionRangeOptions(ProtobufExtensionsStatement extensions) {
+        if (extensions.options().isEmpty()) {
+            return null;
+        }
+        var optionsBuilder = new DescriptorProtosExtensionRangeOptionsBuilder();
+        var populated = false;
+        for (var option : extensions.options()) {
+            if (option.name().segments().size() != 1) {
+                continue;
+            }
+            var segment = option.name().segments().getFirst();
+            if (segment.isExtension()) {
+                continue;
+            }
+            var value = option.value();
+            if ("verification".equals(segment.name()) && value instanceof ProtobufEnumConstantExpression(var constantName)) {
+                switch (constantName) {
+                    case "DECLARATION" -> {
+                        optionsBuilder.verification(DescriptorProtos.ExtensionRangeOptions.VerificationState.DECLARATION);
+                        populated = true;
+                    }
+                    case "UNVERIFIED" -> {
+                        optionsBuilder.verification(DescriptorProtos.ExtensionRangeOptions.VerificationState.UNVERIFIED);
+                        populated = true;
+                    }
+                    default -> {
+                        // Unknown verification state
+                    }
+                }
+            }
+        }
+        var features = ProtobufTreeFeatures.featureSet(extensions);
+        if (features != null) {
+            optionsBuilder.features(features);
+            populated = true;
+        }
+        var unknownExtensions = ProtobufTreeFeatures.collectUnknownExtensions(extensions);
+        if (!unknownExtensions.isEmpty()) {
+            optionsBuilder.unknownFields(unknownExtensions);
+            populated = true;
+        }
+        if (!populated) {
+            return null;
+        }
+        return optionsBuilder;
+    }
+
+    private DescriptorProtosMessageOptionsBuilder buildMessageOptions() {
+        var optionStatements = getDirectChildrenByType(ProtobufOptionStatement.class).toList();
+        if (optionStatements.isEmpty()) {
+            return null;
+        }
+        var builder = new DescriptorProtosMessageOptionsBuilder();
+        for (var option : optionStatements) {
+            if (!option.hasName() || !option.hasValue() || option.name().segments().size() != 1) {
+                continue;
+            }
+            var segment = option.name().segments().getFirst();
+            if (segment.isExtension()) {
+                continue;
+            }
+            var value = option.value();
+            switch (segment.name()) {
+                case "message_set_wire_format" -> {
+                    if (value instanceof ProtobufBoolExpression(var messageSetWireFormat)) {
+                        builder.messageSetWireFormat(messageSetWireFormat);
+                    }
+                }
+                case "no_standard_descriptor_accessor" -> {
+                    if (value instanceof ProtobufBoolExpression(var noStandardDescriptorAccessor)) {
+                        builder.noStandardDescriptorAccessor(noStandardDescriptorAccessor);
+                    }
+                }
+                case "deprecated" -> {
+                    if (value instanceof ProtobufBoolExpression(var deprecated)) {
+                        builder.deprecated(deprecated);
+                    }
+                }
+                case "map_entry" -> {
+                    if (value instanceof ProtobufBoolExpression(var mapEntry)) {
+                        builder.mapEntry(mapEntry);
+                    }
+                }
+                case "deprecated_legacy_json_field_conflicts" -> {
+                    if (value instanceof ProtobufBoolExpression(var deprecatedLegacyJsonFieldConflicts)) {
+                        builder.deprecatedLegacyJsonFieldConflicts(deprecatedLegacyJsonFieldConflicts);
+                    }
+                }
+                default -> {
+                    // Unknown or unsupported message option
+                }
+            }
+        }
+        var features = ProtobufTreeFeatures.featureSet(this);
+        if (features != null) {
+            builder.features(features);
+        }
+        var unknownExtensions = ProtobufTreeFeatures.collectUnknownExtensions(this);
+        if (!unknownExtensions.isEmpty()) {
+            builder.unknownFields(unknownExtensions);
+        }
+        return builder;
     }
 
     @Override

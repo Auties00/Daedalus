@@ -1,14 +1,16 @@
 package com.github.auties00.daedalus.protobuf.cli.tui.generate;
 
+import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
+import com.github.auties00.daedalus.cli.tui.StatusBar;
 import com.williamcallahan.tui4j.compat.bubbletea.*;
 import com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig;
 import com.github.auties00.daedalus.protobuf.cli.generation.JavaSourceGenerator;
 import com.github.auties00.daedalus.cli.tui.Theme;
-import com.github.auties00.daedalus.cli.tui.shared.StatusBar;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.SequencedCollection;
 
 /**
  * The TUI model for the generation flow.
@@ -51,9 +53,9 @@ public final class GenerateModel implements Model {
     /**
      * A message indicating generation has completed.
      *
-     * @param files the list of generated file paths
+     * @param files the generated file paths
      */
-    public record GenerationCompleteMessage(List<String> files) implements Message {
+    public record GenerationCompleteMessage(SequencedCollection<String> files) implements Message {
     }
 
     /**
@@ -83,7 +85,7 @@ public final class GenerateModel implements Model {
                 var generator = new JavaSourceGenerator(config);
                 var files = generator.generate();
                 return new GenerationCompleteMessage(files);
-            } catch (IOException e) {
+            } catch (IOException | ProtobufParserException e) {
                 return new GenerationErrorMessage(e.getMessage());
             }
         };
@@ -197,11 +199,11 @@ public final class GenerateModel implements Model {
     }
 
     /**
-     * Returns the list of generated file paths.
+     * Returns the generated file paths.
      *
      * @return the generated files
      */
-    public List<String> generatedFiles() {
+    public SequencedCollection<String> generatedFiles() {
         return generatedFiles;
     }
 

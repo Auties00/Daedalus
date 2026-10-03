@@ -24,12 +24,12 @@ public final class ProtobufEmptyStatement
         implements ProtobufStatement,
                    ProtobufDocumentChild, ProtobufMessageChild, ProtobufEnumChild, ProtobufGroupChild, ProtobufMethodChild, ProtobufServiceChild {
     /**
-     * Constructs a new empty statement at the specified line number.
+     * Constructs a new empty statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param range the source range covering this statement
      */
-    public ProtobufEmptyStatement(int line) {
-        super(line);
+    public ProtobufEmptyStatement(ProtobufTreeSourceRange range) {
+        super(range);
     }
 
     @Override

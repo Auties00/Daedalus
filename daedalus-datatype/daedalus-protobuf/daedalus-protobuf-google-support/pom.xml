@@ -39,7 +39,9 @@
                             <version>${project.version}</version>
                         </annotationProcessorPath>
                     </annotationProcessorPaths>
-                    <compilerArgs>--enable-preview</compilerArgs>
+                    <compilerArgs>
+                        <compilerArg>--enable-preview</compilerArg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
         </plugins>

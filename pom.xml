@@ -11,7 +11,29 @@
         <module>daedalus-datatype/daedalus-json</module>
         <module>daedalus-typesystem</module>
         <module>daedalus-processor</module>
+        <module>daedalus-typesystem-jdk-support</module>
         <module>daedalus-cli</module>
+        <module>daedalus-datatype/daedalus-xml</module>
+        <module>daedalus-datatype/daedalus-yaml</module>
+        <module>daedalus-datatype/daedalus-toml</module>
+        <module>daedalus-datatype/daedalus-csv</module>
+        <module>daedalus-datatype/daedalus-hocon</module>
+        <module>daedalus-datatype/daedalus-properties</module>
+        <module>daedalus-datatype/daedalus-cbor</module>
+        <module>daedalus-datatype/daedalus-msgpack</module>
+        <module>daedalus-datatype/daedalus-bson</module>
+        <module>daedalus-datatype/daedalus-smile</module>
+        <module>daedalus-datatype/daedalus-ion</module>
+        <module>daedalus-datatype/daedalus-avro</module>
+        <module>daedalus-datatype/daedalus-thrift</module>
+        <module>daedalus-datatype/daedalus-flatbuffers</module>
+        <module>daedalus-datatype/daedalus-capnproto</module>
+        <module>daedalus-datatype/daedalus-fory</module>
+        <module>daedalus-datatype/daedalus-nbt</module>
+        <module>daedalus-datatype/daedalus-plist</module>
+        <module>daedalus-datatype/daedalus-ubjson</module>
+        <module>daedalus-datatype/daedalus-kdl</module>
+        <module>daedalus-datatype/daedalus-edn</module>
     </modules>
 
     <name>${project.groupId}:${project.artifactId}</name>
@@ -137,7 +159,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.2.0</version>
+                <version>3.12.0</version>
                 <executions>
                     <execution>
                         <phase>prepare-package</phase>
@@ -154,6 +176,23 @@
                     <additionalOptions>
                         <additionalOption>--enable-preview</additionalOption>
                     </additionalOptions>
+                    <tags>
+                        <tag>
+                            <name>apiNote</name>
+                            <placement>a</placement>
+                            <head>API Note:</head>
+                        </tag>
+                        <tag>
+                            <name>implSpec</name>
+                            <placement>a</placement>
+                            <head>Implementation Requirements:</head>
+                        </tag>
+                        <tag>
+                            <name>implNote</name>
+                            <placement>a</placement>
+                            <head>Implementation Note:</head>
+                        </tag>
+                    </tags>
                 </configuration>
             </plugin>
             <plugin>

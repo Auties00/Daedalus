@@ -1,15 +1,19 @@
 package com.github.auties00.daedalus.protobuf.io.reader.binary;
 
+import com.github.auties00.daedalus.typesystem.util.BinaryUtils;
 import com.github.auties00.daedalus.protobuf.exception.ProtobufDeserializationException;
-import com.github.auties00.daedalus.protobuf.io.ProtobufIODataType;
+import com.github.auties00.daedalus.typesystem.model.BinaryDataType;
 import com.github.auties00.daedalus.protobuf.io.reader.ProtobufBinaryReader;
-import com.github.auties00.daedalus.protobuf.platform.BMI2;
+import com.github.auties00.daedalus.typesystem.util.CpuUtils;
+import com.github.auties00.daedalus.typesystem.util.CharsetUtils;
 import jdk.incubator.vector.ByteVector;
 import jdk.incubator.vector.VectorOperators;
 
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Objects;
 
 public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
@@ -25,8 +29,16 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
         this.limit = limit;
     }
 
+    private void checkAvailable(long size) throws ProtobufDeserializationException {
+        if (size < 0) {
+            throw ProtobufDeserializationException.negativeLength(size);
+        } else if (size > limit - offset) {
+            throw ProtobufDeserializationException.truncatedMessage();
+        }
+    }
+
     @Override
-    public byte readRawByte() {
+    public byte readRawByte() throws ProtobufDeserializationException {
         if (offset < limit) {
             return buffer[offset++];
         }
@@ -35,52 +47,45 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
     }
 
     @Override
-    public byte[] readRawBytes(int size) {
-        try {
-            var result = new byte[size];
-            System.arraycopy(buffer, offset, result, 0, size);
-            offset += size;
-            return result;
-        } catch (NegativeArraySizeException _) {
-            throw ProtobufDeserializationException.negativeLength(size);
-        } catch (IndexOutOfBoundsException error) {
-            throw ProtobufDeserializationException.truncatedMessage();
-        }
+    public byte[] readRawBytes(int size) throws ProtobufDeserializationException {
+        checkAvailable(size);
+        var result = Arrays.copyOfRange(buffer, offset, offset + size);
+        offset += size;
+        return result;
     }
 
     @Override
-    public ByteBuffer readRawBuffer(int size) {
-        try {
-            var result = ByteBuffer.wrap(buffer, offset, size);
-            offset += size;
-            return result;
-        } catch (IndexOutOfBoundsException error) {
-            if (size < 0) {
-                throw ProtobufDeserializationException.negativeLength(size);
-            } else {
-                throw ProtobufDeserializationException.truncatedMessage();
-            }
+    public String readRawString(int size, boolean validateUtf8) throws ProtobufDeserializationException {
+        checkAvailable(size);
+        if (validateUtf8 && !CharsetUtils.isValidUtf8(buffer, offset, size)) {
+            throw ProtobufDeserializationException.invalidUtf8();
         }
+        var result = new String(buffer, offset, size, StandardCharsets.UTF_8);
+        offset += size;
+        return result;
     }
 
     @Override
-    public MemorySegment readRawMemorySegment(int size) {
-        try {
-            var result = MemorySegment.ofBuffer(ByteBuffer.wrap(buffer, offset, offset + size));
-            offset += size;
-            return result;
-        } catch (IndexOutOfBoundsException error) {
-            if (size < 0) {
-                throw ProtobufDeserializationException.negativeLength(size);
-            } else {
-                throw ProtobufDeserializationException.truncatedMessage();
-            }
-        }
+    public ByteBuffer readRawBuffer(int size) throws ProtobufDeserializationException {
+        checkAvailable(size);
+        var result = ByteBuffer.wrap(buffer, offset, size)
+                .slice();
+        offset += size;
+        return result;
     }
 
     @Override
-    public ProtobufIODataType rawDataTypePreference() {
-        return ProtobufIODataType.BYTE_ARRAY;
+    public MemorySegment readRawMemorySegment(int size) throws ProtobufDeserializationException {
+        checkAvailable(size);
+        var result = MemorySegment.ofArray(buffer)
+                .asSlice(offset, size);
+        offset += size;
+        return result;
+    }
+
+    @Override
+    public BinaryDataType rawDataTypePreference() {
+        return BinaryDataType.BYTE_ARRAY;
     }
 
     @Override
@@ -88,82 +93,55 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
         return offset >= limit;
     }
 
-    @Override
-    public void skipRawBytes(int size) {
-        if (size >= 0) {
-            offset += size;
-            if (offset > limit) {
-                throw ProtobufDeserializationException.truncatedMessage();
-            }
-        }
-
-        throw ProtobufDeserializationException.negativeLength(size);
+    int remaining() {
+        return limit - offset;
     }
 
     @Override
-    public int readRawFixedInt32() {
-        if (offset + Integer.BYTES <= limit) {
-            var result = (int) ARRAY_AS_INT32_LE.get(buffer, offset);
-            offset += Integer.BYTES;
-            return result;
-        }
-
-        throw ProtobufDeserializationException.truncatedMessage();
+    public void skipRawBytes(int size) throws ProtobufDeserializationException {
+        checkAvailable(size);
+        offset += size;
     }
 
     @Override
-    public long readRawFixedInt64() {
-        if (offset + Long.BYTES <= limit) {
-            var result = (long) ARRAY_AS_INT64_LE.get(buffer, offset);
-            offset += Long.BYTES;
-            return result;
-        }
-
-        throw ProtobufDeserializationException.truncatedMessage();
+    public int readRawFixedInt32() throws ProtobufDeserializationException {
+        checkAvailable(Integer.BYTES);
+        var result = BinaryUtils.readIntLE(buffer, offset);
+        offset += Integer.BYTES;
+        return result;
     }
 
     @Override
-    public float readRawFloat() {
-        if (offset + Float.BYTES <= limit) {
-            var result = (int) ARRAY_AS_FLOAT_LE.get(buffer, offset);
-            offset += Float.BYTES;
-            return result;
-        }
-
-        throw ProtobufDeserializationException.truncatedMessage();
+    public long readRawFixedInt64() throws ProtobufDeserializationException {
+        checkAvailable(Long.BYTES);
+        var result = BinaryUtils.readLongLE(buffer, offset);
+        offset += Long.BYTES;
+        return result;
     }
 
     @Override
-    public double readRawDouble() {
-        if (offset + Double.BYTES <= limit) {
-            var result = (long) ARRAY_AS_DOUBLE_LE.get(buffer, offset);
-            offset += Double.BYTES;
-            return result;
-        }
-
-        throw ProtobufDeserializationException.truncatedMessage();
+    public float readRawFloat() throws ProtobufDeserializationException {
+        checkAvailable(Float.BYTES);
+        var result = BinaryUtils.readFloatLE(buffer, offset);
+        offset += Float.BYTES;
+        return result;
     }
 
     @Override
-    public ProtobufBinaryByteArrayReader readRawLengthDelimited(long size) {
-        int bufferSize;
-        try {
-            bufferSize = Math.toIntExact(size);
-        } catch (ArithmeticException _) {
-            throw ProtobufDeserializationException.lengthDelimitedPropertyOverflow(size);
-        }
+    public double readRawDouble() throws ProtobufDeserializationException {
+        checkAvailable(Double.BYTES);
+        var result = BinaryUtils.readDoubleLE(buffer, offset);
+        offset += Double.BYTES;
+        return result;
+    }
 
-        try {
-            var result = new ProtobufBinaryByteArrayReader(buffer, offset, offset + bufferSize);
-            offset += bufferSize;
-            return result;
-        } catch (IndexOutOfBoundsException _) {
-            if (size < 0) {
-                throw ProtobufDeserializationException.negativeLength(bufferSize);
-            } else {
-                throw ProtobufDeserializationException.truncatedMessage();
-            }
-        }
+    @Override
+    public ProtobufBinaryByteArrayReader readRawLengthDelimited(long size) throws ProtobufDeserializationException {
+        checkAvailable(size);
+        var bufferSize = (int) size;
+        var result = new ProtobufBinaryByteArrayReader(buffer, offset, offset + bufferSize);
+        offset += bufferSize;
+        return result;
     }
 
     @Override
@@ -172,20 +150,27 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
     }
 
     @Override
-    public int readRawVarInt32() {
-        if (BMI2.isHardwareSupported() && buffer.length - offset >= VARINT32_FAST_PATH_BYTES) {
-            var word = (long) ARRAY_AS_INT64_LE.get(buffer, offset);
+    public int readRawVarInt32() throws ProtobufDeserializationException {
+        // The fast path may read past the limit, but never past the array: the limit is checked after decoding
+        if (CpuUtils.isFastBmi2Supported() && buffer.length - offset >= VARINT32_FAST_PATH_BYTES) {
+            var word = BinaryUtils.readLongLE(buffer, offset);
             var cont = ~word & VARINT32_CONT_BITS;
-            var spread = cont ^ (cont - 1);
-            var mask = spread & VARINT32_PAYLOAD_BITS;
-            offset += Long.bitCount(spread) >>> 3;
-            return (int) Long.compress(word, mask);
+            // A varint32 longer than five bytes is a sign extended negative int32: decode it as a varint64
+            if (cont != 0) {
+                var spread = cont ^ (cont - 1);
+                var end = offset + (Long.bitCount(spread) >>> 3);
+                if (end > limit) {
+                    throw ProtobufDeserializationException.truncatedMessage();
+                }
+                offset = end;
+                return (int) Long.compress(word, spread & VARINT32_PAYLOAD_BITS);
+            }
         }
 
         return readRawVarInt32Slow();
     }
 
-    private int readRawVarInt32Slow() {
+    private int readRawVarInt32Slow() throws ProtobufDeserializationException {
         var unsafeResult = getVarInt32SlowUnsafe();
         if (offset <= limit) {
             return unsafeResult;
@@ -194,7 +179,7 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
         throw ProtobufDeserializationException.truncatedMessage();
     }
 
-    private int getVarInt32SlowUnsafe() {
+    private int getVarInt32SlowUnsafe() throws ProtobufDeserializationException {
         try {
             int x;
             if ((x = buffer[offset++]) >= 0) {
@@ -206,8 +191,19 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
             } else if ((x ^= (buffer[offset++] << 21)) < 0) {
                 return x ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21));
             } else {
-                x ^= buffer[offset++] << 28;
-                return x ^ ((~0 << 7) ^ (~0 << 14) ^ (~0 << 21) ^ (~0 << 28));
+                var y = buffer[offset++];
+                x ^= y << 28;
+                x ^= (~0 << 7) ^ (~0 << 14) ^ (~0 << 21) ^ (~0 << 28);
+                // Negative int32 values are sign extended to ten bytes: the upper bytes are discarded
+                if (y < 0
+                        && buffer[offset++] < 0
+                        && buffer[offset++] < 0
+                        && buffer[offset++] < 0
+                        && buffer[offset++] < 0
+                        && buffer[offset++] < 0) {
+                    throw ProtobufDeserializationException.malformedVarInt();
+                }
+                return x;
             }
         } catch (IndexOutOfBoundsException _) {
             throw ProtobufDeserializationException.truncatedMessage();
@@ -215,28 +211,37 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
     }
 
     @Override
-    public long readRawVarInt64() {
-        if (BMI2.isHardwareSupported() && buffer.length - offset >= VARINT64_FAST_PATH_BYTES) {
-            var lo = (long) ARRAY_AS_INT64_LE.get(buffer, offset);
-            var hi = (long) ARRAY_AS_INT64_LE.get(buffer, offset + Long.BYTES);
+    public long readRawVarInt64() throws ProtobufDeserializationException {
+        // The fast path may read past the limit, but never past the array: the limit is checked after decoding
+        if (CpuUtils.isFastBmi2Supported() && buffer.length - offset >= VARINT64_FAST_PATH_BYTES) {
+            var lo = BinaryUtils.readLongLE(buffer, offset);
+            var hi = BinaryUtils.readLongLE(buffer, offset + Long.BYTES);
             var loCont = ~lo & VARINT64_LO_CONT_BITS;
+            var hiCont = ~hi & VARINT64_HI_CONT_BITS;
+            if (loCont == 0 && hiCont == 0) {
+                throw ProtobufDeserializationException.malformedVarInt();
+            }
             var loContM1 = loCont - 1;
             var loSpread = loCont ^ loContM1;
             var loMask = loSpread & INT64_PEXT_MASK_LOW;
             var loResult = Long.compress(lo, loMask);
-            var hiEnable = loContM1 >> 63;
-            var hiCont = ~hi & VARINT64_HI_CONT_BITS;
+            // The high word only continues the varint if the low word has no terminator: loCont is then zero, while its sign bit alone is not enough
+            var hiEnable = ~((loCont | -loCont) >> 63);
             var hiSpread = (hiCont ^ (hiCont - 1)) & hiEnable;
             var hiMask = hiSpread & VARINT64_HI_PAYLOAD_BITS;
             var hiResult = Long.compress(hi, hiMask);
-            offset += (Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3;
+            var end = offset + ((Long.bitCount(loSpread) + Long.bitCount(hiSpread)) >>> 3);
+            if (end > limit) {
+                throw ProtobufDeserializationException.truncatedMessage();
+            }
+            offset = end;
             return loResult | (hiResult << 56);
         }
 
         return readRawVarInt64Slow();
     }
 
-    private long readRawVarInt64Slow() {
+    private long readRawVarInt64Slow() throws ProtobufDeserializationException {
         var unsafeResult = getVarInt64SlowUnsafe();
         if (offset <= limit) {
             return unsafeResult;
@@ -245,7 +250,7 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
         throw ProtobufDeserializationException.truncatedMessage();
     }
 
-    private long getVarInt64SlowUnsafe() {
+    private long getVarInt64SlowUnsafe() throws ProtobufDeserializationException {
         try {
             long x;
             int y;
@@ -268,7 +273,11 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
             } else if ((x ^= ((long) buffer[offset++] << 56)) >= 0L) {
                 x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49) ^ (~0L << 56);
             } else {
-                x ^= ((long) buffer[offset++] << 63);
+                var last = buffer[offset++];
+                if (last < 0) {
+                    throw ProtobufDeserializationException.malformedVarInt();
+                }
+                x ^= ((long) last << 63);
                 x ^= (~0L << 7) ^ (~0L << 14) ^ (~0L << 21) ^ (~0L << 28) ^ (~0L << 35) ^ (~0L << 42) ^ (~0L << 49) ^ (~0L << 56) ^ (~0L << 63);
             }
             return x;
@@ -278,23 +287,28 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
     }
 
     @Override
-    public boolean readRawBool() {
-        try {
-            var x = buffer[offset];
-            if (x >= 0) {
-                offset++;
-                return x != 0;
-            }
-        } catch (IndexOutOfBoundsException _) {
+    public boolean readRawBool() throws ProtobufDeserializationException {
+        if (offset >= limit) {
             throw ProtobufDeserializationException.truncatedMessage();
+        }
+
+        var x = buffer[offset];
+        if (x >= 0) {
+            offset++;
+            return x != 0;
         }
 
         return readRawVarInt64() != 0;
     }
 
     @Override
-    public float[] readRawPackedFloat() {
-        var length = readLengthDelimitedPropertyLength();
+    public float[] readRawPackedFloat() throws ProtobufDeserializationException {
+        return readRawPackedFloat(readLengthDelimitedFieldLength());
+    }
+
+    // Decodes a packed payload of the given length: also used by the stream reader on its buffered bytes
+    float[] readRawPackedFloat(int length) throws ProtobufDeserializationException {
+        checkPackedFixedLength(length, Float.BYTES);
         var result = new float[length / Float.BYTES];
         ByteBuffer.wrap(buffer, offset, length)
                 .order(ByteOrder.LITTLE_ENDIAN)
@@ -305,8 +319,13 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
     }
 
     @Override
-    public double[] readRawPackedDouble() {
-        var length = readLengthDelimitedPropertyLength();
+    public double[] readRawPackedDouble() throws ProtobufDeserializationException {
+        return readRawPackedDouble(readLengthDelimitedFieldLength());
+    }
+
+    // Decodes a packed payload of the given length: also used by the stream reader on its buffered bytes
+    double[] readRawPackedDouble(int length) throws ProtobufDeserializationException {
+        checkPackedFixedLength(length, Double.BYTES);
         var result = new double[length / Double.BYTES];
         ByteBuffer.wrap(buffer, offset, length)
                 .order(ByteOrder.LITTLE_ENDIAN)
@@ -316,9 +335,28 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
         return result;
     }
 
+    private void checkPackedFixedLength(int length, int elementSize) throws ProtobufDeserializationException {
+        checkAvailable(length);
+        if (length % elementSize != 0) {
+            throw ProtobufDeserializationException.truncatedMessage();
+        }
+    }
+
+    // Every varint in a packed field must end exactly at the end of the field
+    private void checkPackedEnd(int end) throws ProtobufDeserializationException {
+        if (offset != end) {
+            throw ProtobufDeserializationException.truncatedMessage();
+        }
+    }
+
     @Override
-    public int[] readRawPackedVarInt32() {
-        var length = readLengthDelimitedPropertyLength();
+    public int[] readRawPackedVarInt32() throws ProtobufDeserializationException {
+        return readRawPackedVarInt32(readLengthDelimitedFieldLength());
+    }
+
+    // Decodes a packed payload of the given length: also used by the stream reader on its buffered bytes
+    int[] readRawPackedVarInt32(int length) throws ProtobufDeserializationException {
+        checkAvailable(length);
         var count = countVarInts(buffer, offset, length);
         var result = new int[count];
         var end = offset + length;
@@ -326,7 +364,7 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
 
         // BMI2 implies x86-64, which guarantees SSE2 — so SPECIES_128 is always hardware-supported
         // when this branch is taken. Long.compress (PEXT) also requires BMI2.
-        if (BMI2.isHardwareSupported()) {
+        if (CpuUtils.isFastBmi2Supported()) {
             var pairs = count / 2;
             for (var i = 0; i < pairs; i++) {
                 if (end - offset < 16) break;
@@ -336,6 +374,8 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
                 var shuffleIdx = entry & 0xFF;
                 var firstLen = (entry >>> 8) & 0xFF;
                 var secondLen = (entry >>> 16) & 0xFF;
+                // The bitmask only covers ten bytes: longer pairs are decoded by the scalar path
+                if (firstLen + secondLen > 10) break;
                 var indices = ByteVector.fromArray(B128, VARINT32_2X_SHUFFLE_TABLE, shuffleIdx * 16);
                 var shuffled = indices.selectFrom(bv);
                 var lv = shuffled.reinterpretAsLongs();
@@ -350,13 +390,18 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
             result[dst++] = readRawVarInt32();
         }
 
-        offset = end;
+        checkPackedEnd(end);
         return result;
     }
 
     @Override
-    public int[] readRawPackedZigZagVarInt32() {
-        var length = readLengthDelimitedPropertyLength();
+    public int[] readRawPackedZigZagVarInt32() throws ProtobufDeserializationException {
+        return readRawPackedZigZagVarInt32(readLengthDelimitedFieldLength());
+    }
+
+    // Decodes a packed payload of the given length: also used by the stream reader on its buffered bytes
+    int[] readRawPackedZigZagVarInt32(int length) throws ProtobufDeserializationException {
+        checkAvailable(length);
         var count = countVarInts(buffer, offset, length);
         var result = new int[count];
         var end = offset + length;
@@ -364,7 +409,7 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
 
         // BMI2 implies x86-64, which guarantees SSE2 — so SPECIES_128 is always hardware-supported
         // when this branch is taken. Long.compress (PEXT) also requires BMI2.
-        if (BMI2.isHardwareSupported()) {
+        if (CpuUtils.isFastBmi2Supported()) {
             var pairs = count / 2;
             for (var i = 0; i < pairs; i++) {
                 if (end - offset < 16) break;
@@ -374,6 +419,8 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
                 var shuffleIdx = entry & 0xFF;
                 var firstLen = (entry >>> 8) & 0xFF;
                 var secondLen = (entry >>> 16) & 0xFF;
+                // The bitmask only covers ten bytes: longer pairs are decoded by the scalar path
+                if (firstLen + secondLen > 10) break;
                 var indices = ByteVector.fromArray(B128, VARINT32_2X_SHUFFLE_TABLE, shuffleIdx * 16);
                 var shuffled = indices.selectFrom(bv);
                 var lv = shuffled.reinterpretAsLongs();
@@ -390,65 +437,86 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
             result[dst++] = readRawZigZagVarInt32();
         }
 
-        offset = end;
+        checkPackedEnd(end);
         return result;
     }
 
     @Override
-    public long[] readRawPackedVarInt64() {
-        var length = readLengthDelimitedPropertyLength();
+    public long[] readRawPackedVarInt64() throws ProtobufDeserializationException {
+        return readRawPackedVarInt64(readLengthDelimitedFieldLength());
+    }
+
+    // Decodes a packed payload of the given length: also used by the stream reader on its buffered bytes
+    long[] readRawPackedVarInt64(int length) throws ProtobufDeserializationException {
+        checkAvailable(length);
         var count = countVarInts(buffer, offset, length);
         var result = new long[count];
         var end = offset + length;
         for (var i = 0; i < count; i++) {
             result[i] = readRawVarInt64();
         }
-        offset = end;
+        checkPackedEnd(end);
         return result;
     }
 
     @Override
-    public long[] readRawPackedZigZagVarInt64() {
-        var length = readLengthDelimitedPropertyLength();
+    public long[] readRawPackedZigZagVarInt64() throws ProtobufDeserializationException {
+        return readRawPackedZigZagVarInt64(readLengthDelimitedFieldLength());
+    }
+
+    // Decodes a packed payload of the given length: also used by the stream reader on its buffered bytes
+    long[] readRawPackedZigZagVarInt64(int length) throws ProtobufDeserializationException {
+        checkAvailable(length);
         var count = countVarInts(buffer, offset, length);
         var result = new long[count];
         var end = offset + length;
         for (var i = 0; i < count; i++) {
             result[i] = readRawZigZagVarInt64();
         }
-        offset = end;
+        checkPackedEnd(end);
         return result;
     }
 
     @Override
-    public boolean[] readRawPackedBool() {
-        var length = readLengthDelimitedPropertyLength();
+    public boolean[] readRawPackedBool() throws ProtobufDeserializationException {
+        return readRawPackedBool(readLengthDelimitedFieldLength());
+    }
+
+    // Decodes a packed payload of the given length: also used by the stream reader on its buffered bytes
+    boolean[] readRawPackedBool(int length) throws ProtobufDeserializationException {
+        checkAvailable(length);
         var resultsCount = countVarInts(buffer, offset, length);
         var results = new boolean[resultsCount];
         var ptr = offset;
         var end = offset + length;
         var dst = 0;
-        while (end - ptr >= 8) {
-            var word = (long) ARRAY_AS_INT64_LE.get(buffer, ptr);
-            if ((word & MSB8) == 0) {
-                // FIXME: Could be done in a single OP if the JDK had a replacement for Unsafe.putLong
-                results[dst] = (byte) word != 0;
-                results[dst + 1] = (byte) (word >>> 8) != 0;
-                results[dst + 2] = (byte) (word >>> 16) != 0;
-                results[dst + 3] = (byte) (word >>> 24) != 0;
-                results[dst + 4] = (byte) (word >>> 32) != 0;
-                results[dst + 5] = (byte) (word >>> 40) != 0;
-                results[dst + 6] = (byte) (word >>> 48) != 0;
-                results[dst + 7] = (byte) (word >>> 56) != 0;
-                dst += 8;
-                ptr += 8;
-                continue;
+        try {
+            while (end - ptr >= 8) {
+                var word = BinaryUtils.readLongLE(buffer, ptr);
+                if ((word & MSB8) == 0) {
+                    // FIXME: Could be done in a single OP if the JDK had a replacement for Unsafe.putLong
+                    results[dst] = (byte) word != 0;
+                    results[dst + 1] = (byte) (word >>> 8) != 0;
+                    results[dst + 2] = (byte) (word >>> 16) != 0;
+                    results[dst + 3] = (byte) (word >>> 24) != 0;
+                    results[dst + 4] = (byte) (word >>> 32) != 0;
+                    results[dst + 5] = (byte) (word >>> 40) != 0;
+                    results[dst + 6] = (byte) (word >>> 48) != 0;
+                    results[dst + 7] = (byte) (word >>> 56) != 0;
+                    dst += 8;
+                    ptr += 8;
+                    continue;
+                }
+                ptr = readRawPackedBoolSlow(buffer, ptr, results, dst++);
             }
-            ptr = readRawPackedBoolSlow(buffer, ptr, results, dst++);
+            while (ptr < end) {
+                ptr = readRawPackedBoolSlow(buffer, ptr, results, dst++);
+            }
+        } catch (IndexOutOfBoundsException _) {
+            throw ProtobufDeserializationException.truncatedMessage();
         }
-        while (ptr < end) {
-            ptr = readRawPackedBoolSlow(buffer, ptr, results, dst++);
-        }
+        offset = ptr;
+        checkPackedEnd(end);
         return results;
     }
 
@@ -467,8 +535,13 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
     }
 
     @Override
-    public int[] readRawPackedFixedInt32() {
-        var length = readLengthDelimitedPropertyLength();
+    public int[] readRawPackedFixedInt32() throws ProtobufDeserializationException {
+        return readRawPackedFixedInt32(readLengthDelimitedFieldLength());
+    }
+
+    // Decodes a packed payload of the given length: also used by the stream reader on its buffered bytes
+    int[] readRawPackedFixedInt32(int length) throws ProtobufDeserializationException {
+        checkPackedFixedLength(length, Integer.BYTES);
         var result = new int[length / Integer.BYTES];
         ByteBuffer.wrap(buffer, offset, length)
                 .order(ByteOrder.LITTLE_ENDIAN)
@@ -479,8 +552,13 @@ public final class ProtobufBinaryByteArrayReader extends ProtobufBinaryReader {
     }
 
     @Override
-    public long[] readRawPackedFixedInt64() {
-        var length = readLengthDelimitedPropertyLength();
+    public long[] readRawPackedFixedInt64() throws ProtobufDeserializationException {
+        return readRawPackedFixedInt64(readLengthDelimitedFieldLength());
+    }
+
+    // Decodes a packed payload of the given length: also used by the stream reader on its buffered bytes
+    long[] readRawPackedFixedInt64(int length) throws ProtobufDeserializationException {
+        checkPackedFixedLength(length, Long.BYTES);
         var result = new long[length / Long.BYTES];
         ByteBuffer.wrap(buffer, offset, length)
                 .order(ByteOrder.LITTLE_ENDIAN)

@@ -1,8 +1,9 @@
 package com.github.auties00.daedalus.protobuf.io.writer;
 
-import com.github.auties00.daedalus.protobuf.exception.ProtobufDeserializationException;
-import com.github.auties00.daedalus.protobuf.io.ProtobufIODataType;
-import com.github.auties00.daedalus.protobuf.io.calculator.ProtobufBinarySizeCalculator;
+import com.github.auties00.daedalus.typesystem.util.BinaryUtils;
+import com.github.auties00.daedalus.protobuf.exception.ProtobufSerializationException;
+import com.github.auties00.daedalus.typesystem.model.BinaryDataType;
+import com.github.auties00.daedalus.protobuf.io.size.ProtobufBinarySizeCalculator;
 import com.github.auties00.daedalus.protobuf.io.reader.ProtobufBinaryReader;
 import com.github.auties00.daedalus.protobuf.io.writer.binary.ProtobufBinaryByteArrayWriter;
 import com.github.auties00.daedalus.protobuf.io.writer.binary.ProtobufBinaryByteBufferWriter;
@@ -13,11 +14,8 @@ import com.github.auties00.daedalus.protobuf.model.ProtobufWireType;
 
 import java.io.OutputStream;
 import java.lang.foreign.MemorySegment;
-import java.lang.foreign.ValueLayout;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 /**
@@ -33,24 +31,9 @@ import java.util.Objects;
  * @param <OUTPUT> the type of output this stream produces (byte[], ByteBuffer, OutputStream, ...)
  * @see ProtobufBinaryReader
  */
-public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements ProtobufWriter<OUTPUT> {
-    protected static final VarHandle ARRAY_AS_INT16_LE = MethodHandles.byteArrayViewVarHandle(short[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle ARRAY_AS_INT32_LE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle ARRAY_AS_INT64_LE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle ARRAY_AS_FLOAT_LE = MethodHandles.byteArrayViewVarHandle(float[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle ARRAY_AS_DOUBLE_LE = MethodHandles.byteArrayViewVarHandle(double[].class, ByteOrder.LITTLE_ENDIAN);
+public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> extends ProtobufWriter<OUTPUT> {
 
-    protected static final VarHandle BUFFER_AS_INT16_LE = MethodHandles.byteBufferViewVarHandle(short[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle BUFFER_AS_INT32_LE = MethodHandles.byteBufferViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle BUFFER_AS_INT64_LE = MethodHandles.byteBufferViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle BUFFER_AS_FLOAT_LE = MethodHandles.byteBufferViewVarHandle(float[].class, ByteOrder.LITTLE_ENDIAN);
-    protected static final VarHandle BUFFER_AS_DOUBLE_LE = MethodHandles.byteBufferViewVarHandle(double[].class, ByteOrder.LITTLE_ENDIAN);
 
-    protected static final ValueLayout.OfShort INT16_LE_LAYOUT = ValueLayout.JAVA_SHORT_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
-    protected static final ValueLayout.OfInt INT32_LE_LAYOUT = ValueLayout.JAVA_INT_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
-    protected static final ValueLayout.OfLong INT64_LE_LAYOUT = ValueLayout.JAVA_LONG_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
-    protected static final ValueLayout.OfFloat FLOAT_LE_LAYOUT = ValueLayout.JAVA_FLOAT_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
-    protected static final ValueLayout.OfDouble DOUBLE_LE_LAYOUT = ValueLayout.JAVA_DOUBLE_UNALIGNED.withOrder(ByteOrder.LITTLE_ENDIAN);
 
     protected static final long INT64_PEXT_MASK_LOW = 0x7f7f7f7f7f7f7f7fL;
     protected static final long INT64_PEXT_MASK_HIGH = 0x000000000000017fL;
@@ -72,7 +55,9 @@ public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements Protobu
             var size = (70 - nlz) / 7;
             VARINT64_SIZE_TABLE[nlz] = size;
             var loContBytes = Math.min(size, 9) - 1;
+            // A shift by 64 is a shift by 0 in Java, so the full mask must be special cased
             var loMask = loContBytes <= 0 ? 0L
+                    : loContBytes >= Long.BYTES ? VARINT64_LO_CONT_BITS
                     : ((1L << (loContBytes * 8)) - 1) & VARINT64_LO_CONT_BITS;
             VARINT64_LO_CONT_TABLE[nlz] = loMask;
             VARINT64_HI_CONT_TABLE[nlz] = size == 10 ? 0x80L : 0L;
@@ -87,20 +72,20 @@ public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements Protobu
         VARINT32_SIZE_TABLE[0] = 10;
     }
 
-    protected long propertyIndex;
+    protected int fieldIndex;
 
     protected ProtobufBinaryWriter() {
-        resetPropertyTag();
+        resetFieldTag();
     }
 
-    protected static int writeRawVarInt32(byte[] arr, int offset, int value) {
+    protected static int writeRawVarInt32(byte[] arr, int offset, int value) throws ProtobufSerializationException {
         if (value >= 0) {
             if (arr.length - offset >= 8) {
                 var nlz = Integer.numberOfLeadingZeros(value | 1) & 0x3F;
                 var size = VARINT32_SIZE_TABLE[nlz];
                 var loCont = VARINT32_LO_CONT_TABLE[nlz];
                 var scattered = Long.expand(value & 0xFFFFFFFFL, VARINT32_PAYLOAD_BITS);
-                ARRAY_AS_INT64_LE.set(arr, offset, scattered | loCont);
+                BinaryUtils.writeLongLE(arr, offset, scattered | loCont);
                 return size;
             }
 
@@ -122,7 +107,7 @@ public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements Protobu
         }
     }
 
-    protected static int writeRawVarInt64(byte[] arr, int offset, long value) {
+    protected static int writeRawVarInt64(byte[] arr, int offset, long value) throws ProtobufSerializationException {
         if (arr.length - offset >= 16) {
             var nlz = Long.numberOfLeadingZeros(value | 1) & 0x7F;
             var size = VARINT64_SIZE_TABLE[nlz];
@@ -130,8 +115,8 @@ public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements Protobu
             var hiCont = VARINT64_HI_CONT_TABLE[nlz];
             var lo = Long.expand(value, INT64_PEXT_MASK_LOW);
             var hi = Long.expand(value >>> 56, VARINT64_HI_PAYLOAD_BITS);
-            ARRAY_AS_INT64_LE.set(arr, offset, lo | loCont);
-            ARRAY_AS_INT64_LE.set(arr, offset + 8, hi | hiCont);
+            BinaryUtils.writeLongLE(arr, offset, lo | loCont);
+            BinaryUtils.writeLongLE(arr, offset + 8, hi | hiCont);
             return size;
         }
 
@@ -203,425 +188,434 @@ public abstract non-sealed class ProtobufBinaryWriter<OUTPUT> implements Protobu
         return new ProtobufBinaryStreamWriter(buffer, tempBufferLength);
     }
 
-    public boolean hasPropertyIndex() {
-        return propertyIndex != Long.MIN_VALUE;
+    public boolean hasFieldIndex() {
+        return fieldIndex != Integer.MIN_VALUE;
     }
 
-    public void preparePropertyTag(long propertyIndex) {
-        this.propertyIndex = propertyIndex;
+    public void prepareFieldTag(int fieldIndex) {
+        this.fieldIndex = fieldIndex;
     }
 
-    public void writePropertyTag(int wireType) {
-        if (propertyIndex == Long.MIN_VALUE) {
+    public void writeFieldTag(int wireType) throws ProtobufSerializationException {
+        if (fieldIndex == Integer.MIN_VALUE) {
             throw new IllegalStateException("No field index was set");
         } else {
-            writeRawFixedInt64(ProtobufWireType.makeTag(propertyIndex, wireType));
-            resetPropertyTag();
+            writeRawVarInt64(ProtobufWireType.makeTag(fieldIndex, wireType));
+            resetFieldTag();
         }
     }
 
-    public void writePropertyTag(long propertyIndex, int wireType) {
-        writeRawFixedInt64(ProtobufWireType.makeTag(propertyIndex, wireType));
-        resetPropertyTag();
+    public void writeFieldTag(int fieldIndex, int wireType) throws ProtobufSerializationException {
+        // Tags are unsigned 32 bit values, so they are written as 64 bit varints to avoid the sign extension of int varints
+        writeRawVarInt64(ProtobufWireType.makeTag(fieldIndex, wireType));
+        resetFieldTag();
     }
 
-    private void resetPropertyTag() {
-        this.propertyIndex = Long.MIN_VALUE;
+    private void resetFieldTag() {
+        this.fieldIndex = Integer.MIN_VALUE;
     }
 
-    public void writeLengthDelimitedPropertyLength(int length) {
+    public void writeLengthDelimitedFieldLength(int length) throws ProtobufSerializationException {
         if (length < 0) {
-            throw ProtobufDeserializationException.negativeLength(length);
+            throw ProtobufSerializationException.negativeLength();
         } else {
-            writeRawFixedInt32(length);
+            writeRawVarInt32(length);
         }
     }
 
-    public void writeStartGroupProperty(long propertyIndex) {
-        writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_START_OBJECT);
+    public void writeStartGroupField(int fieldIndex) throws ProtobufSerializationException {
+        writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_START_OBJECT);
     }
 
-    public void writeEndGroupProperty(long propertyIndex) {
-        writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_END_OBJECT);
+    public void writeEndGroupField(int fieldIndex) throws ProtobufSerializationException {
+        writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_END_OBJECT);
     }
 
-    public void writeFloatProperty(long propertyIndex, Float value) {
+    public void writeFloatField(int fieldIndex, Float value) throws ProtobufSerializationException {
         if (value != null) {
-            writeFloatProperty(propertyIndex, (float) value);
+            writeFloatField(fieldIndex, (float) value);
         }
     }
 
-    public void writeFloatProperty(long propertyIndex, float value) {
-        writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_FIXED32);
+    public void writeFloatField(int fieldIndex, float value) throws ProtobufSerializationException {
+        writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_FIXED32);
         writeRawFloat(value);
     }
 
-    public void writeDoubleProperty(long propertyIndex, Double value) {
+    public void writeDoubleField(int fieldIndex, Double value) throws ProtobufSerializationException {
         if (value != null) {
-            writeDoubleProperty(propertyIndex, (double) value);
+            writeDoubleField(fieldIndex, (double) value);
         }
     }
 
-    public void writeDoubleProperty(long propertyIndex, double value) {
-        writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_FIXED64);
+    public void writeDoubleField(int fieldIndex, double value) throws ProtobufSerializationException {
+        writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_FIXED64);
         writeRawDouble(value);
     }
 
-    public void writeBoolProperty(long propertyIndex, Boolean value) {
+    public void writeBoolField(int fieldIndex, Boolean value) throws ProtobufSerializationException {
         if (value != null) {
-            writeBoolProperty(propertyIndex, (boolean) value);
+            writeBoolField(fieldIndex, (boolean) value);
         }
     }
 
-    public void writeBoolProperty(long propertyIndex, boolean value) {
-        writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_VAR_INT);
+    public void writeBoolField(int fieldIndex, boolean value) throws ProtobufSerializationException {
+        writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_VAR_INT);
         writeRawByte((byte) (value ? 1 : 0));
     }
 
-    public void writeInt32Property(long propertyIndex, Integer value) {
+    public void writeInt32Field(int fieldIndex, Integer value) throws ProtobufSerializationException {
         if (value != null) {
-            writeInt32Property(propertyIndex, (int) value);
+            writeInt32Field(fieldIndex, (int) value);
         }
     }
 
-    public void writeInt32Property(long propertyIndex, int value) {
-        writeVarInt32(propertyIndex, value);
+    public void writeInt32Field(int fieldIndex, int value) throws ProtobufSerializationException {
+        writeVarInt32(fieldIndex, value);
     }
 
-    public void writeUInt32Property(long propertyIndex, Integer value) {
+    public void writeUInt32Field(int fieldIndex, Integer value) throws ProtobufSerializationException {
         if (value != null) {
-            writeUInt32Property(propertyIndex, (int) value);
+            writeUInt32Field(fieldIndex, (int) value);
         }
     }
 
-    public void writeUInt32Property(long propertyIndex, int value) {
-        writeVarInt32(propertyIndex, value);
+    public void writeUInt32Field(int fieldIndex, int value) throws ProtobufSerializationException {
+        writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_VAR_INT);
+        writeRawUnsignedVarInt32(value);
     }
 
-    private void writeVarInt32(long propertyIndex, int value) {
-        writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_VAR_INT);
+    private void writeVarInt32(int fieldIndex, int value) throws ProtobufSerializationException {
+        writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_VAR_INT);
         writeRawVarInt32(value);
     }
 
-    public void writeSInt32Property(long propertyIndex, Integer value) {
+    public void writeSInt32Field(int fieldIndex, Integer value) throws ProtobufSerializationException {
         if (value != null) {
-            writeSInt32Property(propertyIndex, (int) value);
+            writeSInt32Field(fieldIndex, (int) value);
         }
     }
 
-    public void writeSInt32Property(long propertyIndex, int value) {
-        writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_VAR_INT);
+    public void writeSInt32Field(int fieldIndex, int value) throws ProtobufSerializationException {
+        writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_VAR_INT);
         writeRawZigZagVarInt32(value);
     }
 
 
-    public void writeInt64Property(long propertyIndex, Long value) {
+    public void writeInt64Field(int fieldIndex, Long value) throws ProtobufSerializationException {
         if (value != null) {
-            writeInt64Property(propertyIndex, (long) value);
+            writeInt64Field(fieldIndex, (long) value);
         }
     }
 
-    public void writeInt64Property(long propertyIndex, long value) {
-        writeVarInt64(propertyIndex, value);
+    public void writeInt64Field(int fieldIndex, long value) throws ProtobufSerializationException {
+        writeVarInt64(fieldIndex, value);
     }
 
-    public void writeUInt64Property(long propertyIndex, Long value) {
+    public void writeUInt64Field(int fieldIndex, Long value) throws ProtobufSerializationException {
         if (value != null) {
-            writeUInt64Property(propertyIndex, (long) value);
+            writeUInt64Field(fieldIndex, (long) value);
         }
     }
 
-    public void writeUInt64Property(long propertyIndex, long value) {
-        writeVarInt64(propertyIndex, value);
+    public void writeUInt64Field(int fieldIndex, long value) throws ProtobufSerializationException {
+        writeVarInt64(fieldIndex, value);
     }
 
-    private void writeVarInt64(long propertyIndex, long value) {
-        writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_VAR_INT);
+    private void writeVarInt64(int fieldIndex, long value) throws ProtobufSerializationException {
+        writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_VAR_INT);
         writeRawVarInt64(value);
     }
 
 
-    public void writeSInt64Property(long propertyIndex, Long value) {
+    public void writeSInt64Field(int fieldIndex, Long value) throws ProtobufSerializationException {
         if (value != null) {
-            writeSInt64Property(propertyIndex, (long) value);
+            writeSInt64Field(fieldIndex, (long) value);
         }
     }
 
-    public void writeSInt64Property(long propertyIndex, long value) {
-        writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_VAR_INT);
+    public void writeSInt64Field(int fieldIndex, long value) throws ProtobufSerializationException {
+        writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_VAR_INT);
         writeRawZigZagVarInt64(value);
     }
 
-    public void writeFixed32Property(long propertyIndex, Integer value) {
+    public void writeFixed32Field(int fieldIndex, Integer value) throws ProtobufSerializationException {
         if (value != null) {
-            writeFixed32(propertyIndex, value);
+            writeFixed32(fieldIndex, value);
         }
     }
 
-    public void writeFixed32Property(long propertyIndex, int value) {
-        writeFixed32(propertyIndex, value);
+    public void writeFixed32Field(int fieldIndex, int value) throws ProtobufSerializationException {
+        writeFixed32(fieldIndex, value);
     }
 
-    public void writeSFixed32Property(long propertyIndex, Integer value) {
+    public void writeSFixed32Field(int fieldIndex, Integer value) throws ProtobufSerializationException {
         if (value != null) {
-            writeFixed32(propertyIndex, value);
+            writeFixed32(fieldIndex, value);
         }
     }
 
-    public void writeSFixed32Property(long propertyIndex, int value) {
-        writeFixed32(propertyIndex, value);
+    public void writeSFixed32Field(int fieldIndex, int value) throws ProtobufSerializationException {
+        writeFixed32(fieldIndex, value);
     }
 
-    private void writeFixed32(long propertyIndex, int value) {
-        writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_FIXED32);
+    private void writeFixed32(int fieldIndex, int value) throws ProtobufSerializationException {
+        writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_FIXED32);
         writeRawFixedInt32(value);
     }
 
-    public void writeFixed64Property(long propertyIndex, Long value) {
+    public void writeFixed64Field(int fieldIndex, Long value) throws ProtobufSerializationException {
         if (value != null) {
-            writeFixed64(propertyIndex, value);
+            writeFixed64(fieldIndex, value);
         }
     }
 
-    public void writeFixed64Property(long propertyIndex, long value) {
-        writeFixed64(propertyIndex, value);
+    public void writeFixed64Field(int fieldIndex, long value) throws ProtobufSerializationException {
+        writeFixed64(fieldIndex, value);
     }
 
-    public void writeSFixed64Property(long propertyIndex, Long value) {
+    public void writeSFixed64Field(int fieldIndex, Long value) throws ProtobufSerializationException {
         if (value != null) {
-            writeFixed64(propertyIndex, value);
+            writeFixed64(fieldIndex, value);
         }
     }
 
-    public void writeSFixed64Property(long propertyIndex, long value) {
-        writeFixed64(propertyIndex, value);
+    public void writeSFixed64Field(int fieldIndex, long value) throws ProtobufSerializationException {
+        writeFixed64(fieldIndex, value);
     }
 
-    private void writeFixed64(long propertyIndex, long value) {
-        writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_FIXED32);
+    private void writeFixed64(int fieldIndex, long value) throws ProtobufSerializationException {
+        writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_FIXED64);
         writeRawFixedInt64(value);
     }
 
-    private void writeUnknownProperty(long propertyIndex, ProtobufUnknownValue value) {
+    public void writeUnknownField(int fieldIndex, ProtobufUnknownValue.Binary value) throws ProtobufSerializationException {
         switch (value) {
-            case ProtobufUnknownValue.Fixed32(var fixed32Value) -> writeFixed32(propertyIndex, fixed32Value);
+            case ProtobufUnknownValue.Binary.Fixed32(var fixed32Value) -> writeFixed32(fieldIndex, fixed32Value);
 
-            case ProtobufUnknownValue.Fixed64(var fixed64Value) -> writeFixed64(propertyIndex, fixed64Value);
+            case ProtobufUnknownValue.Binary.Fixed64(var fixed64Value) -> writeFixed64(fieldIndex, fixed64Value);
 
-            case ProtobufUnknownValue.Group(var groupValue) -> {
-                writeStartGroupProperty(propertyIndex);
-                for (var entry : groupValue.entrySet()) {
-                    writeUnknownProperty(entry.getKey(), entry.getValue());
-                }
-                writeEndGroupProperty(propertyIndex);
+            case ProtobufUnknownValue.Binary.Group(var groupValue) -> {
+                writeStartGroupField(fieldIndex);
+                groupValue.encodeBinary(this);
+                writeEndGroupField(fieldIndex);
             }
 
-            case ProtobufUnknownValue.LengthDelimited lengthDelimited -> {
+            case ProtobufUnknownValue.Binary.LengthDelimited lengthDelimited -> {
+                writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
                 switch (lengthDelimited) {
-                    case ProtobufUnknownValue.LengthDelimited.ByteArrayBacked(var array) -> {
-                        writeLengthDelimitedPropertyLength(array.length);
+                    case ProtobufUnknownValue.Binary.LengthDelimited.ByteArrayBacked(var array) -> {
+                        writeLengthDelimitedFieldLength(array.length);
                         writeRawBytes(array);
                     }
-                    case ProtobufUnknownValue.LengthDelimited.ByteBufferBacked(var buffer) -> {
-                        writeLengthDelimitedPropertyLength(buffer.remaining());
+                    case ProtobufUnknownValue.Binary.LengthDelimited.ByteBufferBacked(var buffer) -> {
+                        writeLengthDelimitedFieldLength(buffer.remaining());
                         writeRawBuffer(buffer);
                     }
-                    case ProtobufUnknownValue.LengthDelimited.MemorySegmentBacked(var memory, var length) -> {
-                        writeLengthDelimitedPropertyLength(length);
+                    case ProtobufUnknownValue.Binary.LengthDelimited.MemorySegmentBacked(var memory, var length) -> {
+                        writeLengthDelimitedFieldLength(length);
                         writeRawMemorySegment(memory);
                     }
                 }
             }
 
-            case ProtobufUnknownValue.VarInt(var varIntValue) -> writeInt64Property(propertyIndex, varIntValue);
+            case ProtobufUnknownValue.Binary.VarInt(var varIntValue) -> writeInt64Field(fieldIndex, varIntValue);
 
             case null -> { /* Having this branch prevents a NPE */ }
         }
     }
 
-    public void writePackedFloatProperty(long propertyIndex, float[] values) {
+    public void writePackedFloatField(int fieldIndex, float[] values) throws ProtobufSerializationException {
         if (values != null) {
             var size = values.length * Float.BYTES;
-            writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
-            writeLengthDelimitedPropertyLength(size);
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(size);
             writeRawPackedFloat(values);
         }
     }
 
-    public void writePackedDoubleProperty(long propertyIndex, double[] values) {
+    public void writePackedDoubleField(int fieldIndex, double[] values) throws ProtobufSerializationException {
         if (values != null) {
             var size = values.length * Double.BYTES;
-            writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
-            writeLengthDelimitedPropertyLength(size);
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(size);
             writeRawPackedDouble(values);
         }
     }
 
-    public void writePackedInt32Property(long propertyIndex, int[] values) {
+    public void writePackedInt32Field(int fieldIndex, int[] values) throws ProtobufSerializationException {
         if (values != null) {
-            var size = 0;
-            for (var value : values) {
-                size += ProtobufBinarySizeCalculator.getVarInt32Size(value);
-            }
-            writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
-            writeLengthDelimitedPropertyLength(size);
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(ProtobufBinarySizeCalculator.getPackedInt32Size(values));
             writeRawPackedVarInt32(values);
         }
     }
 
-    public void writePackedUInt32Property(long propertyIndex, int[] values) {
+    public void writePackedUInt32Field(int fieldIndex, int[] values) throws ProtobufSerializationException {
         if (values != null) {
-            var size = 0;
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(ProtobufBinarySizeCalculator.getPackedUInt32Size(values));
             for (var value : values) {
-                size += ProtobufBinarySizeCalculator.getVarInt32Size(value);
+                writeRawUnsignedVarInt32(value);
             }
-            writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
-            writeLengthDelimitedPropertyLength(size);
-            writeRawPackedVarInt32(values);
         }
     }
 
-    public void writePackedSInt32Property(long propertyIndex, int[] values) {
+    public void writePackedSInt32Field(int fieldIndex, int[] values) throws ProtobufSerializationException {
         if (values != null) {
-            var size = 0;
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(ProtobufBinarySizeCalculator.getPackedSInt32Size(values));
             for (var value : values) {
-                size += ProtobufBinarySizeCalculator.getVarInt32Size(value);
+                writeRawZigZagVarInt32(value);
             }
-            writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
-            writeLengthDelimitedPropertyLength(size);
-            writeRawPackedZigZagVarInt32(values);
         }
     }
 
-    public void writePackedInt64Property(long propertyIndex, long[] values) {
+    public void writePackedInt64Field(int fieldIndex, long[] values) throws ProtobufSerializationException {
         if (values != null) {
-            var size = ProtobufBinarySizeCalculator.getVarInt64PackedSize(propertyIndex, values);
-            writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
-            writeLengthDelimitedPropertyLength(size);
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(ProtobufBinarySizeCalculator.getPackedInt64Size(values));
             writeRawPackedVarInt64(values);
         }
     }
 
-    public void writePackedUInt64Property(long propertyIndex, long[] values) {
+    public void writePackedUInt64Field(int fieldIndex, long[] values) throws ProtobufSerializationException {
         if (values != null) {
-            var size = ProtobufBinarySizeCalculator.getVarInt64PackedSize(propertyIndex, values);
-            writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
-            writeLengthDelimitedPropertyLength(size);
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(ProtobufBinarySizeCalculator.getPackedUInt64Size(values));
             writeRawPackedVarInt64(values);
         }
     }
 
-    public void writePackedSInt64Property(long propertyIndex, long[] values) {
+    public void writePackedSInt64Field(int fieldIndex, long[] values) throws ProtobufSerializationException {
         if (values != null) {
-            var size = 0;
-            for (var value : values) {
-                size += ProtobufBinarySizeCalculator.getVarInt64Size(value);
-            }
-            writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
-            writeLengthDelimitedPropertyLength(size);
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(ProtobufBinarySizeCalculator.getPackedSInt64Size(values));
             writeRawPackedZigZagVarInt64(values);
         }
     }
 
-    public void writePackedFixed32Property(long propertyIndex, int[] values) {
+    public void writePackedFixed32Field(int fieldIndex, int[] values) throws ProtobufSerializationException {
         if (values != null) {
-            var size = values.length * Integer.BYTES;
-            writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
-            writeLengthDelimitedPropertyLength(size);
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(ProtobufBinarySizeCalculator.getPackedFixed32Size(values));
             writeRawPackedFixedInt32(values);
         }
     }
 
-    public void writePackedSFixed32Property(long propertyIndex, int[] values) {
+    public void writePackedSFixed32Field(int fieldIndex, int[] values) throws ProtobufSerializationException {
         if (values != null) {
-            var size = values.length * Integer.BYTES;
-            writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
-            writeLengthDelimitedPropertyLength(size);
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(ProtobufBinarySizeCalculator.getPackedSFixed32Size(values));
             writeRawPackedFixedInt32(values);
         }
     }
 
-    public void writePackedFixed64Property(long propertyIndex, long[] values) {
+    public void writePackedFixed64Field(int fieldIndex, long[] values) throws ProtobufSerializationException {
         if (values != null) {
-            var size = values.length * Long.BYTES;
-            writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
-            writeLengthDelimitedPropertyLength(size);
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(ProtobufBinarySizeCalculator.getPackedFixed64Size(values));
             writeRawPackedFixedInt64(values);
         }
     }
 
-    public void writePackedSFixed64Property(long propertyIndex, long[] values) {
+    public void writePackedSFixed64Field(int fieldIndex, long[] values) throws ProtobufSerializationException {
         if (values != null) {
-            var size = values.length * Long.BYTES;
-            writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
-            writeLengthDelimitedPropertyLength(size);
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(ProtobufBinarySizeCalculator.getPackedSFixed64Size(values));
             writeRawPackedFixedInt64(values);
         }
     }
 
-    public void writePackedSFixed64Property(long propertyIndex, boolean[] values) {
+    public void writePackedBoolField(int fieldIndex, boolean[] values) throws ProtobufSerializationException {
         if (values != null) {
-            var size = ProtobufBinarySizeCalculator.getBoolPackedSize(propertyIndex, values);
-            writePropertyTag(propertyIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
-            writeLengthDelimitedPropertyLength(size);
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(ProtobufBinarySizeCalculator.getPackedBoolSize(values));
             writeRawPackedBool(values);
         }
     }
 
-    public void writeRawBytes(byte[] entry) {
+    public void writeStringField(int fieldIndex, String value) throws ProtobufSerializationException {
+        if (value != null) {
+            writeBytesField(fieldIndex, value.getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
+    public void writeBytesField(int fieldIndex, byte[] value) throws ProtobufSerializationException {
+        if (value != null) {
+            writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+            writeLengthDelimitedFieldLength(value.length);
+            writeRawBytes(value);
+        }
+    }
+
+    public void writeMessageField(int fieldIndex, int size) throws ProtobufSerializationException {
+        writeFieldTag(fieldIndex, ProtobufWireType.WIRE_TYPE_LENGTH_DELIMITED);
+        writeLengthDelimitedFieldLength(size);
+    }
+
+    public void writeRawBytes(byte[] entry) throws ProtobufSerializationException {
         writeRawBytes(entry, 0, entry.length);
     }
 
-    public void writeRawZigZagVarInt32(int value) {
-        var zigzag = (value << 1) ^ (value >> 31);
-        writeRawVarInt32(zigzag);
+    public void writeRawZigZagVarInt32(int value) throws ProtobufSerializationException {
+        writeRawUnsignedVarInt32((value << 1) ^ (value >> 31));
     }
 
-    public void writeRawZigZagVarInt64(long value) {
+    // uint32 values, and the zigzag encoding of sint32 values, are unsigned: they are zero extended, never sign extended
+    public void writeRawUnsignedVarInt32(int value) throws ProtobufSerializationException {
+        if (value >= 0) {
+            writeRawVarInt32(value);
+        } else {
+            writeRawVarInt64(Integer.toUnsignedLong(value));
+        }
+    }
+
+    public void writeRawZigZagVarInt64(long value) throws ProtobufSerializationException {
         var zigzag = (value << 1) ^ (value >> 63);
         writeRawVarInt64(zigzag);
     }
 
-    public abstract void writeRawByte(byte entry);
+    public abstract void writeRawByte(byte entry) throws ProtobufSerializationException;
 
-    public abstract void writeRawBytes(byte[] entry, int offset, int length);
+    public abstract void writeRawBytes(byte[] entry, int offset, int length) throws ProtobufSerializationException;
 
-    public abstract void writeRawBuffer(ByteBuffer entry);
+    public abstract void writeRawBuffer(ByteBuffer entry) throws ProtobufSerializationException;
 
-    public abstract void writeRawMemorySegment(MemorySegment entry);
+    public abstract void writeRawMemorySegment(MemorySegment entry) throws ProtobufSerializationException;
 
-    public abstract void writeRawFixedInt32(int entry);
+    public abstract void writeRawFixedInt32(int entry) throws ProtobufSerializationException;
 
-    public abstract void writeRawFixedInt64(long entry);
+    public abstract void writeRawFixedInt64(long entry) throws ProtobufSerializationException;
 
-    public abstract void writeRawFloat(float entry);
+    public abstract void writeRawFloat(float entry) throws ProtobufSerializationException;
 
-    public abstract void writeRawDouble(double entry);
+    public abstract void writeRawDouble(double entry) throws ProtobufSerializationException;
 
-    public abstract void writeRawVarInt32(int entry);
+    public abstract void writeRawVarInt32(int entry) throws ProtobufSerializationException;
 
-    public abstract void writeRawVarInt64(long entry);
+    public abstract void writeRawVarInt64(long entry) throws ProtobufSerializationException;
     // no writeRawBool because the fastest path is always writeRawByte(0 or 1)
 
-    public abstract void writeRawPackedFixedInt32(int[] input);
+    public abstract void writeRawPackedFixedInt32(int[] input) throws ProtobufSerializationException;
 
-    public abstract void writeRawPackedFixedInt64(long[] input);
+    public abstract void writeRawPackedFixedInt64(long[] input) throws ProtobufSerializationException;
 
-    public abstract void writeRawPackedFloat(float[] input);
+    public abstract void writeRawPackedFloat(float[] input) throws ProtobufSerializationException;
 
-    public abstract void writeRawPackedDouble(double[] input);
+    public abstract void writeRawPackedDouble(double[] input) throws ProtobufSerializationException;
 
-    public abstract void writeRawPackedVarInt32(int[] input);
+    public abstract void writeRawPackedVarInt32(int[] input) throws ProtobufSerializationException;
 
-    public abstract void writeRawPackedZigZagVarInt32(int[] input);
+    public abstract void writeRawPackedZigZagVarInt32(int[] input) throws ProtobufSerializationException;
 
-    public abstract void writeRawPackedVarInt64(long[] input);
+    public abstract void writeRawPackedVarInt64(long[] input) throws ProtobufSerializationException;
 
-    public abstract void writeRawPackedZigZagVarInt64(long[] input);
+    public abstract void writeRawPackedZigZagVarInt64(long[] input) throws ProtobufSerializationException;
 
-    public abstract void writeRawPackedBool(boolean[] input);
+    public abstract void writeRawPackedBool(boolean[] input) throws ProtobufSerializationException;
 
-    public abstract ProtobufIODataType rawDataTypePreference();
+    public abstract BinaryDataType rawDataTypePreference();
 
     public abstract OUTPUT toOutput();
 }

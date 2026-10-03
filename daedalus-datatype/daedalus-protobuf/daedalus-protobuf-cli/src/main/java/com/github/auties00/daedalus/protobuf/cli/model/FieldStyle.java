@@ -11,12 +11,14 @@ public enum FieldStyle {
     PRIVATE_WITH_ACCESSORS,
 
     /**
-     * Record components annotated directly with {@code @ProtobufProperty}.
+     * Record components annotated directly with a field annotation, such as
+     * {@code @ProtobufMessage.Int32Field}.
      */
     RECORD_COMPONENTS,
 
     /**
-     * Abstract interface methods annotated with {@code @ProtobufProperty}.
+     * Abstract interface methods annotated with a field annotation, such as
+     * {@code @ProtobufMessage.Int32Field}.
      */
     INTERFACE_METHODS
 }

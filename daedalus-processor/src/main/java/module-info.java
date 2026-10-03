@@ -12,6 +12,7 @@ module com.github.auties00.daedalus.processor {
     exports com.github.auties00.daedalus.processor.generator.builder;
     exports com.github.auties00.daedalus.processor.generator.converter;
     exports com.github.auties00.daedalus.processor.util;
+    exports com.github.auties00.daedalus.processor.exception;
 
     uses com.github.auties00.daedalus.processor.DaedalusProcessorExtension;
 }

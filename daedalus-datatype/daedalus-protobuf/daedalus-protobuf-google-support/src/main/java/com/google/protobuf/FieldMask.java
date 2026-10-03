@@ -1,5 +1,6 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 import java.util.Collections;
 import java.util.List;
@@ -235,7 +236,7 @@ import java.util.SequencedCollection;
  *
  * <p>Protobuf type {@code com.google.protobuf.FieldMask}
  */
-@ProtobufMessage
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
 public final class FieldMask {
 
     /**
@@ -246,10 +247,22 @@ public final class FieldMask {
     @ProtobufMessage.StringField(index = 1)
     List<String> paths;
 
+    /**
+     * Constructs a new {@code FieldMask} with the specified field values.
+     *
+     * @param paths the values of the repeated {@code paths} field
+     */
     FieldMask(List<String> paths) {
         this.paths = paths;
     }
 
+    /**
+     * Returns an unmodifiable view of the values of the repeated
+     * {@code paths} field.
+     *
+     * @return an unmodifiable view of the values of the {@code paths} field,
+     *         in encounter order
+     */
     public SequencedCollection<String> paths() {
         return Collections.unmodifiableSequencedCollection(paths);
     }

@@ -36,5 +36,5 @@ public @interface ProtobufAccessor {
      *
      * @return the numeric index of the associated field
      */
-    long index();
+    int index();
 }

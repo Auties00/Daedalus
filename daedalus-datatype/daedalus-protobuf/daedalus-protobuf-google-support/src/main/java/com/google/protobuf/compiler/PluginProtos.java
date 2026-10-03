@@ -5,9 +5,27 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.SequencedCollection;
 
+/**
+ * Holder of the Daedalus models declared by {@code google/protobuf/compiler/plugin.proto}.
+ *
+ * <p>These models represent the protocol compiler plugin messages and enums
+ * exchanged between {@code protoc} and its code generator plugins, such as
+ * {@link PluginProtos.CodeGeneratorRequest}.
+ *
+ * <p>The models mirror the {@code proto2} definitions of the official protobuf
+ * distribution field by field, including field numbers, wire types, field
+ * presence and repeated field encodings. This class only scopes the nested
+ * types and cannot be instantiated.
+ */
 public final class PluginProtos {
+    /**
+     * Prevents the instantiation of this holder class.
+     */
     private PluginProtos() {}
 
     /**
@@ -22,19 +40,19 @@ public final class PluginProtos {
          * <p><code>int32 major = 1;</code>
          */
         @ProtobufMessage.Int32Field(index = 1)
-        int major;
+        Integer major;
 
         /**
          * <p><code>int32 minor = 2;</code>
          */
         @ProtobufMessage.Int32Field(index = 2)
-        int minor;
+        Integer minor;
 
         /**
          * <p><code>int32 patch = 3;</code>
          */
         @ProtobufMessage.Int32Field(index = 3)
-        int patch;
+        Integer patch;
 
         /**
          * A suffix for alpha, beta or rc release, e.g., "alpha-1", "rc2". It should
@@ -45,27 +63,63 @@ public final class PluginProtos {
         @ProtobufMessage.StringField(index = 4)
         String suffix;
 
-        Version(int major, int minor, int patch, String suffix) {
+        /**
+         * Constructs a new {@code Version} with the specified field values.
+         *
+         * @param major the value of the {@code major} field, or {@code null} if the
+         *              field is not set
+         * @param minor the value of the {@code minor} field, or {@code null} if the
+         *              field is not set
+         * @param patch the value of the {@code patch} field, or {@code null} if the
+         *              field is not set
+         * @param suffix the value of the {@code suffix} field, or {@code null} if the
+         *               field is not set
+         */
+        Version(Integer major, Integer minor, Integer patch, String suffix) {
             this.major = major;
             this.minor = minor;
             this.patch = patch;
             this.suffix = suffix;
         }
 
-        public int major() {
-            return major;
+        /**
+         * Returns the value of the {@code major} field, if present.
+         *
+         * @return an {@code OptionalInt} containing the value of the {@code major}
+         *         field, or an empty {@code OptionalInt} if the field is not set
+         */
+        public OptionalInt major() {
+            return major == null ? OptionalInt.empty() : OptionalInt.of(major);
         }
 
-        public int minor() {
-            return minor;
+        /**
+         * Returns the value of the {@code minor} field, if present.
+         *
+         * @return an {@code OptionalInt} containing the value of the {@code minor}
+         *         field, or an empty {@code OptionalInt} if the field is not set
+         */
+        public OptionalInt minor() {
+            return minor == null ? OptionalInt.empty() : OptionalInt.of(minor);
         }
 
-        public int patch() {
-            return patch;
+        /**
+         * Returns the value of the {@code patch} field, if present.
+         *
+         * @return an {@code OptionalInt} containing the value of the {@code patch}
+         *         field, or an empty {@code OptionalInt} if the field is not set
+         */
+        public OptionalInt patch() {
+            return patch == null ? OptionalInt.empty() : OptionalInt.of(patch);
         }
 
-        public String suffix() {
-            return suffix;
+        /**
+         * Returns the value of the {@code suffix} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code suffix}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> suffix() {
+            return Optional.ofNullable(suffix);
         }
     }
 
@@ -139,6 +193,17 @@ public final class PluginProtos {
         @ProtobufMessage.MessageField(index = 17)
         List<DescriptorProtos.FileDescriptorProto> sourceFileDescriptors;
 
+        /**
+         * Constructs a new {@code CodeGeneratorRequest} with the specified field values.
+         *
+         * @param fileToGenerate the values of the repeated {@code file_to_generate} field
+         * @param parameter the value of the {@code parameter} field, or {@code null} if the
+         *                  field is not set
+         * @param compilerVersion the value of the {@code compiler_version} field, or {@code null} if the
+         *                        field is not set
+         * @param protoFile the values of the repeated {@code proto_file} field
+         * @param sourceFileDescriptors the values of the repeated {@code source_file_descriptors} field
+         */
         CodeGeneratorRequest(
                 List<String> fileToGenerate,
                 String parameter,
@@ -153,24 +218,57 @@ public final class PluginProtos {
             this.sourceFileDescriptors = sourceFileDescriptors;
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code file_to_generate} field.
+         *
+         * @return an unmodifiable view of the values of the {@code file_to_generate} field,
+         *         in encounter order
+         */
         public SequencedCollection<String> fileToGenerate() {
             return Collections.unmodifiableSequencedCollection(fileToGenerate);
         }
 
-        public String parameter() {
-            return parameter;
+        /**
+         * Returns the value of the {@code parameter} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code parameter}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> parameter() {
+            return Optional.ofNullable(parameter);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code proto_file} field.
+         *
+         * @return an unmodifiable view of the values of the {@code proto_file} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.FileDescriptorProto> protoFile() {
             return Collections.unmodifiableSequencedCollection(protoFile);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code source_file_descriptors} field.
+         *
+         * @return an unmodifiable view of the values of the {@code source_file_descriptors} field,
+         *         in encounter order
+         */
         public SequencedCollection<DescriptorProtos.FileDescriptorProto> sourceFileDescriptors() {
             return Collections.unmodifiableSequencedCollection(sourceFileDescriptors);
         }
 
-        public PluginProtos.Version compilerVersion() {
-            return compilerVersion;
+        /**
+         * Returns the value of the {@code compiler_version} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code compiler_version}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<PluginProtos.Version> compilerVersion() {
+            return Optional.ofNullable(compilerVersion);
         }
     }
 
@@ -295,6 +393,18 @@ public final class PluginProtos {
             @ProtobufMessage.MessageField(index = 16)
             DescriptorProtos.GeneratedCodeInfo generatedCodeInfo;
 
+            /**
+             * Constructs a new {@code File} with the specified field values.
+             *
+             * @param name the value of the {@code name} field, or {@code null} if the
+             *             field is not set
+             * @param insertionPoint the value of the {@code insertion_point} field, or {@code null} if the
+             *                       field is not set
+             * @param content the value of the {@code content} field, or {@code null} if the
+             *                field is not set
+             * @param generatedCodeInfo the value of the {@code generated_code_info} field, or {@code null} if the
+             *                          field is not set
+             */
             File(
                     String name,
                     String insertionPoint,
@@ -307,20 +417,44 @@ public final class PluginProtos {
                 this.generatedCodeInfo = generatedCodeInfo;
             }
 
-            public String name() {
-                return name;
+            /**
+             * Returns the value of the {@code name} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code name}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<String> name() {
+                return Optional.ofNullable(name);
             }
 
-            public String insertionPoint() {
-                return insertionPoint;
+            /**
+             * Returns the value of the {@code insertion_point} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code insertion_point}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<String> insertionPoint() {
+                return Optional.ofNullable(insertionPoint);
             }
 
-            public String content() {
-                return content;
+            /**
+             * Returns the value of the {@code content} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code content}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<String> content() {
+                return Optional.ofNullable(content);
             }
 
-            public DescriptorProtos.GeneratedCodeInfo generatedCodeInfo() {
-                return generatedCodeInfo;
+            /**
+             * Returns the value of the {@code generated_code_info} field, if present.
+             *
+             * @return an {@code Optional} containing the value of the {@code generated_code_info}
+             *         field, or an empty {@code Optional} if the field is not set
+             */
+            public Optional<DescriptorProtos.GeneratedCodeInfo> generatedCodeInfo() {
+                return Optional.ofNullable(generatedCodeInfo);
             }
         }
 
@@ -346,7 +480,7 @@ public final class PluginProtos {
          * <p><code>uint64 supported_features = 2;</code>
          */
         @ProtobufMessage.Uint64Field(index = 2)
-        long supportedFeatures;
+        Long supportedFeatures;
 
         /**
          * The minimum edition this plugin supports.  This will be treated as an
@@ -357,7 +491,7 @@ public final class PluginProtos {
          * <p><code>int32 minimum_edition = 3;</code>
          */
         @ProtobufMessage.Int32Field(index = 3)
-        int minimumEdition;
+        Integer minimumEdition;
 
         /**
          * The maximum edition this plugin supports.  This will be treated as an
@@ -368,7 +502,7 @@ public final class PluginProtos {
          * <p><code>int32 maximum_edition = 4;</code>
          */
         @ProtobufMessage.Int32Field(index = 4)
-        int maximumEdition;
+        Integer maximumEdition;
 
         /**
          * <p><code>repeated File file = 15;</code>
@@ -376,11 +510,24 @@ public final class PluginProtos {
         @ProtobufMessage.MessageField(index = 15)
         List<PluginProtos.CodeGeneratorResponse.File> file;
 
+        /**
+         * Constructs a new {@code CodeGeneratorResponse} with the specified field values.
+         *
+         * @param error the value of the {@code error} field, or {@code null} if the
+         *              field is not set
+         * @param supportedFeatures the value of the {@code supported_features} field, or {@code null} if the
+         *                          field is not set
+         * @param minimumEdition the value of the {@code minimum_edition} field, or {@code null} if the
+         *                       field is not set
+         * @param maximumEdition the value of the {@code maximum_edition} field, or {@code null} if the
+         *                       field is not set
+         * @param file the values of the repeated {@code file} field
+         */
         CodeGeneratorResponse(
                 String error,
-                long supportedFeatures,
-                int minimumEdition,
-                int maximumEdition,
+                Long supportedFeatures,
+                Integer minimumEdition,
+                Integer maximumEdition,
                 List<PluginProtos.CodeGeneratorResponse.File> file
         ) {
             this.error = error;
@@ -390,22 +537,53 @@ public final class PluginProtos {
             this.file = file;
         }
 
-        public String error() {
-            return error;
+        /**
+         * Returns the value of the {@code error} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code error}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<String> error() {
+            return Optional.ofNullable(error);
         }
 
-        public long supportedFeatures() {
-            return supportedFeatures;
+        /**
+         * Returns the value of the {@code supported_features} field, if present.
+         *
+         * @return an {@code OptionalLong} containing the value of the {@code supported_features}
+         *         field, or an empty {@code OptionalLong} if the field is not set
+         */
+        public OptionalLong supportedFeatures() {
+            return supportedFeatures == null ? OptionalLong.empty() : OptionalLong.of(supportedFeatures);
         }
 
-        public int minimumEdition() {
-            return minimumEdition;
+        /**
+         * Returns the value of the {@code minimum_edition} field, if present.
+         *
+         * @return an {@code OptionalInt} containing the value of the {@code minimum_edition}
+         *         field, or an empty {@code OptionalInt} if the field is not set
+         */
+        public OptionalInt minimumEdition() {
+            return minimumEdition == null ? OptionalInt.empty() : OptionalInt.of(minimumEdition);
         }
 
-        public int maximumEdition() {
-            return maximumEdition;
+        /**
+         * Returns the value of the {@code maximum_edition} field, if present.
+         *
+         * @return an {@code OptionalInt} containing the value of the {@code maximum_edition}
+         *         field, or an empty {@code OptionalInt} if the field is not set
+         */
+        public OptionalInt maximumEdition() {
+            return maximumEdition == null ? OptionalInt.empty() : OptionalInt.of(maximumEdition);
         }
 
+        /**
+         * Returns an unmodifiable view of the values of the repeated
+         * {@code file} field.
+         *
+         * @return an unmodifiable view of the values of the {@code file} field,
+         *         in encounter order
+         */
         public SequencedCollection<PluginProtos.CodeGeneratorResponse.File> file() {
             return Collections.unmodifiableSequencedCollection(file);
         }

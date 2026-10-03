@@ -1,55 +1,117 @@
 package com.github.auties00.daedalus.protobuf.io.writer.text;
 
+import com.github.auties00.daedalus.protobuf.exception.ProtobufSerializationException;
 import com.github.auties00.daedalus.protobuf.io.writer.ProtobufTextWriter;
 
+import java.nio.BufferOverflowException;
 import java.nio.CharBuffer;
 import java.util.Objects;
 
+/**
+ * A text writer that writes the text into a {@link CharBuffer}, starting at its position.
+ *
+ * <p>The text cannot exceed the remaining characters of the buffer: a write that does not fit
+ * throws a {@link ProtobufSerializationException}. The position of the buffer passed to the
+ * constructor is not changed.
+ */
 public final class ProtobufTextCharBufferWriter extends ProtobufTextWriter<CharBuffer> {
+    /**
+     * A duplicate of the buffer passed to the constructor, whose position is the index of the
+     * next character to write.
+     */
     private final CharBuffer buffer;
 
+    /**
+     * The index of the first character of the text.
+     */
+    private final int start;
+
+    /**
+     * Constructs a new writer for the given buffer.
+     *
+     * @param buffer the buffer, which must not be read only
+     * @throws NullPointerException if {@code buffer} is {@code null}
+     */
     public ProtobufTextCharBufferWriter(CharBuffer buffer) {
         Objects.requireNonNull(buffer, "buffer cannot be null");
         this.buffer = buffer.duplicate();
+        this.start = buffer.position();
     }
 
-    @Override public void writeStartObject() { throw new UnsupportedOperationException(); }
-    @Override public void writeStartObjectProperty(String fieldName) { throw new UnsupportedOperationException(); }
-    @Override public void writeStartObjectElement() { throw new UnsupportedOperationException(); }
-    @Override public void writeEndObject() { throw new UnsupportedOperationException(); }
-    @Override public void writeStartRepeatedProperty(String fieldName) { throw new UnsupportedOperationException(); }
-    @Override public void writeEndRepeatedProperty() { throw new UnsupportedOperationException(); }
-    @Override public void writeFloatProperty(String fieldName, float value) { throw new UnsupportedOperationException(); }
-    @Override public void writeDoubleProperty(String fieldName, double value) { throw new UnsupportedOperationException(); }
-    @Override public void writeBoolProperty(String fieldName, boolean value) { throw new UnsupportedOperationException(); }
-    @Override public void writeInt32Property(String fieldName, int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeUInt32Property(String fieldName, int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSInt32Property(String fieldName, int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeFixed32Property(String fieldName, int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSFixed32Property(String fieldName, int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeInt64Property(String fieldName, long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeUInt64Property(String fieldName, long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSInt64Property(String fieldName, long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeFixed64Property(String fieldName, long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSFixed64Property(String fieldName, long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeStringProperty(String fieldName, String value) { throw new UnsupportedOperationException(); }
-    @Override public void writeBytesProperty(String fieldName, byte[] value) { throw new UnsupportedOperationException(); }
-    @Override public void writeFloatElement(float value) { throw new UnsupportedOperationException(); }
-    @Override public void writeDoubleElement(double value) { throw new UnsupportedOperationException(); }
-    @Override public void writeBoolElement(boolean value) { throw new UnsupportedOperationException(); }
-    @Override public void writeInt32Element(int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeUInt32Element(int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSInt32Element(int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeFixed32Element(int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSFixed32Element(int value) { throw new UnsupportedOperationException(); }
-    @Override public void writeInt64Element(long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeUInt64Element(long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSInt64Element(long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeFixed64Element(long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeSFixed64Element(long value) { throw new UnsupportedOperationException(); }
-    @Override public void writeStringElement(String value) { throw new UnsupportedOperationException(); }
-    @Override public void writeBytesElement(byte[] value) { throw new UnsupportedOperationException(); }
-    @Override public void writeNullElement() { throw new UnsupportedOperationException(); }
-    @Override public CharBuffer toOutput() { throw new UnsupportedOperationException(); }
-    @Override public void close() {}
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ProtobufSerializationException if the buffer is full
+     */
+    @Override
+    protected void writeAscii(char value) throws ProtobufSerializationException {
+        try {
+            buffer.put(value);
+        } catch (BufferOverflowException _) {
+            throw ProtobufSerializationException.outputFull(buffer.limit() - start);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ProtobufSerializationException if the buffer is full
+     */
+    @Override
+    protected void writeAscii(String value) throws ProtobufSerializationException {
+        writeUnicode(value, 0, value.length());
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ProtobufSerializationException if the buffer is full
+     */
+    @Override
+    protected void writeAscii(byte[] value, int offset, int length) throws ProtobufSerializationException {
+        if (length > buffer.remaining()) {
+            throw ProtobufSerializationException.outputFull(buffer.limit() - start);
+        }
+        for (var i = offset; i < offset + length; i++) {
+            buffer.put((char) value[i]);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @throws ProtobufSerializationException if the buffer is full
+     */
+    @Override
+    protected void writeUnicode(String value, int start, int end) throws ProtobufSerializationException {
+        try {
+            buffer.put(value, start, end);
+        } catch (BufferOverflowException _) {
+            throw ProtobufSerializationException.outputFull(buffer.limit() - this.start);
+        }
+    }
+
+    /**
+     * Returns a buffer that holds the text that was written.
+     *
+     * <p>The returned buffer shares the content of the buffer passed to the constructor: its
+     * position is the first character of the text, and its limit is after the last character
+     * of the text.
+     *
+     * @return a buffer that holds the text
+     */
+    @Override
+    public CharBuffer toOutput() {
+        return buffer.duplicate()
+                .limit(buffer.position())
+                .position(start);
+    }
+
+    /**
+     * Does nothing, as a buffer needs no closing.
+     */
+    @Override
+    public void close() {
+
+    }
 }

@@ -106,6 +106,9 @@ public abstract class DaedalusCustomBuilderGenerator extends DaedalusClassGenera
         var buildMethodBuilder = MethodSpec.methodBuilder(buildMethodName)
                 .addModifiers(Modifier.PUBLIC)
                 .returns(resultType);
+        for (var thrownType : builderElement.delegate().getThrownTypes()) {
+            buildMethodBuilder.addException(TypeName.get(thrownType));
+        }
 
         createBuildStatement(buildMethodBuilder, typeElement, builderElement, invocationArgs);
         classBuilder.addMethod(buildMethodBuilder.build());

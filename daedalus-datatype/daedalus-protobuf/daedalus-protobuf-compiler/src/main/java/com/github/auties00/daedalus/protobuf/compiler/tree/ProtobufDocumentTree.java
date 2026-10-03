@@ -1,7 +1,13 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
 import com.google.protobuf.DescriptorProtos;
-import com.google.protobuf.FileDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosFileDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosFileOptionsBuilder;
+import com.google.protobuf.DescriptorProtosSourceCodeInfoBuilder;
+import com.google.protobuf.SourceCodeInfoDescriptorProtosLocationBuilder;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufBoolExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufEnumConstantExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufLiteralExpression;
 import com.github.auties00.daedalus.protobuf.model.*;
 
 import java.nio.file.Path;
@@ -72,9 +78,36 @@ import java.util.stream.Stream;
  * @see ProtobufImportStatement
  */
 public final class ProtobufDocumentTree
-        implements ProtobufTree, ProtobufTree.WithBody<ProtobufDocumentChild>, ProtobufTree.WithDescriptor {
+        implements ProtobufTree, ProtobufTree.WithBody<ProtobufDocumentChild>, ProtobufTree.WithComments, ProtobufTree.WithDescriptor {
+    private static final int FILE_NAME = 1;
+    private static final int FILE_PACKAGE = 2;
+    private static final int FILE_DEPENDENCY = 3;
+    private static final int FILE_MESSAGE_TYPE = 4;
+    private static final int FILE_ENUM_TYPE = 5;
+    private static final int FILE_SERVICE = 6;
+    private static final int FILE_EXTENSION = 7;
+    private static final int FILE_OPTIONS = 8;
+    private static final int FILE_SYNTAX = 12;
+    private static final int FILE_OPTION_DEPENDENCY = 15;
+    private static final int MESSAGE_NAME = 1;
+    private static final int MESSAGE_FIELD = 2;
+    private static final int MESSAGE_NESTED_TYPE = 3;
+    private static final int MESSAGE_ENUM_TYPE = 4;
+    private static final int MESSAGE_EXTENSION = 6;
+    private static final int MESSAGE_ONEOF_DECL = 8;
+    private static final int FIELD_NAME = 1;
+    private static final int ENUM_NAME = 1;
+    private static final int ENUM_VALUE = 2;
+    private static final int ENUM_VALUE_NAME = 1;
+    private static final int SERVICE_NAME = 1;
+    private static final int SERVICE_METHOD = 2;
+    private static final int METHOD_NAME = 1;
+    private static final int ONEOF_NAME = 1;
+    
     private final Path location;
     private final List<ProtobufDocumentChild> children;
+    private final List<ProtobufCommentStatement> comments;
+    private ProtobufTreeSourceRange range;
 
     /**
      * Constructs a new document tree for a file at the specified location.
@@ -84,6 +117,8 @@ public final class ProtobufDocumentTree
     public ProtobufDocumentTree(Path location) {
         this.location = location;
         this.children = new ArrayList<>();
+        this.comments = new ArrayList<>();
+        this.range = ProtobufTreeSourceRange.UNKNOWN;
     }
 
     /**
@@ -97,16 +132,50 @@ public final class ProtobufDocumentTree
     }
 
     /**
-     * Returns the line number in the source file.
-     * <p>
-     * Documents are always at line 0 as they represent the entire file.
-     * </p>
+     * Returns the source range covering the entire document.
      *
-     * @return always returns 0
+     * <p>The range starts at line 1, column 1 and ends at the position immediately after the last
+     * character of the file. Synthetic documents that have not been populated by a parser return
+     * {@link ProtobufTreeSourceRange#UNKNOWN}.
+     *
+     * @return the source range covering this document
      */
     @Override
-    public int line() {
-        return 0;
+    public ProtobufTreeSourceRange range() {
+        return range;
+    }
+
+    /**
+     * Updates the source range covering this document.
+     *
+     * <p>The parser uses this method to fill in the range once parsing reaches end-of-input.
+     *
+     * @param range the source range to set
+     */
+    public void setRange(ProtobufTreeSourceRange range) {
+        this.range = range;
+    }
+
+    /**
+     * Returns the file-level comments attached to this document, in source order.
+     *
+     * @return an unmodifiable view of the attached comments
+     */
+    @Override
+    public SequencedCollection<ProtobufCommentStatement> comments() {
+        return Collections.unmodifiableList(comments);
+    }
+
+    /**
+     * Appends a comment to this document.
+     *
+     * <p>The parser uses this method to attach detached and leading comments captured by the
+     * lexer to the document they belong to.
+     *
+     * @param comment the comment to append
+     */
+    public void addComment(ProtobufCommentStatement comment) {
+        comments.add(comment);
     }
 
     /**
@@ -130,6 +199,17 @@ public final class ProtobufDocumentTree
      */
     public Optional<Path> location() {
         return Optional.ofNullable(location);
+    }
+
+    /**
+     * Returns this document. Implements {@link ProtobufTree.WithBody#document()}; the document
+     * itself is its own enclosing document.
+     *
+     * @return this
+     */
+    @Override
+    public ProtobufDocumentTree document() {
+        return this;
     }
 
     /**
@@ -184,12 +264,12 @@ public final class ProtobufDocumentTree
     /**
      * Returns the Protocol Buffer version declared in this document.
      *
-     * @return the declared version, or {@link ProtobufVersion#defaultVersion()} if none is declared
+     * @return the declared version, or {@link ProtobufVersion#DEFAULT_VERSION} if none is declared
      */
     public ProtobufVersion version() {
         return syntaxVersion()
                 .or(this::editionVersion)
-                .orElse(ProtobufVersion.defaultVersion());
+                .orElse(ProtobufVersion.DEFAULT_VERSION);
     }
 
     /**
@@ -304,17 +384,53 @@ public final class ProtobufDocumentTree
                 .flatMap(ext -> ext.getDirectChildrenByType(ProtobufFieldStatement.class))
                 .map(ProtobufFieldStatement::toDescriptor)
                 .toList();
-        var deps = getDirectChildrenByType(ProtobufImportStatement.class)
-                .map(ProtobufImportStatement::location)
-                .toList();
-        var builder = new FileDescriptorProtoBuilder()
+        var imports = getDirectChildrenByType(ProtobufImportStatement.class).toList();
+        List<String> regularDeps = new ArrayList<>();
+        List<String> optionDeps = new ArrayList<>();
+        List<Integer> publicDeps = new ArrayList<>();
+        List<Integer> weakDeps = new ArrayList<>();
+        for (var importStatement : imports) {
+            var importLocation = importStatement.location();
+            var modifier = importStatement.modifier();
+            if (modifier == ProtobufImportStatement.Modifier.OPTION) {
+                // Per descriptor.proto, "option" imports are excluded from the regular dependency
+                // list and live in option_dependency instead.
+                optionDeps.add(importLocation);
+                continue;
+            }
+            var regularIndex = regularDeps.size();
+            regularDeps.add(importLocation);
+            switch (modifier) {
+                case PUBLIC -> publicDeps.add(regularIndex);
+                case WEAK -> weakDeps.add(regularIndex);
+                case NONE -> {}
+                case OPTION -> throw new AssertionError("OPTION modifier handled above");
+            }
+        }
+        var builder = new DescriptorProtosFileDescriptorProtoBuilder()
                 .messageType(messages)
                 .enumType(enums)
                 .service(services)
                 .extension(extensions)
-                .dependency(deps);
-        location().ifPresent(path -> builder.name(path.getFileName().toString()));
+                .dependency(regularDeps)
+                .publicDependency(publicDeps)
+                .weakDependency(weakDeps)
+                .optionDependency(optionDeps);
+        var qualifiedName = qualifiedPath();
+        if (!qualifiedName.isEmpty()) {
+            builder.name(qualifiedName);
+        } else {
+            location().ifPresent(path -> builder.name(path.getFileName().toString()));
+        }
         packageName().ifPresent(builder::package_);
+        var fileOptions = buildFileOptions();
+        if (fileOptions != null) {
+            builder.options(fileOptions);
+        }
+        var sourceCodeInfo = buildSourceCodeInfo();
+        if (sourceCodeInfo != null) {
+            builder.sourceCodeInfo(sourceCodeInfo);
+        }
         var version = version();
         if (version.isEdition()) {
             builder.syntax("editions");
@@ -327,6 +443,342 @@ public final class ProtobufDocumentTree
             builder.syntax(version.versionCode());
         }
         return builder.build();
+    }
+
+    private DescriptorProtosFileOptionsBuilder buildFileOptions() {
+        // Note: FileOptions.features (field 50) and FileOptions.uninterpreted_option (field 999)
+        // are not derivable from the AST option statements alone and are intentionally left unset.
+        var optionStatements = getDirectChildrenByType(ProtobufOptionStatement.class).toList();
+        if (optionStatements.isEmpty()) {
+            return null;
+        }
+        var builder = new DescriptorProtosFileOptionsBuilder();
+        for (var option : optionStatements) {
+            if (!option.hasName() || !option.hasValue() || option.name().segments().size() != 1) {
+                continue;
+            }
+            var segment = option.name().segments().getFirst();
+            if (segment.isExtension()) {
+                continue;
+            }
+            var value = option.value();
+            switch (segment.name()) {
+                case "java_package" -> {
+                    if (value instanceof ProtobufLiteralExpression(var javaPackage)) {
+                        builder.javaPackage(javaPackage);
+                    }
+                }
+                case "java_outer_classname" -> {
+                    if (value instanceof ProtobufLiteralExpression(var javaOuterClassname)) {
+                        builder.javaOuterClassname(javaOuterClassname);
+                    }
+                }
+                case "java_multiple_files" -> {
+                    if (value instanceof ProtobufBoolExpression(var javaMultipleFiles)) {
+                        builder.javaMultipleFiles(javaMultipleFiles);
+                    }
+                }
+                case "java_generate_equals_and_hash" -> {
+                    if (value instanceof ProtobufBoolExpression(var javaGenerateEqualsAndHash)) {
+                        builder.javaGenerateEqualsAndHash(javaGenerateEqualsAndHash);
+                    }
+                }
+                case "java_string_check_utf8" -> {
+                    if (value instanceof ProtobufBoolExpression(var javaStringCheckUtf8)) {
+                        builder.javaStringCheckUtf8(javaStringCheckUtf8);
+                    }
+                }
+                case "optimize_for" -> {
+                    if (value instanceof ProtobufEnumConstantExpression(var optimizeFor)) {
+                        try {
+                            builder.optimizeFor(DescriptorProtos.FileOptions.OptimizeMode.valueOf(optimizeFor));
+                        } catch (IllegalArgumentException ignored) {
+                            // Unknown optimize mode literal; skip.
+                        }
+                    }
+                }
+                case "go_package" -> {
+                    if (value instanceof ProtobufLiteralExpression(var goPackage)) {
+                        builder.goPackage(goPackage);
+                    }
+                }
+                case "cc_generic_services" -> {
+                    if (value instanceof ProtobufBoolExpression(var ccGenericServices)) {
+                        builder.ccGenericServices(ccGenericServices);
+                    }
+                }
+                case "java_generic_services" -> {
+                    if (value instanceof ProtobufBoolExpression(var javaGenericServices)) {
+                        builder.javaGenericServices(javaGenericServices);
+                    }
+                }
+                case "py_generic_services" -> {
+                    if (value instanceof ProtobufBoolExpression(var pyGenericServices)) {
+                        builder.pyGenericServices(pyGenericServices);
+                    }
+                }
+                case "deprecated" -> {
+                    if (value instanceof ProtobufBoolExpression(var deprecated)) {
+                        builder.deprecated(deprecated);
+                    }
+                }
+                case "cc_enable_arenas" -> {
+                    if (value instanceof ProtobufBoolExpression(var ccEnableArenas)) {
+                        builder.ccEnableArenas(ccEnableArenas);
+                    }
+                }
+                case "objc_class_prefix" -> {
+                    if (value instanceof ProtobufLiteralExpression(var objcClassPrefix)) {
+                        builder.objcClassPrefix(objcClassPrefix);
+                    }
+                }
+                case "csharp_namespace" -> {
+                    if (value instanceof ProtobufLiteralExpression(var csharpNamespace)) {
+                        builder.csharpNamespace(csharpNamespace);
+                    }
+                }
+                case "swift_prefix" -> {
+                    if (value instanceof ProtobufLiteralExpression(var swiftPrefix)) {
+                        builder.swiftPrefix(swiftPrefix);
+                    }
+                }
+                case "php_class_prefix" -> {
+                    if (value instanceof ProtobufLiteralExpression(var phpClassPrefix)) {
+                        builder.phpClassPrefix(phpClassPrefix);
+                    }
+                }
+                case "php_namespace" -> {
+                    if (value instanceof ProtobufLiteralExpression(var phpNamespace)) {
+                        builder.phpNamespace(phpNamespace);
+                    }
+                }
+                case "php_metadata_namespace" -> {
+                    if (value instanceof ProtobufLiteralExpression(var phpMetadataNamespace)) {
+                        builder.phpMetadataNamespace(phpMetadataNamespace);
+                    }
+                }
+                case "ruby_package" -> {
+                    if (value instanceof ProtobufLiteralExpression(var rubyPackage)) {
+                        builder.rubyPackage(rubyPackage);
+                    }
+                }
+                default -> {
+                    // Unknown or unsupported file option
+                }
+            }
+        }
+        var features = ProtobufTreeFeatures.featureSet(this);
+        if (features != null) {
+            builder.features(features);
+        }
+        var unknownExtensions = ProtobufTreeFeatures.collectUnknownExtensions(this);
+        if (!unknownExtensions.isEmpty()) {
+            builder.unknownFields(unknownExtensions);
+        }
+        return builder;
+    }
+
+    private DescriptorProtosSourceCodeInfoBuilder buildSourceCodeInfo() {
+        var locations = new ArrayList<DescriptorProtos.SourceCodeInfo.Location>();
+
+        // Top-level location with an empty path — represents the file as a whole and carries any
+        // document-level header comments captured by the lexer.
+        if (range != ProtobufTreeSourceRange.UNKNOWN || !comments.isEmpty()) {
+            locations.add(makeLocation(List.of(), this));
+        }
+
+        // File-level singletons
+        getDirectChildByType(ProtobufPackageStatement.class)
+                .ifPresent(stmt -> locations.add(makeLocation(List.of(FILE_PACKAGE), stmt)));
+        var syntax = (ProtobufTree.WithComments) getDirectChildByType(ProtobufSyntaxStatement.class).orElse(null);
+        if (syntax == null) {
+            syntax = getDirectChildByType(ProtobufEditionStatement.class).orElse(null);
+        }
+        if (syntax != null) {
+            locations.add(makeLocation(List.of(FILE_SYNTAX), syntax));
+        }
+
+        var imports = getDirectChildrenByType(ProtobufImportStatement.class).toList();
+        var regularImportIndex = 0;
+        var optionImportIndex = 0;
+        for (var importStatement : imports) {
+            if (importStatement.modifier() == ProtobufImportStatement.Modifier.OPTION) {
+                locations.add(makeLocation(List.of(FILE_OPTION_DEPENDENCY, optionImportIndex), importStatement));
+                optionImportIndex++;
+            } else {
+                locations.add(makeLocation(List.of(FILE_DEPENDENCY, regularImportIndex), importStatement));
+                regularImportIndex++;
+            }
+        }
+
+        var fileOptionStatements = getDirectChildrenByType(ProtobufOptionStatement.class).toList();
+        if (!fileOptionStatements.isEmpty()) {
+            locations.add(makeLocation(List.of(FILE_OPTIONS), fileOptionStatements.getFirst()));
+        }
+
+        var messages = getDirectChildrenByType(ProtobufMessageStatement.class).toList();
+        for (var i = 0; i < messages.size(); i++) {
+            collectMessageLocations(locations, messages.get(i), List.of(FILE_MESSAGE_TYPE, i));
+        }
+
+        var enums = getDirectChildrenByType(ProtobufEnumStatement.class).toList();
+        for (var i = 0; i < enums.size(); i++) {
+            collectEnumLocations(locations, enums.get(i), List.of(FILE_ENUM_TYPE, i));
+        }
+
+        var services = getDirectChildrenByType(ProtobufServiceStatement.class).toList();
+        for (var i = 0; i < services.size(); i++) {
+            collectServiceLocations(locations, services.get(i), List.of(FILE_SERVICE, i));
+        }
+
+        var extendStatements = getDirectChildrenByType(ProtobufExtendStatement.class).toList();
+        var extensionIndex = 0;
+        for (var extendStatement : extendStatements) {
+            for (var field : (Iterable<ProtobufFieldStatement>) extendStatement.getDirectChildrenByType(ProtobufFieldStatement.class)::iterator) {
+                collectFieldLocations(locations, field, List.of(FILE_EXTENSION, extensionIndex));
+                extensionIndex++;
+            }
+        }
+
+        if (locations.isEmpty()) {
+            return null;
+        }
+        return new DescriptorProtosSourceCodeInfoBuilder()
+                .location(locations);
+    }
+
+    private static void collectMessageLocations(
+            List<DescriptorProtos.SourceCodeInfo.Location> locations,
+            ProtobufMessageStatement message,
+            List<Integer> path
+    ) {
+        locations.add(makeLocation(path, message));
+        locations.add(makeLocation(append(path, MESSAGE_NAME), message));
+
+        var fields = message.getDirectChildrenByType(ProtobufFieldStatement.class).toList();
+        for (var i = 0; i < fields.size(); i++) {
+            collectFieldLocations(locations, fields.get(i), append(path, MESSAGE_FIELD, i));
+        }
+
+        var nested = message.getDirectChildrenByType(ProtobufMessageStatement.class).toList();
+        for (var i = 0; i < nested.size(); i++) {
+            collectMessageLocations(locations, nested.get(i), append(path, MESSAGE_NESTED_TYPE, i));
+        }
+
+        var nestedEnums = message.getDirectChildrenByType(ProtobufEnumStatement.class).toList();
+        for (var i = 0; i < nestedEnums.size(); i++) {
+            collectEnumLocations(locations, nestedEnums.get(i), append(path, MESSAGE_ENUM_TYPE, i));
+        }
+
+        var oneofs = message.getDirectChildrenByType(ProtobufOneofStatement.class).toList();
+        for (var i = 0; i < oneofs.size(); i++) {
+            collectOneofLocations(locations, oneofs.get(i), append(path, MESSAGE_ONEOF_DECL, i));
+        }
+
+        var extendStatements = message.getDirectChildrenByType(ProtobufExtendStatement.class).toList();
+        var extensionIndex = 0;
+        for (var extendStatement : extendStatements) {
+            for (var field : (Iterable<ProtobufFieldStatement>) extendStatement.getDirectChildrenByType(ProtobufFieldStatement.class)::iterator) {
+                collectFieldLocations(locations, field, append(path, MESSAGE_EXTENSION, extensionIndex));
+                extensionIndex++;
+            }
+        }
+    }
+
+    private static void collectFieldLocations(
+            List<DescriptorProtos.SourceCodeInfo.Location> locations,
+            ProtobufFieldStatement field,
+            List<Integer> path
+    ) {
+        locations.add(makeLocation(path, field));
+        locations.add(makeLocation(append(path, FIELD_NAME), field));
+    }
+
+    private static void collectEnumLocations(
+            List<DescriptorProtos.SourceCodeInfo.Location> locations,
+            ProtobufEnumStatement enumStatement,
+            List<Integer> path
+    ) {
+        locations.add(makeLocation(path, enumStatement));
+        locations.add(makeLocation(append(path, ENUM_NAME), enumStatement));
+
+        var values = enumStatement.getDirectChildrenByType(ProtobufEnumConstantStatement.class).toList();
+        for (var i = 0; i < values.size(); i++) {
+            var constant = values.get(i);
+            var constantPath = append(path, ENUM_VALUE, i);
+            locations.add(makeLocation(constantPath, constant));
+            locations.add(makeLocation(append(constantPath, ENUM_VALUE_NAME), constant));
+        }
+    }
+
+    private static void collectServiceLocations(
+            List<DescriptorProtos.SourceCodeInfo.Location> locations,
+            ProtobufServiceStatement service,
+            List<Integer> path
+    ) {
+        locations.add(makeLocation(path, service));
+        locations.add(makeLocation(append(path, SERVICE_NAME), service));
+
+        var methods = service.getDirectChildrenByType(ProtobufMethodStatement.class).toList();
+        for (var i = 0; i < methods.size(); i++) {
+            var method = methods.get(i);
+            var methodPath = append(path, SERVICE_METHOD, i);
+            locations.add(makeLocation(methodPath, method));
+            locations.add(makeLocation(append(methodPath, METHOD_NAME), method));
+        }
+    }
+
+    private static void collectOneofLocations(
+            List<DescriptorProtos.SourceCodeInfo.Location> locations,
+            ProtobufOneofStatement oneof,
+            List<Integer> path
+    ) {
+        locations.add(makeLocation(path, oneof));
+        locations.add(makeLocation(append(path, ONEOF_NAME), oneof));
+    }
+
+    private static DescriptorProtos.SourceCodeInfo.Location makeLocation(List<Integer> path, ProtobufTree.WithComments node) {
+        var range = node.range();
+        // descriptor.proto's SourceCodeInfo.span uses 0-indexed line and column values.
+        var startLine = Math.max(range.start().line() - 1, 0);
+        var startCol = Math.max(range.start().column() - 1, 0);
+        var endLine = Math.max(range.end().line() - 1, startLine);
+        var endCol = Math.max(range.end().column() - 1, startCol);
+        var span = (startLine == endLine)
+                ? List.of(startLine, startCol, endCol)
+                : List.of(startLine, startCol, endLine, endCol);
+        var builder = new SourceCodeInfoDescriptorProtosLocationBuilder()
+                .path(new ArrayList<>(path))
+                .span(span);
+        String leading = null;
+        String trailing = null;
+        var leadingDetached = new ArrayList<String>();
+        for (var comment : node.comments()) {
+            switch (comment) {
+                case ProtobufCommentStatement.Leading leadingComment -> leading = leadingComment.text();
+                case ProtobufCommentStatement.Trailing trailingComment -> trailing = trailingComment.text();
+                case ProtobufCommentStatement.LeadingDetached detachedComment -> leadingDetached.add(detachedComment.text());
+            }
+        }
+        if (leading != null) {
+            builder.leadingComments(leading);
+        }
+        if (trailing != null) {
+            builder.trailingComments(trailing);
+        }
+        if (!leadingDetached.isEmpty()) {
+            builder.leadingDetachedComments(leadingDetached);
+        }
+        return builder.build();
+    }
+
+    private static List<Integer> append(List<Integer> base, int... values) {
+        var result = new ArrayList<Integer>(base.size() + values.length);
+        result.addAll(base);
+        for (var value : values) {
+            result.add(value);
+        }
+        return result;
     }
 
     @Override
@@ -362,18 +814,18 @@ public final class ProtobufDocumentTree
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getDirectChildByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getDirectChildByType(Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getDirectChildrenByType(children, clazz)
                 .findFirst();
     }
 
     @Override
-    public <V extends ProtobufTree> Stream<? extends V> getDirectChildrenByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Stream<V> getDirectChildrenByType(Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getDirectChildrenByType(children, clazz);
     }
 
     @Override
-    public Optional<? extends WithName> getDirectChildByName(String name) {
+    public Optional<WithName> getDirectChildByName(String name) {
         return ProtobufStatementWithBodyImpl.getDirectChildByName(children, name);
     }
 
@@ -387,12 +839,12 @@ public final class ProtobufDocumentTree
      * @return always returns empty
      */
     @Override
-    public Optional<? extends WithIndex> getDirectChildByIndex(long index) {
+    public Optional<WithIndex> getDirectChildByIndex(long index) {
         return Optional.empty(); // No direct child with an index exists in a document
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getDirectChildByNameAndType(String name, Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getDirectChildByNameAndType(String name, Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getDirectChildByNameAndType(children, name, clazz);
     }
 
@@ -408,29 +860,29 @@ public final class ProtobufDocumentTree
      * @return always returns empty
      */
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getDirectChildByIndexAndType(long index, Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getDirectChildByIndexAndType(long index, Class<V> clazz) {
         return Optional.empty(); // No direct child with an index exists in a document
     }
 
     @Override
-    public <V extends ProtobufTree> Optional<? extends V> getAnyChildByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Optional<V> getAnyChildByType(Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getAnyChildrenByType(children, clazz)
                 .findFirst();
     }
 
     @Override
-    public <V extends WithName> Optional<? extends V> getAnyChildByNameAndType(String name, Class<V> clazz) {
+    public <V extends WithName> Optional<V> getAnyChildByNameAndType(String name, Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getAnyChildrenByNameAndType(children, name, clazz)
                 .findFirst();
     }
 
     @Override
-    public <V extends ProtobufTree> Stream<? extends V> getAnyChildrenByType(Class<V> clazz) {
+    public <V extends ProtobufTree> Stream<V> getAnyChildrenByType(Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getAnyChildrenByType(children, clazz);
     }
 
     @Override
-    public <V extends WithName> Stream<? extends V> getAnyChildrenByNameAndType(String name, Class<V> clazz) {
+    public <V extends WithName> Stream<V> getAnyChildrenByNameAndType(String name, Class<V> clazz) {
         return ProtobufStatementWithBodyImpl.getAnyChildrenByNameAndType(children, name, clazz);
     }
 }

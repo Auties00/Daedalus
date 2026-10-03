@@ -1,5 +1,6 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
 /**
@@ -103,7 +104,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  *
  * <p>Protobuf type {@code com.google.protobuf.Mixin}
  */
-@ProtobufMessage
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
 public final class Mixin {
 
     /**
@@ -123,15 +124,37 @@ public final class Mixin {
     @ProtobufMessage.StringField(index = 2)
     String root;
 
+    /**
+     * Constructs a new {@code Mixin} with the specified field values.
+     *
+     * @param name the value of the {@code name} field
+     * @param root the value of the {@code root} field
+     */
     Mixin(String name, String root) {
         this.name = name;
         this.root = root;
     }
 
+    /**
+     * Returns the value of the {@code name} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code name} field
+     */
     public String name() {
         return name;
     }
 
+    /**
+     * Returns the value of the {@code root} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code root} field
+     */
     public String root() {
         return root;
     }

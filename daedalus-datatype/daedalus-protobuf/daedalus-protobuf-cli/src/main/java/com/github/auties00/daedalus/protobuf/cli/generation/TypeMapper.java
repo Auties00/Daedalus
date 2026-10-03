@@ -53,7 +53,7 @@ public final class TypeMapper {
      * @param typeRef the proto type reference
      * @return the ProtobufType enum constant name (e.g., {@code "STRING"}, {@code "INT32"})
      */
-    public String toProtobufTypeName(ProtobufTypeReference typeRef) {
+    public String toProtobufTypeName(ProtobufValueTypeReference typeRef) {
         return typeRef.protobufType().name();
     }
 
@@ -64,7 +64,7 @@ public final class TypeMapper {
      * @return the ProtobufType enum constant name for the key type
      */
     public String toMapKeyTypeName(ProtobufMapTypeReference map) {
-        return map.keyType().protobufType().name();
+        return toMapEntryTypeName(map.keyType());
     }
 
     /**
@@ -74,7 +74,22 @@ public final class TypeMapper {
      * @return the ProtobufType enum constant name for the value type
      */
     public String toMapValueTypeName(ProtobufMapTypeReference map) {
-        return map.valueType().protobufType().name();
+        return toMapEntryTypeName(map.valueType());
+    }
+
+    /**
+     * Returns the name of the {@link ProtobufType} constant of the key or the value of a map.
+     *
+     * <p>A reference that is not resolved yet is assumed to name a message, as scalar types
+     * and enums declared in the same file are always resolved.
+     *
+     * @param typeRef the type of the key or of the value
+     * @return the name of the constant
+     */
+    private String toMapEntryTypeName(ProtobufTypeReference typeRef) {
+        return typeRef instanceof ProtobufValueTypeReference valueType
+                ? valueType.protobufType().name()
+                : ProtobufType.MESSAGE.name();
     }
 
     private String primitiveToJava(ProtobufType type, boolean boxed) {

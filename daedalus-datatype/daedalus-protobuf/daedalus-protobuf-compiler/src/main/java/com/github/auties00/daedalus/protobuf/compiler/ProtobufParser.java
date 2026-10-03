@@ -1,20 +1,25 @@
 package com.github.auties00.daedalus.protobuf.compiler;
 
+import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufDiagnosticMessage;
+import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
+import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufSemanticErrors;
+import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufSyntaxErrors;
 import com.github.auties00.daedalus.protobuf.model.ProtobufType;
 import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
-import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
-import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufSyntaxException;
 import com.github.auties00.daedalus.protobuf.compiler.expression.*;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufFloatingPoint;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufInteger;
 import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufIntegerRange;
 import com.github.auties00.daedalus.protobuf.compiler.token.*;
 import com.github.auties00.daedalus.protobuf.compiler.tree.*;
+import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufTreeSourcePosition;
+import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufTreeSourceRange;
 import com.github.auties00.daedalus.protobuf.compiler.typeReference.*;
 
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -44,6 +49,14 @@ import java.util.*;
  * The parser provides both single-file and directory parsing capabilities. After parsing,
  * the {@link ProtobufAnalyzer} performs semantic analysis including type resolution,
  * import attribution, and validation.
+ * </p>
+ * <p>
+ * The parser does not stop at the first problem it finds. When a declaration is malformed, the
+ * problem is recorded and the parser skips ahead to the next statement boundary, so that a single
+ * run reports every independent problem in the input. Files that contain lexical or syntax errors
+ * are not semantically analyzed, and neither are the files that import them, to avoid reporting
+ * problems that are only a consequence of the broken declarations. If any problem is found, the
+ * entry points throw a {@link ProtobufParserException} carrying every diagnostic.
  * </p>
  * <h2>Usage Example:</h2>
  * <pre>{@code
@@ -79,9 +92,79 @@ public final class ProtobufParser {
     private static final String MAX = "max";
     private static final String GROUP = "group";
     private static final String MAP = "map";
+    private static final String RETURNS = "returns";
 
-    private ProtobufParser() {
-        throw new UnsupportedOperationException();
+    /**
+     * The keywords that start a statement, at which the parser resumes after an error.
+     */
+    private static final Set<String> STATEMENT_KEYWORDS = Set.of(
+            "syntax", "edition", "package", "import", "option", "message", "enum", "service",
+            "extend", "extensions", "reserved", "oneof", "rpc", "optional", "required", "repeated"
+    );
+
+    /**
+     * The file being parsed, or {@code null} if the source was not read from a file.
+     */
+    private final Path location;
+
+    /**
+     * The lexer that produces the tokens of the file being parsed.
+     */
+    private final ProtobufLexer lexer;
+
+    /**
+     * The collector that receives the diagnostics reported while parsing.
+     */
+    private final ProtobufDiagnosticator diagnostics;
+
+    /**
+     * The document being built.
+     */
+    private final ProtobufDocumentTree document;
+
+    /**
+     * The text of the most recently consumed token, or {@code null} if it was a string literal, a
+     * number or a boolean.
+     */
+    private String lastToken;
+
+    /**
+     * The number of tokens consumed so far, used to guarantee that error recovery always makes
+     * progress.
+     */
+    private int tokenCount;
+
+    /**
+     * The end position of the token consumed before the most recently consumed one.
+     */
+    private ProtobufTreeSourcePosition previousTokenEnd;
+
+    /**
+     * The end position of the most recently consumed token.
+     */
+    private ProtobufTreeSourcePosition lastTokenEnd;
+
+    /**
+     * Whether the next call to {@link #synchronize(boolean, int)} should resume parsing at the
+     * offending token instead of skipping it, because the malformed statement was only missing
+     * its terminator.
+     */
+    private boolean resumeAtOffendingToken;
+
+    /**
+     * Constructs a new parser for a single file.
+     *
+     * @param location the file being parsed, or {@code null} if the source was not read from a file
+     * @param lexer the lexer that produces the tokens of the file
+     * @param diagnostics the collector that receives the diagnostics reported while parsing
+     */
+    private ProtobufParser(Path location, ProtobufLexer lexer, ProtobufDiagnosticator diagnostics) {
+        this.location = location;
+        this.lexer = lexer;
+        this.diagnostics = diagnostics;
+        this.document = new ProtobufDocumentTree(location);
+        this.previousTokenEnd = ProtobufTreeSourcePosition.UNKNOWN;
+        this.lastTokenEnd = ProtobufTreeSourcePosition.UNKNOWN;
     }
 
     /**
@@ -95,26 +178,42 @@ public final class ProtobufParser {
      * @param path the file or directory path to parse, must not be null
      * @return an unmodifiable map from file names to their parsed document trees
      * @throws IOException if an I/O error occurs while reading the files
-     * @throws ProtobufParserException if a parsing or semantic error is encountered
+     * @throws ProtobufParserException if any lexical, syntax or semantic error is found in any file
      */
-    public static Map<String, ProtobufDocumentTree> parse(Path path) throws IOException {
+    public static Map<String, ProtobufDocumentTree> parse(Path path) throws IOException, ProtobufParserException {
         Objects.requireNonNull(path, "Path must not be null");
         if (!Files.isDirectory(path)) {
             return Map.of(path.getFileName().toString(), parseOnly(path));
         }
 
-        try(var walker = Files.walk(path)) {
-            var files = walker.filter(Files::isRegularFile).toList();
-            Map<String, ProtobufDocumentTree> results = HashMap.newHashMap(files.size());
-            for(var file : files) {
-                var parsed = doParse(file, Files.newBufferedReader(file));
-                if(results.put(file.getFileName().toString(), parsed) != null) {
-                    throw new ProtobufParserException("Duplicate file: " + file);
-                }
-            }
-            ProtobufAnalyzer.attribute(results.values());
-            return Collections.unmodifiableMap(results);
+        List<Path> files;
+        try (var walker = Files.walk(path)) {
+            files = walker.filter(Files::isRegularFile).toList();
         }
+
+        var diagnostics = new ProtobufDiagnosticator();
+        Map<String, ProtobufDocumentTree> results = HashMap.newHashMap(files.size());
+        Set<ProtobufDocumentTree> broken = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (var file : files) {
+            var mark = diagnostics.mark();
+            ProtobufDocumentTree parsed;
+            try (var reader = Files.newBufferedReader(file)) {
+                parsed = doParse(file, reader, diagnostics);
+            }
+            if (diagnostics.hasSyntaxErrorsSince(mark)) {
+                broken.add(parsed);
+            }
+            var previous = results.putIfAbsent(file.getFileName().toString(), parsed);
+            if (previous != null) {
+                var previousFile = previous.location()
+                        .map(Path::toString)
+                        .orElse("");
+                diagnostics.report(file, ProtobufTreeSourceRange.UNKNOWN, ProtobufSemanticErrors.duplicateFile(file.toString(), previousFile));
+            }
+        }
+        ProtobufAnalyzer.attribute(withoutBrokenDocuments(results.values(), broken), diagnostics);
+        diagnostics.throwIfErrors();
+        return Collections.unmodifiableMap(results);
     }
 
     /**
@@ -126,9 +225,9 @@ public final class ProtobufParser {
      *
      * @param input the Protocol Buffer definition string to parse, must not be null
      * @return the parsed and analyzed document tree
-     * @throws ProtobufParserException if a parsing or semantic error is encountered
+     * @throws ProtobufParserException if any lexical, syntax or semantic error is found
      */
-    public static ProtobufDocumentTree parseOnly(String input) {
+    public static ProtobufDocumentTree parseOnly(String input) throws ProtobufParserException {
         return parseOnly(input, (Collection<ProtobufDocumentTree>) null);
     }
 
@@ -143,9 +242,9 @@ public final class ProtobufParser {
      * @param input the Protocol Buffer definition string to parse, must not be null
      * @param documentTrees additional context documents for type resolution
      * @return the parsed and analyzed document tree
-     * @throws ProtobufParserException if a parsing or semantic error is encountered
+     * @throws ProtobufParserException if any lexical, syntax or semantic error is found
      */
-    public static ProtobufDocumentTree parseOnly(String input, ProtobufDocumentTree... documentTrees) {
+    public static ProtobufDocumentTree parseOnly(String input, ProtobufDocumentTree... documentTrees) throws ProtobufParserException {
         return parseOnly(input, Arrays.asList(documentTrees));
     }
 
@@ -155,20 +254,14 @@ public final class ProtobufParser {
      * @param input the Protocol Buffer definition string to parse, must not be null
      * @param documents additional context documents for type resolution, may be null
      * @return the parsed and analyzed document tree
-     * @throws ProtobufParserException if a parsing or semantic error is encountered
+     * @throws ProtobufParserException if any lexical, syntax or semantic error is found
      */
-    public static ProtobufDocumentTree parseOnly(String input, Collection<? extends ProtobufDocumentTree> documents) {
+    public static ProtobufDocumentTree parseOnly(String input, Collection<? extends ProtobufDocumentTree> documents) throws ProtobufParserException {
         try {
-            var results = new ArrayList<ProtobufDocumentTree>();
-            if(documents != null) {
-                results.addAll(documents);
-            }
-            var result = doParse(null, new StringReader(input));
-            results.add(result);
-            ProtobufAnalyzer.attribute(results);
-            return result;
+            return parseAndAttribute(null, new StringReader(input), documents);
         } catch (IOException exception) {
-            throw new ProtobufParserException("Unexpected end of input");
+            // A StringReader never fails
+            throw new UncheckedIOException(exception);
         }
     }
 
@@ -181,9 +274,9 @@ public final class ProtobufParser {
      * @param input the file path to parse, must not be null
      * @return the parsed and analyzed document tree
      * @throws IOException if an I/O error occurs while reading the files
-     * @throws ProtobufParserException if a parsing or semantic error is encountered
+     * @throws ProtobufParserException if any lexical, syntax or semantic error is found
      */
-    public static ProtobufDocumentTree parseOnly(Path input) throws IOException {
+    public static ProtobufDocumentTree parseOnly(Path input) throws IOException, ProtobufParserException {
         return parseOnly(input, (Collection<ProtobufDocumentTree>) null);
     }
 
@@ -194,9 +287,9 @@ public final class ProtobufParser {
      * @param documentTrees additional context documents for type resolution
      * @return the parsed and analyzed document tree
      * @throws IOException if an I/O error occurs while reading the files
-     * @throws ProtobufParserException if a parsing or semantic error is encountered
+     * @throws ProtobufParserException if any lexical, syntax or semantic error is found
      */
-    public static ProtobufDocumentTree parseOnly(Path input, ProtobufDocumentTree... documentTrees) throws IOException {
+    public static ProtobufDocumentTree parseOnly(Path input, ProtobufDocumentTree... documentTrees) throws IOException, ProtobufParserException {
         return parseOnly(input, Arrays.asList(documentTrees));
     }
 
@@ -207,181 +300,551 @@ public final class ProtobufParser {
      * @param documents additional context documents for type resolution, may be null
      * @return the parsed and analyzed document tree
      * @throws IOException if an I/O error occurs while reading the files
-     * @throws ProtobufParserException if a parsing or semantic error is encountered
+     * @throws ProtobufParserException if any lexical, syntax or semantic error is found
      */
-    public static ProtobufDocumentTree parseOnly(Path input, Collection<? extends ProtobufDocumentTree> documents) throws IOException {
-        var results = new ArrayList<ProtobufDocumentTree>();
-        if(documents != null) {
-            results.addAll(documents);
+    public static ProtobufDocumentTree parseOnly(Path input, Collection<? extends ProtobufDocumentTree> documents) throws IOException, ProtobufParserException {
+        try (var reader = Files.newBufferedReader(input)) {
+            return parseAndAttribute(input, reader, documents);
         }
-        var result = doParse(input, Files.newBufferedReader(input));
-        results.add(result);
-        ProtobufAnalyzer.attribute(results);
+    }
+
+    /**
+     * Parses a single source and, if it has no lexical or syntax errors, analyzes it together with
+     * the given context documents.
+     *
+     * @param location the file being parsed, or {@code null} if the source was not read from a file
+     * @param input the source to parse
+     * @param documents additional context documents for type resolution, may be null
+     * @return the parsed and analyzed document tree
+     * @throws IOException if an I/O error occurs while reading {@code input}
+     * @throws ProtobufParserException if any lexical, syntax or semantic error is found
+     */
+    private static ProtobufDocumentTree parseAndAttribute(Path location, Reader input, Collection<? extends ProtobufDocumentTree> documents) throws IOException, ProtobufParserException {
+        var diagnostics = new ProtobufDiagnosticator();
+        var result = doParse(location, input, diagnostics);
+        if (!diagnostics.hasSyntaxErrorsSince(0)) {
+            var results = new ArrayList<ProtobufDocumentTree>();
+            if (documents != null) {
+                results.addAll(documents);
+            }
+            results.add(result);
+            ProtobufAnalyzer.attribute(results, diagnostics);
+        }
+        diagnostics.throwIfErrors();
         return result;
     }
 
-    private static ProtobufDocumentTree doParse(Path location, Reader input) throws IOException {
+    /**
+     * Returns the documents that can be semantically analyzed: those without lexical or syntax
+     * errors that do not import, directly or transitively, a document with such errors.
+     *
+     * @param documents the parsed documents
+     * @param broken the documents with lexical or syntax errors
+     * @return the documents to analyze
+     */
+    private static List<ProtobufDocumentTree> withoutBrokenDocuments(Collection<ProtobufDocumentTree> documents, Set<ProtobufDocumentTree> broken) {
+        if (broken.isEmpty()) {
+            return new ArrayList<>(documents);
+        }
+
+        var brokenPaths = new HashSet<String>();
+        for (var document : broken) {
+            brokenPaths.add(document.qualifiedPath());
+        }
+
+        var remaining = new ArrayList<ProtobufDocumentTree>();
+        for (var document : documents) {
+            if (!broken.contains(document)) {
+                remaining.add(document);
+            }
+        }
+
+        var changed = true;
+        while (changed) {
+            changed = false;
+            var iterator = remaining.iterator();
+            while (iterator.hasNext()) {
+                var document = iterator.next();
+                var importsBroken = document.getDirectChildrenByType(ProtobufImportStatement.class)
+                        .anyMatch(importStatement -> brokenPaths.contains(importStatement.location()));
+                if (importsBroken) {
+                    brokenPaths.add(document.qualifiedPath());
+                    iterator.remove();
+                    changed = true;
+                }
+            }
+        }
+        return remaining;
+    }
+
+    /**
+     * Parses a single source into a document tree, reporting every problem to the given collector
+     * instead of throwing.
+     *
+     * @param location the file being parsed, or {@code null} if the source was not read from a file
+     * @param input the source to parse
+     * @param diagnostics the collector that receives the diagnostics reported while parsing
+     * @return the parsed document, which only contains the declarations that were parsed
+     *         successfully
+     * @throws IOException if an I/O error occurs while reading {@code input}
+     */
+    static ProtobufDocumentTree doParse(Path location, Reader input, ProtobufDiagnosticator diagnostics) throws IOException {
+        var lexer = new ProtobufLexer(input, location, diagnostics);
+        var parser = new ProtobufParser(location, lexer, diagnostics);
+        return parser.parseDocument();
+    }
+
+    /**
+     * Parses every statement of the source into {@link #document}.
+     *
+     * @return the parsed document
+     */
+    private ProtobufDocumentTree parseDocument() {
         try {
-            var document = new ProtobufDocumentTree(location);
-            var tokenizer = new ProtobufLexer(input);
             String token;
-            while ((token = tokenizer.nextRawToken(false)) != null) {
-                switch (token) {
-                    case STATEMENT_END -> {
-                        var statement = parseEmpty(tokenizer);
-                        document.addChild(statement);
-                    }
-                    case "package" -> {
-                        var statement = parsePackage(document, tokenizer);
-                        document.addChild(statement);
-                    }
-                    case "syntax" -> {
-                        var statement = parseSyntax(document, tokenizer);
-                        document.addChild(statement);
-                    }
-                    case "edition" -> {
-                        var statement = parseEdition(document, tokenizer);
-                        document.addChild(statement);
-                    }
-                    case "option" -> {
-                        var statement = parseOption(tokenizer, OptionParser.STATEMENT);
-                        document.addChild(statement);
-                    }
-                    case "export", "local" -> {
-                        ProtobufSyntaxException.check(document.version() == ProtobufVersion.EDITION_2024,
-                                "'%s' visibility modifier is only supported in edition 2024 or later".formatted(token),
-                                tokenizer.line());
-                        var visibility = ProtobufTreeVisibility.of(token).orElseThrow();
-                        var keyword = tokenizer.nextRawToken();
-                        switch (keyword) {
-                            case "message" -> {
-                                var statement = parseMessage(document, tokenizer);
-                                statement.setVisibility(visibility);
-                                document.addChild(statement);
-                            }
-                            case "enum" -> {
-                                var statement = parseEnum(document, tokenizer);
-                                statement.setVisibility(visibility);
-                                document.addChild(statement);
-                            }
-                            default -> throw new ProtobufSyntaxException(
-                                    "Expected 'message' or 'enum' after '%s' but found '%s'".formatted(token, keyword),
-                                    tokenizer.line());
-                        }
-                    }
+            while ((token = lexer.nextRawToken()) != null) {
+                consumed(token);
+                var start = lexer.tokenRange().start();
+                var dispatch = tokenCount;
+                try {
+                    parseDocumentChild(token, start);
+                } catch (Sync _) {
+                    synchronize(false, dispatch);
+                }
+            }
+        } catch (Abort _) {
+            // The input ended in the middle of a declaration
+        }
+        // Any comments still pending after the last token belong to the document itself.
+        for (var comment : lexer.consumePendingDetached()) {
+            document.addComment(comment);
+        }
+        var trailingLeading = lexer.consumePendingLeading();
+        if (trailingLeading != null) {
+            document.addComment(trailingLeading);
+        }
+        document.setRange(new ProtobufTreeSourceRange(new ProtobufTreeSourcePosition(1, 1), lexer.currentPosition()));
+        return document;
+    }
+
+    /**
+     * Parses a top level statement introduced by the given token and adds it to {@link #document}.
+     *
+     * @param token the first token of the statement
+     * @param start the position of the first token of the statement
+     * @throws Sync if the statement is malformed
+     */
+    private void parseDocumentChild(String token, ProtobufTreeSourcePosition start) {
+        switch (token) {
+            case STATEMENT_END -> {
+                var statement = parseEmpty(start);
+                document.addChild(statement);
+            }
+            case "package" -> {
+                var statement = parsePackage(start);
+                document.addChild(statement);
+            }
+            case "syntax" -> {
+                var statement = parseSyntax(start);
+                document.addChild(statement);
+            }
+            case "edition" -> {
+                var statement = parseEdition(start);
+                document.addChild(statement);
+            }
+            case "option" -> {
+                var statement = parseOptionStatement(start);
+                document.addChild(statement);
+            }
+            case "export", "local" -> {
+                if (document.version() != ProtobufVersion.EDITION_2024) {
+                    report(ProtobufSemanticErrors.visibilityRequiresEdition2024(token));
+                }
+                var visibility = ProtobufTreeVisibility.of(token).orElseThrow();
+                var keyword = nextRawToken();
+                switch (keyword) {
                     case "message" -> {
-                        var statement = parseMessage(document, tokenizer);
+                        var statement = parseMessage(start);
+                        statement.setVisibility(visibility);
                         document.addChild(statement);
                     }
                     case "enum" -> {
-                        var statement = parseEnum(document, tokenizer);
+                        var statement = parseEnum(start);
+                        statement.setVisibility(visibility);
                         document.addChild(statement);
                     }
-                    case "service" -> {
-                        var statement = parseService(tokenizer);
-                        document.addChild(statement);
-                    }
-                    case "import" -> {
-                        var statement = parseImport(document, tokenizer);
-                        document.addChild(statement);
-                    }
-                    case "extend" -> {
-                        var statement = parseExtend(document, tokenizer);
-                        document.addChild(statement);
-                    }
-                    default -> throw new ProtobufSyntaxException("Unexpected token '%s' at top level\n\nExpected one of: 'syntax', 'edition', 'package', 'import', 'option', 'message', 'enum', 'service', 'extend', 'export', or 'local'\n\nHelp: Only the keywords listed above are valid at the top level of a .proto file.\n      If you meant to use '%s' as a field name, it must be inside a message definition.".formatted(token, token), tokenizer.line());
+                    default -> throw error(ProtobufSyntaxErrors.expectedMessageOrEnumAfterVisibility(token, keyword));
                 }
             }
-            return document;
-        } catch (ProtobufParserException syntaxException) {
-            var withPath = new ProtobufParserException(syntaxException.getMessage() + " while parsing " + (location == null ? "input" : location.getFileName()));
-            withPath.setStackTrace(syntaxException.getStackTrace());
-            throw withPath;
+            case "message" -> {
+                var statement = parseMessage(start);
+                document.addChild(statement);
+            }
+            case "enum" -> {
+                var statement = parseEnum(start);
+                document.addChild(statement);
+            }
+            case "service" -> {
+                var statement = parseService(start);
+                document.addChild(statement);
+            }
+            case "import" -> {
+                var statement = parseImport(start);
+                document.addChild(statement);
+            }
+            case "extend" -> {
+                var statement = parseExtend(start);
+                document.addChild(statement);
+            }
+            default -> throw error(ProtobufSyntaxErrors.unexpectedTopLevelToken(token));
         }
     }
 
-    private static ProtobufEmptyStatement parseEmpty(ProtobufLexer tokenizer) {
-        return new ProtobufEmptyStatement(tokenizer.line());
+    /**
+     * Reads the next raw token, reporting an error if the input has ended.
+     *
+     * @return the next raw token
+     * @throws Abort if the input has ended
+     */
+    private String nextRawToken() {
+        var token = lexer.nextRawToken();
+        if (token == null) {
+            throw endOfInput();
+        }
+        consumed(token);
+        return token;
     }
 
-    private static ProtobufPackageStatement parsePackage(ProtobufDocumentTree document, ProtobufLexer tokenizer) throws IOException {
-        ProtobufSyntaxException.check(document.packageName().isEmpty(),
-                "Duplicate package declaration\n\nPackage can only be set once per .proto file, but found multiple 'package' statements.\n\nHelp: Remove all but one 'package' declaration. If you need to organize your types,\n      consider using nested messages or separate .proto files.",
-                tokenizer.line());
-        var statement = new ProtobufPackageStatement(tokenizer.line());
-        var name = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isValidPackage(name),
-                "Invalid package name '%s'\n\nExpected a valid identifier or qualified name (e.g., 'com.example.api')\n\nHelp: Package names must follow these rules:\n      - Use lowercase letters, numbers, and dots\n      - Start with a letter\n      - No consecutive dots or leading/trailing dots\n      Example: package com.example.myapp;".formatted(name),
-                tokenizer.line());
-        statement.setName(name);
-        var end = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isStatementEnd(end),
-                "Expected ';' after package name but found '%s'\n\nHelp: Package declarations must end with a semicolon.\n      Example: package com.example;".formatted(end),
-                tokenizer.line());
+    /**
+     * Reads the next typed token, reporting an error if the input has ended.
+     *
+     * @return the next typed token
+     * @throws Abort if the input has ended
+     */
+    private ProtobufToken nextToken() {
+        var token = lexer.nextToken();
+        if (token == null) {
+            throw endOfInput();
+        }
+        consumed(token instanceof ProtobufRawToken(var value) ? value : null);
+        return token;
+    }
+
+    /**
+     * Records that a token was consumed.
+     *
+     * @param token the text of the token, or {@code null} if it was a string literal, a number or
+     *              a boolean
+     */
+    private void consumed(String token) {
+        lastToken = token;
+        tokenCount++;
+        previousTokenEnd = lastTokenEnd;
+        lastTokenEnd = lexer.tokenRange().end();
+    }
+
+    /**
+     * Moves the lexer back to the previous token, so that it is read again by the next call to
+     * {@link #nextRawToken()} or {@link #nextToken()}.
+     */
+    private void moveToPreviousToken() {
+        lexer.moveToPreviousToken();
+        tokenCount--;
+    }
+
+    /**
+     * Reports that the input ended in the middle of a declaration.
+     *
+     * @return the signal that unwinds the parser, to be thrown by the caller
+     */
+    private Abort endOfInput() {
+        var position = lexer.currentPosition();
+        diagnostics.report(location, new ProtobufTreeSourceRange(position, position), ProtobufSyntaxErrors.unexpectedEndOfInput());
+        return Abort.INSTANCE;
+    }
+
+    /**
+     * Reports the given error at the most recently consumed token if {@code condition} is
+     * {@code false}.
+     *
+     * @param condition the condition that must hold
+     * @param message the error to report if the condition does not hold
+     * @throws Sync if the condition does not hold
+     */
+    private void expect(boolean condition, ProtobufDiagnosticMessage message) {
+        if (!condition) {
+            throw error(message);
+        }
+    }
+
+    /**
+     * Reports the given error if {@code token} is not the {@code ;} that terminates a statement.
+     *
+     * <p>A statement that is not terminated is usually followed by the next statement on a new
+     * line. In that case the error is reported right after the last token of the statement, and
+     * parsing resumes at the offending token instead of skipping it, so that the next statement
+     * is not lost.
+     *
+     * @param token the token that should terminate the statement
+     * @param message the error to report if {@code token} is not a {@code ;}
+     * @throws Sync if {@code token} is not a {@code ;}
+     */
+    private void expectStatementEnd(String token, ProtobufDiagnosticMessage message) {
+        if (isStatementEnd(token)) {
+            return;
+        }
+
+        var offendingStart = lexer.tokenRange().start();
+        if (previousTokenEnd.line() > 0 && offendingStart.line() > previousTokenEnd.line()) {
+            diagnostics.report(location, new ProtobufTreeSourceRange(previousTokenEnd, previousTokenEnd), message);
+            resumeAtOffendingToken = true;
+            throw Sync.INSTANCE;
+        }
+
+        throw error(message);
+    }
+
+    /**
+     * Reports the given error at the most recently consumed token.
+     *
+     * @param message the error to report
+     * @return the signal that unwinds the parser to the nearest statement boundary, to be thrown by
+     *         the caller
+     */
+    private Sync error(ProtobufDiagnosticMessage message) {
+        report(message);
+        return Sync.INSTANCE;
+    }
+
+    /**
+     * Reports the given problem at the most recently consumed token without interrupting parsing.
+     *
+     * @param message the problem to report
+     */
+    private void report(ProtobufDiagnosticMessage message) {
+        diagnostics.report(location, lexer.tokenRange(), message);
+    }
+
+    /**
+     * Skips tokens until the end of the malformed statement, so that parsing can resume with the
+     * next one.
+     *
+     * <p>Recovery starts from the offending token, which is the most recently consumed one. A
+     * {@code ;} ends the statement. A {@code }} ends the enclosing body, so it is left in the input
+     * when {@code inBody} is {@code true}. A {@code {} starts a block that is skipped entirely.
+     * A statement keyword starts the next statement and is left in the input, unless it is the
+     * token that introduced the malformed statement, in which case leaving it would make the
+     * parser fail on it again.
+     *
+     * @param inBody whether the malformed statement is inside the body of a declaration
+     * @param dispatch the value of {@link #tokenCount} after the first token of the malformed
+     *                 statement was consumed
+     */
+    private void synchronize(boolean inBody, int dispatch) {
+        if (resumeAtOffendingToken) {
+            resumeAtOffendingToken = false;
+            if (tokenCount > dispatch && !(isBodyEnd(lastToken) && !inBody)) {
+                moveToPreviousToken();
+                return;
+            }
+        }
+
+        var token = lastToken;
+        if (token != null) {
+            switch (token) {
+                case STATEMENT_END -> {
+                    return;
+                }
+                case BODY_END -> {
+                    if (inBody) {
+                        moveToPreviousToken();
+                    }
+                    return;
+                }
+                case BODY_START -> {
+                    skipBlock();
+                    return;
+                }
+                default -> {
+                    if (tokenCount > dispatch && STATEMENT_KEYWORDS.contains(token)) {
+                        moveToPreviousToken();
+                        return;
+                    }
+                }
+            }
+        }
+
+        while ((token = lexer.nextRawToken()) != null) {
+            consumed(token);
+            switch (token) {
+                case STATEMENT_END -> {
+                    return;
+                }
+                case BODY_END -> {
+                    if (inBody) {
+                        moveToPreviousToken();
+                    }
+                    return;
+                }
+                case BODY_START -> {
+                    skipBlock();
+                    return;
+                }
+                default -> {
+                    if (STATEMENT_KEYWORDS.contains(token)) {
+                        moveToPreviousToken();
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Skips the tokens of a block whose opening brace was just consumed, up to and including its
+     * matching closing brace or the end of input.
+     */
+    private void skipBlock() {
+        var depth = 1;
+        String token;
+        while ((token = lexer.nextRawToken()) != null) {
+            consumed(token);
+            if (isBodyStart(token)) {
+                depth++;
+            } else if (isBodyEnd(token) && --depth == 0) {
+                return;
+            }
+        }
+    }
+
+    /**
+     * Drains any leading and detached comments collected by the lexer for the upcoming statement
+     * and attaches them to the given statement.
+     */
+    private void attachLeadingComments(ProtobufStatement statement) {
+        for (var comment : lexer.consumePendingDetached()) {
+            statement.addComment(comment);
+        }
+        var leading = lexer.consumePendingLeading();
+        if (leading != null) {
+            statement.addComment(leading);
+        }
+    }
+
+    /**
+     * Finalizes a statement's source range and attaches any same-line trailing comment that
+     * follows the most recently consumed token.
+     */
+    private <T extends ProtobufStatement> T finishStatement(T statement, ProtobufTreeSourcePosition start) {
+        statement.setRange(new ProtobufTreeSourceRange(start, lexer.tokenRange().end()));
+        var trailing = lexer.consumePendingTrailing();
+        if (trailing != null) {
+            statement.addComment(trailing);
+        }
         return statement;
     }
 
-    private static ProtobufSyntaxStatement parseSyntax(ProtobufDocumentTree document, ProtobufLexer tokenizer) throws IOException {
-        ProtobufSyntaxException.check(document.children().isEmpty(),
-                "Syntax declaration must be the first statement\n\nFound 'syntax' keyword after other declarations, but it must appear before any\npackage, import, message, enum, or service definitions.\n\nHelp: Move the 'syntax' declaration to the very first line of your .proto file.\n      Example:\n        syntax = \"proto3\";\n        package com.example;",
-                tokenizer.line());
-        var statement = new ProtobufSyntaxStatement(tokenizer.line());
-        var assignment = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isAssignmentOperator(assignment),
-                "Expected '=' after 'syntax' keyword but found '%s'\n\nHelp: Syntax declarations must use '=' to assign the version.\n      Example: syntax = \"proto3\";".formatted(assignment),
-                tokenizer.line());
-        var versionCodeToken = tokenizer.nextToken();
-        if(!(versionCodeToken instanceof ProtobufLiteralToken(var versionCode, _))) {
-            throw new ProtobufSyntaxException("Expected string literal for protobuf version but found '%s'\n\nHelp: The syntax version must be a quoted string, either \"proto2\" or \"proto3\".\n      Example: syntax = \"proto3\";".formatted(versionCodeToken), tokenizer.line());
+    private ProtobufEmptyStatement parseEmpty(ProtobufTreeSourcePosition start) {
+        var statement = new ProtobufEmptyStatement(ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
+        return finishStatement(statement, start);
+    }
+
+    private ProtobufPackageStatement parsePackage(ProtobufTreeSourcePosition start) {
+        if (document.packageName().isPresent()) {
+            report(ProtobufSemanticErrors.duplicatePackage(document.packageName().get()));
+        }
+        var statement = new ProtobufPackageStatement(ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
+        var name = nextRawToken();
+        expect(isValidPackage(name), ProtobufSyntaxErrors.invalidPackageName(name));
+        statement.setName(name);
+        var end = nextRawToken();
+        expectStatementEnd(end, ProtobufSyntaxErrors.expectedSemicolonAfterPackage(end));
+        return finishStatement(statement, start);
+    }
+
+    private ProtobufSyntaxStatement parseSyntax(ProtobufTreeSourcePosition start) {
+        if (!document.children().isEmpty()) {
+            report(ProtobufSemanticErrors.syntaxNotFirst());
+        }
+        var statement = new ProtobufSyntaxStatement(ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
+        var assignment = nextRawToken();
+        expect(isAssignmentOperator(assignment), ProtobufSyntaxErrors.expectedAssignmentAfterSyntax(assignment));
+        var versionCodeToken = nextToken();
+        if (!(versionCodeToken instanceof ProtobufLiteralToken(var versionCode, _))) {
+            throw error(ProtobufSyntaxErrors.expectedSyntaxLiteral(versionCodeToken.toString()));
         }
         var version = ProtobufVersion.of(versionCode)
-                .filter(v -> !v.isEdition())
-                .orElseThrow(() -> new ProtobufParserException("Unknown protobuf syntax version: \"%s\"\n\nSupported syntax versions are:\n  \"proto2\" (Protocol Buffers version 2)\n  \"proto3\" (Protocol Buffers version 3)\n\nHelp: For editions, use: edition = \"%s\";".formatted(versionCode, versionCode)));
-        statement.setVersion(version);
-        var end = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isStatementEnd(end),
-                "Expected ';' after syntax declaration but found '%s'\n\nHelp: Syntax declarations must end with a semicolon.\n      Example: syntax = \"proto3\";".formatted(end),
-                tokenizer.line());
-        return statement;
+                .filter(v -> !v.isEdition());
+        if (version.isPresent()) {
+            statement.setVersion(version.get());
+        } else {
+            // Keep parsing the rest of the file as proto2, the default version
+            report(ProtobufSyntaxErrors.unknownSyntaxVersion(versionCode));
+            statement.setVersion(ProtobufVersion.PROTOBUF_2);
+        }
+        var end = nextRawToken();
+        expectStatementEnd(end, ProtobufSyntaxErrors.expectedSemicolonAfterSyntax(end));
+        return finishStatement(statement, start);
     }
 
-    private static ProtobufEditionStatement parseEdition(ProtobufDocumentTree document, ProtobufLexer tokenizer) throws IOException {
-        ProtobufSyntaxException.check(document.children().isEmpty(),
-                "Edition declaration must be the first statement\n\nFound 'edition' keyword after other declarations, but it must appear before any\npackage, import, message, enum, or service definitions.\n\nHelp: Move the 'edition' declaration to the very first line of your .proto file.\n      Example:\n        edition = \"2023\";\n        package com.example;",
-                tokenizer.line());
-        var statement = new ProtobufEditionStatement(tokenizer.line());
-        var assignment = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isAssignmentOperator(assignment),
-                "Expected '=' after 'edition' keyword but found '%s'\n\nHelp: Edition declarations must use '=' to assign the edition.\n      Example: edition = \"2023\";".formatted(assignment),
-                tokenizer.line());
-        var editionCodeToken = tokenizer.nextToken();
-        if(!(editionCodeToken instanceof ProtobufLiteralToken(var editionCode, _))) {
-            throw new ProtobufSyntaxException("Expected string literal for protobuf edition but found '%s'\n\nHelp: The edition must be a quoted string, such as \"2023\" or \"2024\".\n      Example: edition = \"2023\";".formatted(editionCodeToken), tokenizer.line());
+    private ProtobufEditionStatement parseEdition(ProtobufTreeSourcePosition start) {
+        if (!document.children().isEmpty()) {
+            report(ProtobufSemanticErrors.editionNotFirst());
+        }
+        var statement = new ProtobufEditionStatement(ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
+        var assignment = nextRawToken();
+        expect(isAssignmentOperator(assignment), ProtobufSyntaxErrors.expectedAssignmentAfterEdition(assignment));
+        var editionCodeToken = nextToken();
+        if (!(editionCodeToken instanceof ProtobufLiteralToken(var editionCode, _))) {
+            throw error(ProtobufSyntaxErrors.expectedEditionLiteral(editionCodeToken.toString()));
         }
         var version = ProtobufVersion.of(editionCode)
-                .filter(ProtobufVersion::isEdition)
-                .orElseThrow(() -> new ProtobufParserException("Unknown protobuf edition: \"%s\"\n\nSupported editions are:\n  \"2023\" (Edition 2023)\n  \"2024\" (Edition 2024)\n\nHelp: For classic syntax, use: syntax = \"%s\";".formatted(editionCode, editionCode)));
-        statement.setVersion(version);
-        var end = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isStatementEnd(end),
-                "Expected ';' after edition declaration but found '%s'\n\nHelp: Edition declarations must end with a semicolon.\n      Example: edition = \"2023\";".formatted(end),
-                tokenizer.line());
-        return statement;
+                .filter(ProtobufVersion::isEdition);
+        if (version.isPresent()) {
+            statement.setVersion(version.get());
+        } else {
+            // Keep parsing the rest of the file as the latest known edition
+            report(ProtobufSyntaxErrors.unknownEdition(editionCode));
+            statement.setVersion(ProtobufVersion.EDITION_2024);
+        }
+        var end = nextRawToken();
+        expectStatementEnd(end, ProtobufSyntaxErrors.expectedSemicolonAfterEdition(end));
+        return finishStatement(statement, start);
     }
 
-    private static <T> T parseOption(ProtobufLexer tokenizer, OptionParser<T> parser) throws IOException {
+    private ProtobufOptionStatement parseOptionStatement(ProtobufTreeSourcePosition start) {
+        var statement = new ProtobufOptionStatement(ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
+        var optionName = parseOptionName();
+        var optionValue = readExpression();
+        var end = nextRawToken();
+        expectStatementEnd(end, ProtobufSyntaxErrors.expectedSemicolonAfterOption(end));
+        statement.setName(optionName);
+        statement.setValue(optionValue);
+        return finishStatement(statement, start);
+    }
+
+    private ProtobufOptionExpression parseOptionExpression() {
+        var optionName = parseOptionName();
+        var optionValue = readExpression();
+        return new ProtobufOptionExpression(optionName, optionValue);
+    }
+
+    private ProtobufOptionName parseOptionName() {
         var segments = new ArrayList<ProtobufOptionNameSegment>();
         while(true) {
-            var token = tokenizer.nextRawToken();
+            var token = nextRawToken();
             if(isAssignmentOperator(token)) {
-                tokenizer.moveToPreviousToken();
+                moveToPreviousToken();
                 break;
             }else if(isParensStart(token)) {
-                var extName = tokenizer.nextRawToken();
-                var parensEnd = tokenizer.nextRawToken();
-                ProtobufSyntaxException.check(isParensEnd(parensEnd),
-                        "Expected ')' to close extension name but found '%s'".formatted(parensEnd),
-                        tokenizer.line());
+                var extName = nextRawToken();
+                var parensEnd = nextRawToken();
+                expect(isParensEnd(parensEnd), ProtobufSyntaxErrors.expectedExtensionNameEnd(parensEnd));
                 segments.add(new ProtobufOptionNameSegment(extName, true));
             }else {
                 var start = token.charAt(0) == '.' ? 1 : 0;
@@ -403,251 +866,295 @@ public final class ProtobufParser {
             }
         }
 
-        var assignment = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isAssignmentOperator(assignment),
-                "Expected '=' after option name but found '%s'\n\nHelp: Options use '=' to assign values.\n      Example: option java_package = \"com.example\";".formatted(assignment),
-                tokenizer.line());
+        var assignment = nextRawToken();
+        expect(isAssignmentOperator(assignment), ProtobufSyntaxErrors.expectedAssignmentAfterOptionName(assignment));
 
-        var optionName = new ProtobufOptionName(segments);
-        var optionValue = readExpression(tokenizer);
-        return parser.parse(tokenizer, optionName, optionValue);
+        return new ProtobufOptionName(segments);
     }
 
-    private static ProtobufMessageStatement parseMessage(ProtobufDocumentTree document, ProtobufLexer tokenizer) throws IOException {
-        var statement = new ProtobufMessageStatement(tokenizer.line());
-        var name = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isValidIdent(name),
-                "Invalid message name '%s'\n\nMessage names must be valid identifiers (letters, numbers, and underscores).\nThey should start with a letter and use PascalCase by convention.\n\nHelp: Choose a descriptive name for your message type.\n      Example: message UserProfile { ... }".formatted(name),
-                tokenizer.line());
+    private ProtobufMessageStatement parseMessage(ProtobufTreeSourcePosition start) {
+        var statement = new ProtobufMessageStatement(document, ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
+        var name = nextRawToken();
+        expect(isValidIdent(name), ProtobufSyntaxErrors.invalidMessageName(name));
         statement.setName(name);
-        var objectStart = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isBodyStart(objectStart),
-                "Expected '{{' to start message body but found '%s'\n\nHelp: Message declarations must have a body enclosed in curly braces.\n      Example:\n        message Person {{\n          string name = 1;\n          int32 age = 2;\n        }}".formatted(objectStart),
-                tokenizer.line());
+        var objectStart = nextRawToken();
+        expect(isBodyStart(objectStart), ProtobufSyntaxErrors.expectedMessageBodyStart(objectStart));
         String token;
-        while (!isBodyEnd(token = tokenizer.nextRawToken())) {
-            switch (token) {
-                case STATEMENT_END -> {
-                    var child = parseEmpty(tokenizer);
-                    statement.addChild(child);
-                }
-                case "option" -> {
-                    var child = parseOption(tokenizer, OptionParser.STATEMENT);
-                    statement.addChild(child);
-                }
-                case "message" -> {
-                    var child = parseMessage(document, tokenizer);
-                    statement.addChild(child);
-                }
-                case "enum" -> {
-                    var child = parseEnum(document, tokenizer);
-                    statement.addChild(child);
-                }
-                case "extend" -> {
-                    var child = parseExtend(document, tokenizer);
-                    statement.addChild(child);
-                }
-                case "extensions" -> {
-                    var child = parseExtensions(tokenizer);
-                    statement.addChild(child);
-                }
-                case "reserved"  -> {
-                    var child = parseReserved(document, tokenizer);
-                    statement.addChild(child);
-                }
-                case "oneof" -> {
-                    var child = parseOneof(tokenizer);
-                    statement.addChild(child);
-                }
-                default -> {
-                    var modifier = ProtobufModifier.of(token);
-                    if(modifier.isPresent()) {
-                        var typeToken = tokenizer.nextRawToken();
-                        if (isGroupType(typeToken)) {
-                            var groupField = parseGroupField(document, tokenizer, modifier.get());
-                            statement.addChild(groupField);
-                        } else {
-                            var field = parseField(tokenizer, modifier.get(), typeToken);
-                            statement.addChild(field);
-                        }
+        while (!isBodyEnd(token = nextRawToken())) {
+            var childStart = lexer.tokenRange().start();
+            var dispatch = tokenCount;
+            try {
+                parseMessageChild(statement, token, childStart);
+            } catch (Sync _) {
+                synchronize(true, dispatch);
+            }
+        }
+        return finishStatement(statement, start);
+    }
+
+    /**
+     * Parses a statement of a message body introduced by the given token and adds it to the
+     * message.
+     *
+     * @param statement the message that contains the statement
+     * @param token the first token of the statement
+     * @param childStart the position of the first token of the statement
+     * @throws Sync if the statement is malformed
+     */
+    private void parseMessageChild(ProtobufMessageStatement statement, String token, ProtobufTreeSourcePosition childStart) {
+        switch (token) {
+            case STATEMENT_END -> {
+                var child = parseEmpty(childStart);
+                statement.addChild(child);
+            }
+            case "option" -> {
+                var child = parseOptionStatement(childStart);
+                statement.addChild(child);
+            }
+            case "message" -> {
+                var child = parseMessage(childStart);
+                statement.addChild(child);
+            }
+            case "enum" -> {
+                var child = parseEnum(childStart);
+                statement.addChild(child);
+            }
+            case "extend" -> {
+                var child = parseExtend(childStart);
+                statement.addChild(child);
+            }
+            case "extensions" -> {
+                var child = parseExtensions(childStart);
+                statement.addChild(child);
+            }
+            case "reserved"  -> {
+                var child = parseReserved(childStart);
+                statement.addChild(child);
+            }
+            case "oneof" -> {
+                var child = parseOneof(childStart);
+                statement.addChild(child);
+            }
+            default -> {
+                var modifier = ProtobufModifier.of(token);
+                if(modifier.isPresent()) {
+                    var typeToken = nextRawToken();
+                    if (isGroupType(typeToken)) {
+                        var groupField = parseGroupField(modifier.get(), childStart);
+                        statement.addChild(groupField);
                     } else {
-                        if (isGroupType(token)) {
-                            var groupField = parseGroupField(document, tokenizer, ProtobufModifier.NONE);
-                            statement.addChild(groupField);
-                        } else {
-                            var field = parseField(tokenizer, ProtobufModifier.NONE, token);
-                            statement.addChild(field);
-                        }
+                        var field = parseField(modifier.get(), typeToken, childStart);
+                        statement.addChild(field);
+                    }
+                } else {
+                    if (isGroupType(token)) {
+                        var groupField = parseGroupField(ProtobufModifier.NONE, childStart);
+                        statement.addChild(groupField);
+                    } else {
+                        var field = parseField(ProtobufModifier.NONE, token, childStart);
+                        statement.addChild(field);
                     }
                 }
             }
         }
-        return statement;
     }
 
-    private static ProtobufExtendStatement parseExtend(ProtobufDocumentTree document, ProtobufLexer tokenizer) throws IOException {
-        var statement = new ProtobufExtendStatement(tokenizer.line());
-        var qualifiedName = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isValidType(qualifiedName),
-                "Invalid message name '%s' in extend declaration\n\nExpected a valid message type name (optionally fully-qualified).\n\nHelp: Extend declarations target existing message types.\n      Example:\n        extend MyMessage {{ ... }}\n        extend com.example.MyMessage {{ ... }}".formatted(qualifiedName),
-                tokenizer.line());
+    private ProtobufExtendStatement parseExtend(ProtobufTreeSourcePosition start) {
+        var statement = new ProtobufExtendStatement(document, ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
+        var qualifiedName = nextRawToken();
+        expect(isValidType(qualifiedName), ProtobufSyntaxErrors.invalidExtendTarget(qualifiedName));
 
         // In proto3, extends are only allowed for Options messages
         // Validation happens in the attribute phase, not here during parsing
         var reference = new ProtobufUnresolvedTypeReference(qualifiedName);
         statement.setDeclaration(reference);
-        var objectStart = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isBodyStart(objectStart),
-                "Expected '{{' to start extend body but found '%s'\n\nHelp: Extend declarations must have a body with fields to add.\n      Example:\n        extend MyMessage {{\n          string extra_field = 100;\n        }}".formatted(objectStart),
-                tokenizer.line());
+        var objectStart = nextRawToken();
+        expect(isBodyStart(objectStart), ProtobufSyntaxErrors.expectedExtendBodyStart(objectStart));
         String token;
-        while (!isBodyEnd(token = tokenizer.nextRawToken())) {
-            var modifier = ProtobufModifier.of(token);
-            if(modifier.isPresent()) {
-                var typeToken = tokenizer.nextRawToken();
-                if (isGroupType(typeToken)) {
-                    var groupField = parseGroupField(document, tokenizer, modifier.get());
-                    statement.addChild(groupField);
-                } else {
-                    var field = parseField(tokenizer, modifier.get(), typeToken);
-                    statement.addChild(field);
-                }
-            } else {
-                if (isGroupType(token)) {
-                    var groupField = parseGroupField(document, tokenizer, ProtobufModifier.NONE);
-                    statement.addChild(groupField);
-                } else {
-                    var field = parseField(tokenizer, ProtobufModifier.NONE, token);
-                    statement.addChild(field);
-                }
+        while (!isBodyEnd(token = nextRawToken())) {
+            var childStart = lexer.tokenRange().start();
+            var dispatch = tokenCount;
+            try {
+                parseExtendChild(statement, token, childStart);
+            } catch (Sync _) {
+                synchronize(true, dispatch);
             }
         }
-        return statement;
+        return finishStatement(statement, start);
     }
 
-    private static ProtobufGroupStatement parseGroupField(ProtobufDocumentTree document, ProtobufLexer tokenizer, ProtobufModifier modifier) throws IOException {
-        var statement = new ProtobufGroupStatement(tokenizer.line());
+    /**
+     * Parses a field of an extend body introduced by the given token and adds it to the extend
+     * declaration.
+     *
+     * @param statement the extend declaration that contains the field
+     * @param token the first token of the field
+     * @param childStart the position of the first token of the field
+     * @throws Sync if the field is malformed
+     */
+    private void parseExtendChild(ProtobufExtendStatement statement, String token, ProtobufTreeSourcePosition childStart) {
+        var modifier = ProtobufModifier.of(token);
+        if(modifier.isPresent()) {
+            var typeToken = nextRawToken();
+            if (isGroupType(typeToken)) {
+                var groupField = parseGroupField(modifier.get(), childStart);
+                statement.addChild(groupField);
+            } else {
+                var field = parseField(modifier.get(), typeToken, childStart);
+                statement.addChild(field);
+            }
+        } else {
+            if (isGroupType(token)) {
+                var groupField = parseGroupField(ProtobufModifier.NONE, childStart);
+                statement.addChild(groupField);
+            } else {
+                var field = parseField(ProtobufModifier.NONE, token, childStart);
+                statement.addChild(field);
+            }
+        }
+    }
+
+    private ProtobufGroupStatement parseGroupField(ProtobufModifier modifier, ProtobufTreeSourcePosition start) {
+        var statement = new ProtobufGroupStatement(document, ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
 
         statement.setModifier(modifier);
 
-        var name = tokenizer.nextRawToken();
-        statement.setName(validateGroupFieldName(name, tokenizer.line()));
+        var name = nextRawToken();
+        statement.setName(validateGroupFieldName(name));
 
-        validateFieldIndexAssignment(tokenizer);
+        validateFieldIndexAssignment();
 
-        var index = tokenizer.nextToken();
-        statement.setIndex(validateFieldIndex(index, tokenizer.line()));
+        var index = nextToken();
+        statement.setIndex(validateFieldIndex(index));
 
-        var bodyStartToken = parseOptions(tokenizer, tokenizer.nextRawToken(), statement);
-        ProtobufSyntaxException.check(isBodyStart(bodyStartToken),
-                "Unexpected token: " + bodyStartToken, tokenizer.line());;
+        var bodyStartToken = parseOptions(nextRawToken(), statement);
+        expect(isBodyStart(bodyStartToken), ProtobufSyntaxErrors.expectedToken(BODY_START, bodyStartToken));
 
         String groupToken;
-        while(!isBodyEnd(groupToken = tokenizer.nextRawToken())) {
-            switch (groupToken) {
-                case STATEMENT_END -> {
-                    var groupChild = parseEmpty(tokenizer);
-                    statement.addChild(groupChild);
-                }
+        while(!isBodyEnd(groupToken = nextRawToken())) {
+            var childStart = lexer.tokenRange().start();
+            var dispatch = tokenCount;
+            try {
+                parseGroupChild(statement, groupToken, childStart);
+            } catch (Sync _) {
+                synchronize(true, dispatch);
+            }
+        }
 
-                case "message" -> {
-                    var groupChild = parseMessage(document, tokenizer);
-                    statement.addChild(groupChild);
-                }
+        return finishStatement(statement, start);
+    }
 
-                case "enum" -> {
-                    var groupChild = parseEnum(document, tokenizer);
-                    statement.addChild(groupChild);
-                }
+    /**
+     * Parses a statement of a group body introduced by the given token and adds it to the group.
+     *
+     * @param statement the group that contains the statement
+     * @param groupToken the first token of the statement
+     * @param childStart the position of the first token of the statement
+     * @throws Sync if the statement is malformed
+     */
+    private void parseGroupChild(ProtobufGroupStatement statement, String groupToken, ProtobufTreeSourcePosition childStart) {
+        switch (groupToken) {
+            case STATEMENT_END -> {
+                var groupChild = parseEmpty(childStart);
+                statement.addChild(groupChild);
+            }
 
-                case "extend" -> {
-                    var groupChild = parseExtend(document, tokenizer);
-                    statement.addChild(groupChild);
-                }
+            case "message" -> {
+                var groupChild = parseMessage(childStart);
+                statement.addChild(groupChild);
+            }
 
-                case "extensions" -> {
-                    var groupChild = parseExtensions(tokenizer);
-                    statement.addChild(groupChild);
-                }
+            case "enum" -> {
+                var groupChild = parseEnum(childStart);
+                statement.addChild(groupChild);
+            }
 
-                case "reserved" -> {
-                    var groupChild = parseReserved(document, tokenizer);
-                    statement.addChild(groupChild);
-                }
+            case "extend" -> {
+                var groupChild = parseExtend(childStart);
+                statement.addChild(groupChild);
+            }
 
-                case "oneof" -> {
-                    var groupChild = parseOneof(tokenizer);
-                    statement.addChild(groupChild);
-                }
+            case "extensions" -> {
+                var groupChild = parseExtensions(childStart);
+                statement.addChild(groupChild);
+            }
 
-                default -> {
-                    var groupModifier = ProtobufModifier.of(groupToken);
-                    if(groupModifier.isPresent()) {
-                        var typeToken = tokenizer.nextRawToken();
-                        if (isGroupType(typeToken)) {
-                            var groupField = parseGroupField(document, tokenizer, groupModifier.get());
-                            statement.addChild(groupField);
-                        } else {
-                            var field = parseField(tokenizer, groupModifier.get(), typeToken);
-                            statement.addChild(field);
-                        }
+            case "reserved" -> {
+                var groupChild = parseReserved(childStart);
+                statement.addChild(groupChild);
+            }
+
+            case "oneof" -> {
+                var groupChild = parseOneof(childStart);
+                statement.addChild(groupChild);
+            }
+
+            default -> {
+                var groupModifier = ProtobufModifier.of(groupToken);
+                if(groupModifier.isPresent()) {
+                    var typeToken = nextRawToken();
+                    if (isGroupType(typeToken)) {
+                        var groupField = parseGroupField(groupModifier.get(), childStart);
+                        statement.addChild(groupField);
                     } else {
-                        if (isGroupType(groupToken)) {
-                            var groupField = parseGroupField(document, tokenizer, ProtobufModifier.NONE);
-                            statement.addChild(groupField);
-                        } else {
-                            var field = parseField(tokenizer, ProtobufModifier.NONE, groupToken);
-                            statement.addChild(field);
-                        }
+                        var field = parseField(groupModifier.get(), typeToken, childStart);
+                        statement.addChild(field);
+                    }
+                } else {
+                    if (isGroupType(groupToken)) {
+                        var groupField = parseGroupField(ProtobufModifier.NONE, childStart);
+                        statement.addChild(groupField);
+                    } else {
+                        var field = parseField(ProtobufModifier.NONE, groupToken, childStart);
+                        statement.addChild(field);
                     }
                 }
             }
         }
-
-        return statement;
     }
 
-    private static String validateGroupFieldName(String name, int line) {
-        validateFieldName(name, line);
-        ProtobufSyntaxException.check(Character.isUpperCase(name.charAt(0)),
-                "Group name \"%s\" must start with a capital letter",
-                line,
-                name);
+    private String validateGroupFieldName(String name) {
+        validateFieldName(name);
+        if (!Character.isUpperCase(name.charAt(0))) {
+            report(ProtobufSemanticErrors.groupNameNotCapitalized(name));
+        }
         return name;
     }
 
-    private static ProtobufFieldStatement parseField(ProtobufLexer tokenizer, ProtobufModifier modifier, String typeToken) throws IOException {
-        var statement = new ProtobufFieldStatement(tokenizer.line());
+    private ProtobufFieldStatement parseField(ProtobufModifier modifier, String typeToken, ProtobufTreeSourcePosition start) {
+        var statement = new ProtobufFieldStatement(ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
 
         statement.setModifier(modifier);
 
-        var type = parseFieldType(tokenizer, typeToken);
+        var type = parseFieldType(typeToken);
         statement.setType(type);
 
-        var name = tokenizer.nextRawToken();
-        statement.setName(validateFieldName(name, tokenizer.line()));
+        var name = nextRawToken();
+        statement.setName(validateFieldName(name));
 
-        validateFieldIndexAssignment(tokenizer);
+        validateFieldIndexAssignment();
 
-        var index = tokenizer.nextToken();
-        statement.setIndex(validateFieldIndex(index, tokenizer.line()));
+        var index = nextToken();
+        statement.setIndex(validateFieldIndex(index));
 
-        var statementEnd = parseOptions(tokenizer, tokenizer.nextRawToken(), statement);
-        ProtobufSyntaxException.check(isStatementEnd(statementEnd),
-                "Unexpected token: " + statementEnd,
-                tokenizer.line());
+        var statementEnd = parseOptions(nextRawToken(), statement);
+        expectStatementEnd(statementEnd, ProtobufSyntaxErrors.expectedToken(STATEMENT_END, statementEnd));
 
-        return statement;
+        return finishStatement(statement, start);
     }
 
-    private static ProtobufTypeReference parseFieldType(ProtobufLexer tokenizer, String typeToken) throws IOException {
+    private ProtobufTypeReference parseFieldType(String typeToken) {
         var primitiveType = ProtobufType.ofPrimitive(typeToken);
-        if(primitiveType != ProtobufType.UNKNOWN) {
-            return new ProtobufPrimitiveTypeReference(primitiveType);
+        if(primitiveType.isPresent()) {
+            return new ProtobufPrimitiveTypeReference(primitiveType.get());
         }
 
         if(isMapType(typeToken)) {
-            var mapType = parseFieldMapType(tokenizer);
+            var mapType = parseFieldMapType();
             if(mapType.isPresent()) {
                 return mapType.get();
             }
@@ -656,215 +1163,193 @@ public final class ProtobufParser {
         return new ProtobufUnresolvedTypeReference(typeToken);
     }
 
-    private static Optional<ProtobufTypeReference> parseFieldMapType(ProtobufLexer tokenizer) throws IOException {
-        var nameOrTypeArgs = tokenizer.nextRawToken();
+    private Optional<ProtobufTypeReference> parseFieldMapType() {
+        var nameOrTypeArgs = nextRawToken();
         if (!isTypeParametersStart(nameOrTypeArgs)) {
-            tokenizer.moveToPreviousToken();
+            moveToPreviousToken();
             return Optional.empty();
         }
 
-        var keyTypeToken = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isValidType(keyTypeToken),
-                "Invalid map key type '%s'\n\nExpected a type name for the map key.\n\nHelp: Map syntax: map<KeyType, ValueType> field_name = number;\n      Example: map<string, int32> user_scores = 1;".formatted(keyTypeToken),
-                tokenizer.line());
-        var keyType = parseFieldType(tokenizer, keyTypeToken);
+        var keyTypeToken = nextRawToken();
+        expect(isValidType(keyTypeToken), ProtobufSyntaxErrors.invalidMapKeyType(keyTypeToken));
+        var keyType = parseFieldType(keyTypeToken);
 
-        var separator = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isArraySeparator(separator),
-                "Expected ',' between map key and value types but found '%s'\n\nHelp: Map syntax: map<KeyType, ValueType> field_name = number;\n      Example: map<string, int32> user_scores = 1;".formatted(separator),
-                tokenizer.line());
+        var separator = nextRawToken();
+        expect(isArraySeparator(separator), ProtobufSyntaxErrors.expectedMapTypeSeparator(separator));
 
-        var valueTypeToken = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isValidType(valueTypeToken),
-                "Invalid map value type '%s'\n\nExpected a type name for the map value.\n\nHelp: Map syntax: map<KeyType, ValueType> field_name = number;\n      Example: map<string, MyMessage> entities = 1;".formatted(valueTypeToken),
-                tokenizer.line());
-        var valueType = parseFieldType(tokenizer, valueTypeToken);
+        var valueTypeToken = nextRawToken();
+        expect(isValidType(valueTypeToken), ProtobufSyntaxErrors.invalidMapValueType(valueTypeToken));
+        var valueType = parseFieldType(valueTypeToken);
 
-        var end = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isTypeParametersEnd(end),
-                "Expected '>' to close map type parameters but found '%s'\n\nHelp: Map syntax: map<KeyType, ValueType> field_name = number;\n      Make sure you have matching angle brackets.".formatted(end),
-                tokenizer.line());
+        var end = nextRawToken();
+        expect(isTypeParametersEnd(end), ProtobufSyntaxErrors.expectedMapTypeEnd(end));
 
         var result = new ProtobufMapTypeReference(keyType, valueType);
         return Optional.of(result);
     }
 
-    private static String validateFieldName(String name, int line) {
-        ProtobufSyntaxException.check(isValidIdent(name),
-                """
-                        Invalid field name '%s'
-                        
-                        Field names must be valid identifiers.
-                        
-                        Help: Field names should:
-                              - Start with a letter or underscore
-                              - Contain only letters, numbers, and underscores
-                              - Use snake_case by convention (not required, but recommended)
-                              Example: optional string user_scores = 1;""",
-                line,
-                name);
+    private String validateFieldName(String name) {
+        expect(isValidIdent(name), ProtobufSyntaxErrors.invalidFieldName(name));
         return name;
     }
 
-    private static void validateFieldIndexAssignment(ProtobufLexer tokenizer) throws IOException {
-        var operator = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isAssignmentOperator(operator),
-                """
-                        Expected '=' after field name but found '%s'
-                        
-                        Help: Field declarations must assign a field number with '='.
-                              Example: optional string name = 1;""",
-                tokenizer.line(),
-                operator);
+    private void validateFieldIndexAssignment() {
+        var operator = nextRawToken();
+        expect(isAssignmentOperator(operator), ProtobufSyntaxErrors.expectedAssignmentAfterFieldName(operator));
     }
 
-    private static ProtobufInteger validateFieldIndex(ProtobufToken index, int line) {
+    private ProtobufInteger validateFieldIndex(ProtobufToken index) {
         if (index instanceof ProtobufNumberToken(var number) && number instanceof ProtobufInteger integer) {
             return integer;
         } else {
-            throw new ProtobufSyntaxException("""
-                Expected field number (integer) but found '%s'
-                
-                Field numbers must be positive integers.
-                
-                Help: Field numbers identify fields in the binary format and must be unique.
-                      Use 1-15 for frequently set fields (most efficient).
-                      Example: optional string name = 1;""", line, index
-            );
+            throw error(ProtobufSyntaxErrors.expectedFieldNumber(index.toString()));
         }
     }
 
-    private static ProtobufEnumStatement parseEnum(ProtobufDocumentTree document, ProtobufLexer tokenizer) throws IOException {
-        var statement = new ProtobufEnumStatement(tokenizer.line());
-        var name = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isValidIdent(name),
-                "Unexpected token: " + name, tokenizer.line());
+    private ProtobufEnumStatement parseEnum(ProtobufTreeSourcePosition start) {
+        var statement = new ProtobufEnumStatement(document, ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
+        var name = nextRawToken();
+        expect(isValidIdent(name), ProtobufSyntaxErrors.invalidEnumName(name));
         statement.setName(name);
-        var objectStart = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isBodyStart(objectStart),
-                "Unexpected token " + objectStart, tokenizer.line());
+        var objectStart = nextRawToken();
+        expect(isBodyStart(objectStart), ProtobufSyntaxErrors.expectedToken(BODY_START, objectStart));
         String token;
-        while (!isBodyEnd(token = tokenizer.nextRawToken())) {
-            switch (token) {
-                case STATEMENT_END -> {
-                    var child = parseEmpty(tokenizer);
-                    statement.addChild(child);
-                }
-                case "option" -> {
-                    var child = parseOption(tokenizer, OptionParser.STATEMENT);
-                    statement.addChild(child);
-                }
-                case "reserved"  -> {
-                    var child = parseReserved(document, tokenizer);
-                    statement.addChild(child);
-                }
-                default -> {
-                    var child = parseEnumConstant(token, tokenizer);
-                    statement.addChild(child);
-                }
+        while (!isBodyEnd(token = nextRawToken())) {
+            var childStart = lexer.tokenRange().start();
+            var dispatch = tokenCount;
+            try {
+                parseEnumChild(statement, token, childStart);
+            } catch (Sync _) {
+                synchronize(true, dispatch);
             }
         }
-        return statement;
+        return finishStatement(statement, start);
     }
 
-    private static ProtobufEnumConstantStatement parseEnumConstant(String token, ProtobufLexer tokenizer) throws IOException {
-        var statement = new ProtobufEnumConstantStatement(tokenizer.line());
+    /**
+     * Parses a statement of an enum body introduced by the given token and adds it to the enum.
+     *
+     * @param statement the enum that contains the statement
+     * @param token the first token of the statement
+     * @param childStart the position of the first token of the statement
+     * @throws Sync if the statement is malformed
+     */
+    private void parseEnumChild(ProtobufEnumStatement statement, String token, ProtobufTreeSourcePosition childStart) {
+        switch (token) {
+            case STATEMENT_END -> {
+                var child = parseEmpty(childStart);
+                statement.addChild(child);
+            }
+            case "option" -> {
+                var child = parseOptionStatement(childStart);
+                statement.addChild(child);
+            }
+            case "reserved"  -> {
+                var child = parseReserved(childStart);
+                statement.addChild(child);
+            }
+            default -> {
+                var child = parseEnumConstant(token, childStart);
+                statement.addChild(child);
+            }
+        }
+    }
+
+    private ProtobufEnumConstantStatement parseEnumConstant(String token, ProtobufTreeSourcePosition start) {
+        var statement = new ProtobufEnumConstantStatement(ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
         statement.setName(token);
 
-        var operator = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isAssignmentOperator(operator),
-                "Unexpected token " + operator, tokenizer.line());
+        var operator = nextRawToken();
+        expect(isAssignmentOperator(operator), ProtobufSyntaxErrors.expectedToken(ASSIGNMENT_OPERATOR, operator));
 
-        var index = tokenizer.nextToken();
+        var index = nextToken();
         if(index instanceof ProtobufNumberToken(var number) && number instanceof ProtobufInteger integer) {
             statement.setIndex(integer);
         }else {
-            throw new ProtobufSyntaxException("Unexpected token " + index, tokenizer.line());
+            throw error(ProtobufSyntaxErrors.expectedEnumConstantNumber(index.toString()));
         }
 
-        var statementEndToken = parseOptions(tokenizer, tokenizer.nextRawToken(), statement);
-
-        ProtobufSyntaxException.check(isStatementEnd(statementEndToken),
-                "Unexpected token " + statementEndToken, tokenizer.line());
-        return statement;
+        var statementEndToken = parseOptions(nextRawToken(), statement);
+        expectStatementEnd(statementEndToken, ProtobufSyntaxErrors.expectedToken(STATEMENT_END, statementEndToken));
+        return finishStatement(statement, start);
     }
 
-    private static ProtobufExtensionsStatement parseExtensions(ProtobufLexer tokenizer) throws IOException {
-        var statement = new ProtobufExtensionsStatement(tokenizer.line());
+    private ProtobufExtensionsStatement parseExtensions(ProtobufTreeSourcePosition start) {
+        var statement = new ProtobufExtensionsStatement(ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
 
         while(true) {
-            var valueOrMinToken = tokenizer.nextToken();
+            var valueOrMinToken = nextToken();
             if (!(valueOrMinToken instanceof ProtobufNumberToken(var valueOrMinNumber)) || !(valueOrMinNumber instanceof ProtobufInteger valueOrMinInt)) {
-                throw new ProtobufSyntaxException("Unexpected token " + valueOrMinToken, tokenizer.line());
+                throw error(ProtobufSyntaxErrors.expectedIntegerValue(valueOrMinToken.toString()));
             }
 
-            var operator = tokenizer.nextRawToken();
+            var operator = nextRawToken();
             if(isRangeOperator(operator)) {
-                var maxToken = tokenizer.nextToken();
+                var maxToken = nextToken();
                 var range = switch (maxToken) {
                     case ProtobufNumberToken(var maxNumber) when maxNumber instanceof ProtobufInteger maxInt -> new ProtobufIntegerRange.Bounded(valueOrMinInt, maxInt);
                     case ProtobufRawToken(var token) when isMax(token) -> new ProtobufIntegerRange.LowerBounded(valueOrMinInt);
-                    default -> throw new ProtobufSyntaxException("Unexpected token " + maxToken, tokenizer.line());
+                    default -> throw error(ProtobufSyntaxErrors.expectedRangeEnd(maxToken.toString()));
                 };
 
                 var expression = new ProtobufIntegerRangeExpression(range);
                 statement.addExpression(expression);
 
-                operator = tokenizer.nextRawToken();
+                operator = nextRawToken();
             }else {
                 var expression = new ProtobufIntegerExpression(valueOrMinInt);
                 statement.addExpression(expression);
             }
 
-            var statementEndOrSeparator = parseOptions(tokenizer, operator, statement);
+            var statementEndOrSeparator = parseOptions(operator, statement);
             if (isStatementEnd(statementEndOrSeparator)) {
-                if(statement.expressions().isEmpty()) {
-                    throw new ProtobufSyntaxException("Unexpected token " + statementEndOrSeparator, tokenizer.line());
-                }
-
                 break;
             } else if (!isArraySeparator(statementEndOrSeparator)) {
-                throw new ProtobufSyntaxException("Unexpected token " + statementEndOrSeparator, tokenizer.line());
+                throw error(ProtobufSyntaxErrors.expectedSeparatorOrSemicolon(statementEndOrSeparator));
             }
         }
 
-        return statement;
+        return finishStatement(statement, start);
     }
 
-    private static ProtobufReservedStatement parseReserved(ProtobufDocumentTree document, ProtobufLexer tokenizer) throws IOException {
-        var statement = new ProtobufReservedStatement(tokenizer.line());
+    private ProtobufReservedStatement parseReserved(ProtobufTreeSourcePosition start) {
+        var statement = new ProtobufReservedStatement(ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
         var isEdition = document.version().isEdition();
 
         bodyLoop: {
             while (true) {
-                var valueOrMinToken = tokenizer.nextToken();
+                var valueOrMinToken = nextToken();
                 switch (valueOrMinToken) {
                     case ProtobufLiteralToken(var value, _) -> {
-                        ProtobufSyntaxException.check(!isEdition,
-                                "Reserved names must be identifiers in editions, not string literals\n\nHelp: Use reserved %s; instead of reserved \"%s\";".formatted(value, value),
-                                tokenizer.line());
+                        if (isEdition) {
+                            report(ProtobufSemanticErrors.reservedNameMustBeIdentifier(value));
+                        }
                         statement.addExpression(new ProtobufLiteralExpression(value));
-                        var operator = tokenizer.nextRawToken();
+                        var operator = nextRawToken();
                         if(isStatementEnd(operator)) {
                             break bodyLoop;
                         }else if(!isArraySeparator(operator)) {
-                            throw new ProtobufSyntaxException("Unexpected token " + operator, tokenizer.line());
+                            throw error(ProtobufSyntaxErrors.expectedSeparatorOrSemicolon(operator));
                         }
                     }
 
                     case ProtobufNumberToken(var number) when number instanceof ProtobufInteger valueOrMinInt -> {
-                        var operator = tokenizer.nextRawToken();
+                        var operator = nextRawToken();
                         if(isRangeOperator(operator)) {
-                            var maxToken = tokenizer.nextToken();
+                            var maxToken = nextToken();
                             var range = switch (maxToken) {
                                 case ProtobufNumberToken(var maxNumber) when maxNumber instanceof ProtobufInteger maxInt -> new ProtobufIntegerRange.Bounded(valueOrMinInt, maxInt);
                                 case ProtobufRawToken(var token) when isMax(token) -> new ProtobufIntegerRange.LowerBounded(valueOrMinInt);
-                                default -> throw new ProtobufSyntaxException("Unexpected token " + maxToken, tokenizer.line());
+                                default -> throw error(ProtobufSyntaxErrors.expectedRangeEnd(maxToken.toString()));
                             };
 
                             statement.addExpression(new ProtobufIntegerRangeExpression(range));
 
-                            operator = tokenizer.nextRawToken();
+                            operator = nextRawToken();
                         }else {
                             statement.addExpression(new ProtobufIntegerExpression(valueOrMinInt));
                         }
@@ -872,190 +1357,242 @@ public final class ProtobufParser {
                         if(isStatementEnd(operator)) {
                             break bodyLoop;
                         }else if(!isArraySeparator(operator)) {
-                            throw new ProtobufSyntaxException("Unexpected token " + operator, tokenizer.line());
+                            throw error(ProtobufSyntaxErrors.expectedSeparatorOrSemicolon(operator));
                         }
                     }
 
                     case ProtobufRawToken(var rawValue) when isValidIdent(rawValue) -> {
-                        ProtobufSyntaxException.check(isEdition,
-                                "Reserved names must be string literals in proto2/proto3\n\nHelp: Use reserved \"%s\"; instead of reserved %s;".formatted(rawValue, rawValue),
-                                tokenizer.line());
+                        if (!isEdition) {
+                            report(ProtobufSemanticErrors.reservedNameMustBeLiteral(rawValue));
+                        }
                         statement.addExpression(new ProtobufLiteralExpression(rawValue));
-                        var operator = tokenizer.nextRawToken();
+                        var operator = nextRawToken();
                         if(isStatementEnd(operator)) {
                             break bodyLoop;
                         }else if(!isArraySeparator(operator)) {
-                            throw new ProtobufSyntaxException("Unexpected token " + operator, tokenizer.line());
+                            throw error(ProtobufSyntaxErrors.expectedSeparatorOrSemicolon(operator));
                         }
                     }
 
-                    default -> throw new ProtobufSyntaxException("Unexpected token " + valueOrMinToken, tokenizer.line());
+                    default -> throw error(ProtobufSyntaxErrors.expectedReservedValue(valueOrMinToken.toString()));
                 }
             }
         }
 
-        return statement;
+        return finishStatement(statement, start);
     }
 
-    private static ProtobufServiceStatement parseService(ProtobufLexer tokenizer) throws IOException {
-        var statement = new ProtobufServiceStatement(tokenizer.line());
-        var name = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isValidIdent(name),
-                "Unexpected token: " + name, tokenizer.line());
+    private ProtobufServiceStatement parseService(ProtobufTreeSourcePosition start) {
+        var statement = new ProtobufServiceStatement(document, ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
+        var name = nextRawToken();
+        expect(isValidIdent(name), ProtobufSyntaxErrors.invalidServiceName(name));
         statement.setName(name);
-        var objectStart = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isBodyStart(objectStart),
-                "Unexpected token " + objectStart, tokenizer.line());
+        var objectStart = nextRawToken();
+        expect(isBodyStart(objectStart), ProtobufSyntaxErrors.expectedToken(BODY_START, objectStart));
         String token;
-        while (!isBodyEnd(token = tokenizer.nextRawToken())) {
-            switch (token) {
-                case STATEMENT_END -> {
-                    var child = parseEmpty(tokenizer);
-                    statement.addChild(child);
-                }
-                case "option" -> {
-                    var child = parseOption(tokenizer, OptionParser.STATEMENT);
-                    statement.addChild(child);
-                }
-                case "rpc" -> {
-                    var child = parseMethod(tokenizer);
-                    statement.addChild(child);
-                }
-                default -> throw new ProtobufSyntaxException("Unexpected token " + token, tokenizer.line());
+        while (!isBodyEnd(token = nextRawToken())) {
+            var childStart = lexer.tokenRange().start();
+            var dispatch = tokenCount;
+            try {
+                parseServiceChild(statement, token, childStart);
+            } catch (Sync _) {
+                synchronize(true, dispatch);
             }
         }
-        return statement;
+        return finishStatement(statement, start);
     }
 
-    private static ProtobufMethodStatement parseMethod(ProtobufLexer tokenizer) throws IOException {
-        var statement = new ProtobufMethodStatement(tokenizer.line());
-        var name = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isValidIdent(name),
-                "Unexpected token: " + name, tokenizer.line());
+    /**
+     * Parses a statement of a service body introduced by the given token and adds it to the
+     * service.
+     *
+     * @param statement the service that contains the statement
+     * @param token the first token of the statement
+     * @param childStart the position of the first token of the statement
+     * @throws Sync if the statement is malformed
+     */
+    private void parseServiceChild(ProtobufServiceStatement statement, String token, ProtobufTreeSourcePosition childStart) {
+        switch (token) {
+            case STATEMENT_END -> {
+                var child = parseEmpty(childStart);
+                statement.addChild(child);
+            }
+            case "option" -> {
+                var child = parseOptionStatement(childStart);
+                statement.addChild(child);
+            }
+            case "rpc" -> {
+                var child = parseMethod(childStart);
+                statement.addChild(child);
+            }
+            default -> throw error(ProtobufSyntaxErrors.unexpectedServiceToken(token));
+        }
+    }
+
+    private ProtobufMethodStatement parseMethod(ProtobufTreeSourcePosition start) {
+        var statement = new ProtobufMethodStatement(document, ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
+        var name = nextRawToken();
+        expect(isValidIdent(name), ProtobufSyntaxErrors.invalidMethodName(name));
         statement.setName(name);
-        var inputType = parseMethodType(tokenizer);
+        var inputType = parseMethodType();
         statement.setInputType(inputType);
-        var returnsToken = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(Objects.equals(returnsToken, "returns"),
-                "Unexpected token: " + returnsToken, tokenizer.line());
-        var outputType = parseMethodType(tokenizer);
+        var returnsToken = nextRawToken();
+        expect(Objects.equals(returnsToken, RETURNS), ProtobufSyntaxErrors.expectedReturns(returnsToken));
+        var outputType = parseMethodType();
         statement.setOutputType(outputType);
-        var objectStartOrStatementEnd = tokenizer.nextRawToken();
+        var objectStartOrStatementEnd = nextRawToken();
         if(isBodyStart(objectStartOrStatementEnd)){
             String token;
-            while (!isBodyEnd(token = tokenizer.nextRawToken())) {
-                switch (token) {
-                    case STATEMENT_END -> {
-                        var child = parseEmpty(tokenizer);
-                        statement.addChild(child);
-                    }
-                    case "option" -> {
-                        var child = parseOption(tokenizer, OptionParser.STATEMENT);
-                        statement.addChild(child);
-                    }
-                    default -> throw new ProtobufSyntaxException("Unexpected token " + token, tokenizer.line());
+            while (!isBodyEnd(token = nextRawToken())) {
+                var childStart = lexer.tokenRange().start();
+                var dispatch = tokenCount;
+                try {
+                    parseMethodChild(statement, token, childStart);
+                } catch (Sync _) {
+                    synchronize(true, dispatch);
                 }
             }
         }else if(!isStatementEnd(objectStartOrStatementEnd)) {
-            throw new ProtobufSyntaxException("Unexpected token: " + objectStartOrStatementEnd, tokenizer.line());
+            throw error(ProtobufSyntaxErrors.expectedMethodBodyOrSemicolon(objectStartOrStatementEnd));
         }
-        return statement;
+        return finishStatement(statement, start);
     }
 
-    private static ProtobufMethodStatement.Type parseMethodType(ProtobufLexer tokenizer) throws IOException {
-        var typeStart = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isParensStart(typeStart),
-                "Unexpected token: " + typeStart, tokenizer.line());
-        var typeOrModifier = tokenizer.nextRawToken();
+    /**
+     * Parses a statement of an rpc method body introduced by the given token and adds it to the
+     * method.
+     *
+     * @param statement the method that contains the statement
+     * @param token the first token of the statement
+     * @param childStart the position of the first token of the statement
+     * @throws Sync if the statement is malformed
+     */
+    private void parseMethodChild(ProtobufMethodStatement statement, String token, ProtobufTreeSourcePosition childStart) {
+        switch (token) {
+            case STATEMENT_END -> {
+                var child = parseEmpty(childStart);
+                statement.addChild(child);
+            }
+            case "option" -> {
+                var child = parseOptionStatement(childStart);
+                statement.addChild(child);
+            }
+            default -> throw error(ProtobufSyntaxErrors.unexpectedMethodBodyToken(token));
+        }
+    }
+
+    private ProtobufMethodStatement.Type parseMethodType() {
+        var typeStart = nextRawToken();
+        expect(isParensStart(typeStart), ProtobufSyntaxErrors.expectedToken(PARENS_START, typeStart));
+        var typeOrModifier = nextRawToken();
         ProtobufTypeReference typeReference;
         boolean stream;
         if(isStreamModifier(typeOrModifier)) {
-            var type = tokenizer.nextRawToken();
-            ProtobufSyntaxException.check(isValidType(type),
-                    "Invalid RPC type '%s'\n\nExpected a message type name.\n\nHelp: RPC method types must be message types.\n      Example: rpc MyMethod(RequestMessage) returns (ResponseMessage);".formatted(type),
-                    tokenizer.line());
+            var type = nextRawToken();
+            expect(isValidType(type), ProtobufSyntaxErrors.invalidMethodType(type));
             typeReference = new ProtobufUnresolvedTypeReference(type);
             stream = true;
         }else {
-            ProtobufSyntaxException.check(isValidType(typeOrModifier),
-                    "Invalid RPC type '%s'\n\nExpected a message type name.\n\nHelp: RPC method types must be message types.\n      Example: rpc MyMethod(RequestMessage) returns (ResponseMessage);".formatted(typeOrModifier),
-                    tokenizer.line());
+            expect(isValidType(typeOrModifier), ProtobufSyntaxErrors.invalidMethodType(typeOrModifier));
             typeReference = new ProtobufUnresolvedTypeReference(typeOrModifier);
             stream = false;
         }
 
-        var typeEnd = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isParensEnd(typeEnd),
-                "Unexpected token: " + typeEnd, tokenizer.line());
+        var typeEnd = nextRawToken();
+        expect(isParensEnd(typeEnd), ProtobufSyntaxErrors.expectedToken(PARENS_END, typeEnd));
         return new ProtobufMethodStatement.Type(typeReference, stream);
     }
 
-    private static ProtobufOneofStatement parseOneof(ProtobufLexer tokenizer) throws IOException {
-        var statement = new ProtobufOneofStatement(tokenizer.line());
-        var name = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isValidIdent(name),
-                "Unexpected token: " + name, tokenizer.line());
+    private ProtobufOneofStatement parseOneof(ProtobufTreeSourcePosition start) {
+        var statement = new ProtobufOneofStatement(document, ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(statement);
+        var name = nextRawToken();
+        expect(isValidIdent(name), ProtobufSyntaxErrors.invalidOneofName(name));
         statement.setName(name);
-        var objectStart = tokenizer.nextRawToken();
-        ProtobufSyntaxException.check(isBodyStart(objectStart),
-                "Unexpected token " + objectStart, tokenizer.line());
+        var objectStart = nextRawToken();
+        expect(isBodyStart(objectStart), ProtobufSyntaxErrors.expectedToken(BODY_START, objectStart));
         String token;
-        while (!isBodyEnd(token = tokenizer.nextRawToken())) {
-            switch (token) {
-                case "option" -> {
-                    var child = parseOption(tokenizer, OptionParser.STATEMENT);
-                    statement.addChild(child);
-                }
-                default -> {
-                    var child = parseField(tokenizer, ProtobufModifier.NONE, token);
-                    statement.addChild(child);
-                }
+        while (!isBodyEnd(token = nextRawToken())) {
+            var childStart = lexer.tokenRange().start();
+            var dispatch = tokenCount;
+            try {
+                parseOneofChild(statement, token, childStart);
+            } catch (Sync _) {
+                synchronize(true, dispatch);
             }
         }
-        return statement;
+        return finishStatement(statement, start);
     }
 
-    private static ProtobufImportStatement parseImport(ProtobufDocumentTree document, ProtobufLexer tokenizer) throws IOException {
-        var importStatement = new ProtobufImportStatement(tokenizer.line());
-        var token = tokenizer.nextToken();
+    /**
+     * Parses a statement of a oneof body introduced by the given token and adds it to the oneof.
+     *
+     * @param statement the oneof that contains the statement
+     * @param token the first token of the statement
+     * @param childStart the position of the first token of the statement
+     * @throws Sync if the statement is malformed
+     */
+    private void parseOneofChild(ProtobufOneofStatement statement, String token, ProtobufTreeSourcePosition childStart) {
+        switch (token) {
+            case "option" -> {
+                var child = parseOptionStatement(childStart);
+                statement.addChild(child);
+            }
+            default -> {
+                var child = parseField(ProtobufModifier.NONE, token, childStart);
+                statement.addChild(child);
+            }
+        }
+    }
+
+    private ProtobufImportStatement parseImport(ProtobufTreeSourcePosition start) {
+        var importStatement = new ProtobufImportStatement(ProtobufTreeSourceRange.UNKNOWN);
+        attachLeadingComments(importStatement);
+        var token = nextToken();
         switch (token) {
             case ProtobufLiteralToken literal -> {
                 importStatement.setModifier(ProtobufImportStatement.Modifier.NONE);
                 importStatement.setLocation(literal.value());
-                var end = tokenizer.nextRawToken();
-                ProtobufSyntaxException.check(isStatementEnd(end),
-                        "Unexpected token " + end, tokenizer.line());
+                var end = nextRawToken();
+                expectStatementEnd(end, ProtobufSyntaxErrors.expectedToken(STATEMENT_END, end));
             }
             case ProtobufRawToken raw -> {
-                var modifier = ProtobufImportStatement.Modifier.of(raw.value())
-                        .orElseThrow(() -> new ProtobufParserException("Unexpected token " + raw.value(), tokenizer.line()));
+                var modifier = ProtobufImportStatement.Modifier.of(raw.value());
+                if (modifier.isEmpty()) {
+                    throw error(ProtobufSyntaxErrors.unknownImportModifier(raw.value()));
+                }
                 var version = document.version();
-                switch (modifier) {
-                    case WEAK -> ProtobufSyntaxException.check(version != ProtobufVersion.EDITION_2024,
-                            "import weak is not allowed in Edition 2024\n\nUse import option instead.",
-                            tokenizer.line());
-                    case OPTION -> ProtobufSyntaxException.check(version == ProtobufVersion.EDITION_2024,
-                            "import option is only allowed in Edition 2024 or later",
-                            tokenizer.line());
+                switch (modifier.get()) {
+                    case WEAK -> {
+                        if (version == ProtobufVersion.EDITION_2024) {
+                            report(ProtobufSemanticErrors.weakImportInEdition2024());
+                        }
+                    }
+                    case OPTION -> {
+                        if (version != ProtobufVersion.EDITION_2024) {
+                            report(ProtobufSemanticErrors.optionImportRequiresEdition2024());
+                        }
+                    }
                     case PUBLIC, NONE -> {}
                 }
-                importStatement.setModifier(modifier);
-                var locationToken = tokenizer.nextToken();
+                importStatement.setModifier(modifier.get());
+                var locationToken = nextToken();
                 if(!(locationToken instanceof ProtobufLiteralToken(var location, _))) {
-                    throw new ProtobufSyntaxException("Unexpected token " + locationToken, tokenizer.line());
+                    throw error(ProtobufSyntaxErrors.expectedImportLocation(locationToken.toString()));
                 }
                 importStatement.setLocation(location);
-                var end = tokenizer.nextRawToken();
-                ProtobufSyntaxException.check(isStatementEnd(end),
-                        "Unexpected token " + end, tokenizer.line());
+                var end = nextRawToken();
+                expectStatementEnd(end, ProtobufSyntaxErrors.expectedToken(STATEMENT_END, end));
             }
-            default -> throw new ProtobufSyntaxException("Unexpected token " + token, tokenizer.line());
+            default -> throw error(ProtobufSyntaxErrors.expectedImportLocation(token.toString()));
         }
-        return importStatement;
+        return finishStatement(importStatement, start);
     }
 
-    private static ProtobufExpression readExpression(ProtobufLexer tokenizer) throws IOException {
-        return switch (tokenizer.nextToken()) {
+    private ProtobufExpression readExpression() {
+        return switch (nextToken()) {
             case ProtobufBoolToken(var value) -> new ProtobufBoolExpression(value);
             case ProtobufLiteralToken literal -> new ProtobufLiteralExpression(literal.value());
             case ProtobufNumberToken(var number) -> switch (number) {
@@ -1066,66 +1603,47 @@ public final class ProtobufParser {
             case ProtobufRawToken raw when isNullExpression(raw.value()) -> new ProtobufNullExpression();
             case ProtobufRawToken raw when isBodyStart(raw.value()) -> {
                 var data = new LinkedHashMap<String, ProtobufExpression>();
-                var keyOrEndToken = tokenizer.nextToken();
+                var keyOrEndToken = nextToken();
                 while (true) {
                     if (!(keyOrEndToken instanceof ProtobufRawToken(var keyOrEndValue))) {
-                        throw new ProtobufSyntaxException("Unexpected token " + keyOrEndToken, tokenizer.line());
+                        throw error(ProtobufSyntaxErrors.expectedMessageLiteralKey(keyOrEndToken.toString()));
                     }
 
                     if (isBodyEnd(keyOrEndValue)) {
                         break;
                     }
 
-                    var keyValueSeparatorToken = tokenizer.nextRawToken();
-                    ProtobufSyntaxException.check(isKeyValueSeparatorOperator(keyValueSeparatorToken),
-                            "Unexpected token " + keyValueSeparatorToken, tokenizer.line());
+                    var keyValueSeparatorToken = nextRawToken();
+                    expect(isKeyValueSeparatorOperator(keyValueSeparatorToken), ProtobufSyntaxErrors.expectedToken(KEY_VALUE_SEPARATOR, keyValueSeparatorToken));
 
-                    var valueToken = readExpression(tokenizer);
+                    var valueToken = readExpression();
                     data.put(keyOrEndValue, valueToken);
 
-                    var nextToken = tokenizer.nextToken();
+                    var nextToken = nextToken();
                     keyOrEndToken = nextToken instanceof ProtobufRawToken(var nextValue) && isArraySeparator(nextValue)
-                            ? tokenizer.nextToken()
+                            ? nextToken()
                             : nextToken;
                 }
                 yield new ProtobufJsonExpression(data);
             }
-            case ProtobufRawToken raw -> throw new ProtobufSyntaxException("Unexpected token " + raw.value(), tokenizer.line());
+            case ProtobufRawToken raw -> throw error(ProtobufSyntaxErrors.invalidOptionValue(raw.value()));
         };
     }
 
-    private static String parseOptions(ProtobufLexer tokenizer, String currentToken, ProtobufTree.WithOptions child) throws IOException {
+    private String parseOptions(String currentToken, ProtobufTree.WithOptions child) {
         if(!isArrayStart(currentToken)) {
             return currentToken;
         }
 
         String optionSeparatorOrOptionEnd;
         do {
-            var expression = parseOption(tokenizer, OptionParser.EXPRESSION);
+            var expression = parseOptionExpression();
             child.addOption(expression);
-        }while (isArraySeparator(optionSeparatorOrOptionEnd = tokenizer.nextRawToken()));
+        }while (isArraySeparator(optionSeparatorOrOptionEnd = nextRawToken()));
 
-        ProtobufSyntaxException.check(isArrayEnd(optionSeparatorOrOptionEnd),
-                "Unexpected token " + optionSeparatorOrOptionEnd, tokenizer.line());
+        expect(isArrayEnd(optionSeparatorOrOptionEnd), ProtobufSyntaxErrors.expectedToken(ARRAY_END, optionSeparatorOrOptionEnd));
 
-        return tokenizer.nextRawToken();
-    }
-
-    private interface OptionParser<T> {
-        OptionParser<ProtobufOptionStatement> STATEMENT = (tokenizer, name, value) -> {
-            var end = tokenizer.nextRawToken();
-            ProtobufSyntaxException.check(isStatementEnd(end),
-                    "Expected ';' after option value but found '%s'\n\nHelp: Option declarations must end with a semicolon.\n      Example: option java_package = \"com.example\";".formatted(end),
-                    tokenizer.line());
-            var statement = new ProtobufOptionStatement(tokenizer.line());
-            statement.setName(name);
-            statement.setValue(value);
-            return statement;
-        };
-
-        OptionParser<ProtobufOptionExpression> EXPRESSION = (_, name, value) -> new ProtobufOptionExpression(name, value);
-
-        T parse(ProtobufLexer tokenizer, ProtobufOptionName name, ProtobufExpression value) throws IOException;
+        return nextRawToken();
     }
 
     private static boolean isKeyValueSeparatorOperator(String keyValueSeparatorToken) {
@@ -1276,5 +1794,46 @@ public final class ProtobufParser {
 
     private static boolean isMapType(String token) {
         return Objects.equals(token, MAP);
+    }
+
+    /**
+     * An unchecked signal that unwinds the parser from a malformed statement to the body loop that
+     * contains it, where {@link #synchronize(boolean, int)} skips the rest of the statement.
+     *
+     * <p>It never escapes the parser. The singleton instance carries no stack trace.
+     */
+    private static final class Sync extends RuntimeException {
+        /**
+         * The singleton instance of this signal.
+         */
+        private static final Sync INSTANCE = new Sync();
+
+        /**
+         * Constructs the singleton instance, without a message, a cause or a stack trace.
+         */
+        private Sync() {
+            super(null, null, false, false);
+        }
+    }
+
+    /**
+     * An unchecked signal that unwinds the parser when the input ends in the middle of a
+     * declaration.
+     *
+     * <p>It never escapes the parser: {@link #parseDocument()} catches it and returns the
+     * declarations parsed so far. The singleton instance carries no stack trace.
+     */
+    private static final class Abort extends RuntimeException {
+        /**
+         * The singleton instance of this signal.
+         */
+        private static final Abort INSTANCE = new Abort();
+
+        /**
+         * Constructs the singleton instance, without a message, a cause or a stack trace.
+         */
+        private Abort() {
+            super(null, null, false, false);
+        }
     }
 }

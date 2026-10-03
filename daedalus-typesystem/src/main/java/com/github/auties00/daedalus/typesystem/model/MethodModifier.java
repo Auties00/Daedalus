@@ -6,7 +6,7 @@ package com.github.auties00.daedalus.typesystem.model;
  *
  * <p>Not all modifiers are applicable to all kinds of method declarations.
  * For example, {@code abstract} cannot be combined with {@code final},
- * {@code static}, {@code synchronized}, {@code native}, or {@code strictfp}.
+ * {@code static}, {@code synchronized}, or {@code native}.
  * When two or more modifiers appear in the source code of a method then it
  * is customary, though not required, that they appear in the same order as
  * the constants listed in the detail section below.

@@ -31,12 +31,17 @@ import java.lang.annotation.Target;
  * annotation element, that is: a primitive type ({@code boolean}, {@code byte},
  * {@code char}, {@code short}, {@code int}, {@code long}, {@code float},
  * {@code double}), {@link String}, {@link Class}, an {@code enum} type,
- * an annotation type, or a one-dimensional array of any of these.
+ * or a one dimensional array of any of these. Annotation types are not
+ * supported, as their values cannot be passed to a method without reflection.
+ * Parameters whose type is a reader or writer supplied by the data format are
+ * not additional parameters, as the generated code passes them itself.
  *
  * <p>When additional parameters are present, the annotation processor generates
  * a companion annotation named {@code {TypeName}Parameters} whose methods
  * mirror those parameters. This annotation is then applied at the use-site to
- * supply the values.
+ * supply the values. A use site that is not annotated with it cannot use the
+ * converter: if no other conversion exists, the annotation processor reports
+ * the conversions that would be available if the annotation were applied.
  *
  * <p>The corresponding {@link TypeDeserializer} and {@link TypeSize} methods
  * must accept the same additional parameters in the same order.

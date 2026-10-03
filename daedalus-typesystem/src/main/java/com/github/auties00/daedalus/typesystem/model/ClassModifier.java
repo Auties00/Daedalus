@@ -55,12 +55,7 @@ public enum ClassModifier {
     /**
      * The modifier {@code final}.
      */
-    FINAL,
-
-    /**
-     * The modifier {@code strictfp}.
-     */
-    STRICTFP;
+    FINAL;
 
     /**
      * Returns this modifier's name

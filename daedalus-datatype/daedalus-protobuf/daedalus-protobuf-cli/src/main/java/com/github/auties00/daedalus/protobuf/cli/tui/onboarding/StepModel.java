@@ -1,10 +1,10 @@
 package com.github.auties00.daedalus.protobuf.cli.tui.onboarding;
 
+import com.github.auties00.daedalus.cli.tui.StatusBar;
 import com.williamcallahan.tui4j.compat.bubbletea.*;
 import com.williamcallahan.tui4j.compat.lipgloss.Join;
 import com.williamcallahan.tui4j.compat.lipgloss.Position;
 import com.github.auties00.daedalus.cli.tui.Theme;
-import com.github.auties00.daedalus.cli.tui.shared.StatusBar;
 
 import java.util.List;
 import java.util.function.Function;

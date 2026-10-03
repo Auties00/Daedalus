@@ -1,6 +1,5 @@
 package com.github.auties00.daedalus.protobuf.compiler.typeReference;
 
-import com.github.auties00.daedalus.protobuf.model.ProtobufType;
 
 /**
  * Represents a reference to a type in a Protocol Buffer definition.
@@ -24,20 +23,13 @@ import com.github.auties00.daedalus.protobuf.model.ProtobufType;
  * @see ProtobufObjectTypeReference
  */
 public sealed interface ProtobufTypeReference
-        permits ProtobufPrimitiveTypeReference, ProtobufObjectTypeReference {
+        permits ProtobufObjectTypeReference, ProtobufValueTypeReference {
     /**
      * Returns the name of this type.
      *
      * @return the type name as it appears in the Protocol Buffer definition
      */
     String name();
-
-    /**
-     * Returns the Protocol Buffer type category this reference represents.
-     *
-     * @return the {@link ProtobufType} enum value for this type
-     */
-    ProtobufType protobufType();
 
     /**
      * Indicates whether this type reference has been attributed (resolved and linked to its definition).

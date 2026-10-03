@@ -26,58 +26,56 @@ public final class CodePreview {
     public static String forTypeForm(TypeForm form) {
         return switch (form) {
             case RECORD -> highlightJava("""
-                    @ProtobufMessage(name = "example.Person")
+                    @ProtobufMessage(protoName = "example.Person")
                     public record Person(
-                        @ProtobufProperty(index = 1, type = ProtobufType.STRING)
+                        @ProtobufMessage.StringField(index = 1)
                         String name,
-                        @ProtobufProperty(index = 2, type = ProtobufType.INT32)
-                        int age
+                        @ProtobufMessage.Int32Field(index = 2)
+                        Integer age
                     ) {
                     }""");
             case CLASS -> highlightJava("""
-                    @ProtobufMessage(name = "example.Person")
+                    @ProtobufMessage(protoName = "example.Person")
                     public final class Person {
-                        @ProtobufProperty(index = 1, type = ProtobufType.STRING)
-                        private final String name;
-                        @ProtobufProperty(index = 2, type = ProtobufType.INT32)
-                        private final int age;
+                        @ProtobufMessage.StringField(index = 1)
+                        final String name;
+                        @ProtobufMessage.Int32Field(index = 2)
+                        final Integer age;
 
-                        public Person(String name, int age) { ... }
+                        public Person(String name, Integer age) { ... }
 
-                        @ProtobufAccessor(index = 1)
-                        public String name() { return name; }
-                        @ProtobufAccessor(index = 2)
-                        public int age() { return age; }
+                        public Optional<String> name() { ... }
+                        public OptionalInt age() { ... }
                     }""");
             case INTERFACE -> highlightJava("""
-                    @ProtobufMessage(name = "example.Person")
+                    @ProtobufMessage(protoName = "example.Person")
                     public interface Person {
-                        @ProtobufProperty(index = 1, type = ProtobufType.STRING)
+                        @ProtobufMessage.StringField(index = 1)
                         String name();
-                        @ProtobufProperty(index = 2, type = ProtobufType.INT32)
-                        int age();
+                        @ProtobufMessage.Int32Field(index = 2)
+                        Integer age();
                     }""");
             case SEALED_CLASS -> highlightJava("""
-                    @ProtobufMessage(name = "example.Person")
+                    @ProtobufMessage(protoName = "example.Person")
                     public sealed abstract class Person {
-                        @ProtobufProperty(index = 1, type = ProtobufType.STRING)
-                        private final String name;
-                        @ProtobufProperty(index = 2, type = ProtobufType.INT32)
-                        private final int age;
+                        @ProtobufMessage.StringField(index = 1)
+                        final String name;
+                        @ProtobufMessage.Int32Field(index = 2)
+                        final Integer age;
 
                         @ProtobufMessage
                         static final class DefaultPerson extends Person { ... }
                     }""");
             case SEALED_INTERFACE -> highlightJava("""
-                    @ProtobufMessage(name = "example.Person")
+                    @ProtobufMessage(protoName = "example.Person")
                     public sealed interface Person {
-                        @ProtobufProperty(index = 1, type = ProtobufType.STRING)
+                        @ProtobufMessage.StringField(index = 1)
                         String name();
-                        @ProtobufProperty(index = 2, type = ProtobufType.INT32)
-                        int age();
+                        @ProtobufMessage.Int32Field(index = 2)
+                        Integer age();
 
                         @ProtobufMessage
-                        record DefaultPerson(String name, int age) implements Person {}
+                        record DefaultPerson(String name, Integer age) implements Person {}
                     }""");
         };
     }
@@ -205,10 +203,10 @@ public final class CodePreview {
         if (enabled) {
             return highlightJava("""
                     @ProtobufUnknownFields
-                    private Map<Long, ProtobufUnknownValue> unknownFields;
+                    private Map<Integer, ProtobufUnknownValue> unknownFields;
 
                     @ProtobufUnknownFields.Setter
-                    public void setUnknownField(long index, ProtobufUnknownValue value) {
+                    public void setUnknownField(int index, ProtobufUnknownValue value) {
                         ...
                     }""");
         }

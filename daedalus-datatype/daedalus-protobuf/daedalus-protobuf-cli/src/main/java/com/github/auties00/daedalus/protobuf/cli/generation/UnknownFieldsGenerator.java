@@ -13,7 +13,7 @@ import com.github.javaparser.ast.type.ClassOrInterfaceType;
  * for proto message types.
  *
  * <p>When unknown fields support is enabled, this class adds a
- * {@code Map<Long, ProtobufUnknownValue>} field annotated with
+ * {@code Map<Integer, ProtobufUnknownValue>} field annotated with
  * {@code @ProtobufUnknownFields} and a setter method annotated with
  * {@code @ProtobufUnknownFields.Setter}.
  */
@@ -31,13 +31,13 @@ public final class UnknownFieldsGenerator {
      * <p>The generated field is:
      * <pre>{@code
      * @ProtobufUnknownFields
-     * private Map<Long, ProtobufUnknownValue> unknownFields;
+     * private Map<Integer, ProtobufUnknownValue> unknownFields;
      * }</pre>
      *
      * <p>The generated setter is:
      * <pre>{@code
      * @ProtobufUnknownFields.Setter
-     * public void setUnknownField(long index, ProtobufUnknownValue value) {
+     * public void setUnknownField(int index, ProtobufUnknownValue value) {
      *     if (this.unknownFields == null) {
      *         this.unknownFields = new LinkedHashMap<>();
      *     }
@@ -52,12 +52,12 @@ public final class UnknownFieldsGenerator {
         addImports(cu);
 
         var field = classDecl.addField(
-                "Map<Long, ProtobufUnknownValue>", "unknownFields", Modifier.Keyword.PRIVATE);
+                "Map<Integer, ProtobufUnknownValue>", "unknownFields", Modifier.Keyword.PRIVATE);
         field.addAnnotation(new MarkerAnnotationExpr("ProtobufUnknownFields"));
 
         var setter = classDecl.addMethod("setUnknownField", Modifier.Keyword.PUBLIC);
         setter.setType("void");
-        setter.addParameter("long", "index");
+        setter.addParameter("int", "index");
         setter.addParameter("ProtobufUnknownValue", "value");
         setter.addAnnotation(new MarkerAnnotationExpr("ProtobufUnknownFields.Setter"));
 
@@ -71,7 +71,7 @@ public final class UnknownFieldsGenerator {
         setter.setBody(body);
 
         var getter = classDecl.addMethod("unknownFields", Modifier.Keyword.PUBLIC);
-        getter.setType("Map<Long, ProtobufUnknownValue>");
+        getter.setType("Map<Integer, ProtobufUnknownValue>");
         getter.setBody(new BlockStmt().addStatement(new ReturnStmt(new NameExpr("unknownFields"))));
     }
 
@@ -80,7 +80,7 @@ public final class UnknownFieldsGenerator {
      *
      * <p>The generated component is:
      * <pre>{@code
-     * @ProtobufUnknownFields Map<Long, ProtobufUnknownValue> unknownFields
+     * @ProtobufUnknownFields Map<Integer, ProtobufUnknownValue> unknownFields
      * }</pre>
      *
      * @param recordDecl the record declaration to add the component to
@@ -90,7 +90,7 @@ public final class UnknownFieldsGenerator {
         addImports(cu);
 
         var param = new Parameter(
-                new ClassOrInterfaceType(null, "Map<Long, ProtobufUnknownValue>"),
+                new ClassOrInterfaceType(null, "Map<Integer, ProtobufUnknownValue>"),
                 "unknownFields"
         );
         param.addAnnotation(new MarkerAnnotationExpr("ProtobufUnknownFields"));
@@ -103,7 +103,7 @@ public final class UnknownFieldsGenerator {
      * <p>The generated method is:
      * <pre>{@code
      * @ProtobufUnknownFields
-     * Map<Long, ProtobufUnknownValue> unknownFields();
+     * Map<Integer, ProtobufUnknownValue> unknownFields();
      * }</pre>
      *
      * @param interfaceDecl the interface declaration to add the method to
@@ -113,7 +113,7 @@ public final class UnknownFieldsGenerator {
         addImports(cu);
 
         var method = interfaceDecl.addMethod("unknownFields");
-        method.setType("Map<Long, ProtobufUnknownValue>");
+        method.setType("Map<Integer, ProtobufUnknownValue>");
         method.removeBody();
         method.addAnnotation(new MarkerAnnotationExpr("ProtobufUnknownFields"));
     }

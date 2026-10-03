@@ -50,8 +50,8 @@ import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufExpress
  * @see ProtobufTree
  */
 public sealed interface ProtobufStatement
-        extends ProtobufTree
-        permits ProtobufDocumentChild, ProtobufEditionStatement, ProtobufEmptyStatement, ProtobufEnumChild, ProtobufEnumStatement, ProtobufExtendChild, ProtobufExtendStatement, ProtobufExtensionsStatement, ProtobufFieldStatement, ProtobufGroupChild, ProtobufGroupStatement, ProtobufImportStatement, ProtobufMessageChild, ProtobufMessageStatement, ProtobufMethodChild, ProtobufMethodStatement, ProtobufOneofChild, ProtobufOneofStatement, ProtobufOptionStatement, ProtobufPackageStatement, ProtobufReservedStatement, ProtobufServiceChild, ProtobufServiceStatement, ProtobufStatementImpl, ProtobufSyntaxStatement {
+        extends ProtobufTree, ProtobufTree.WithComments
+        permits ProtobufCommentStatement, ProtobufDocumentChild, ProtobufEditionStatement, ProtobufEmptyStatement, ProtobufEnumChild, ProtobufEnumStatement, ProtobufExtendChild, ProtobufExtendStatement, ProtobufExtensionsStatement, ProtobufFieldStatement, ProtobufGroupChild, ProtobufGroupStatement, ProtobufImportStatement, ProtobufMessageChild, ProtobufMessageStatement, ProtobufMethodChild, ProtobufMethodStatement, ProtobufOneofChild, ProtobufOneofStatement, ProtobufOptionStatement, ProtobufPackageStatement, ProtobufReservedStatement, ProtobufServiceChild, ProtobufServiceStatement, ProtobufStatementImpl, ProtobufSyntaxStatement {
     /**
      * Returns the parent container of this statement.
      * <p>
@@ -64,4 +64,14 @@ public sealed interface ProtobufStatement
      */
     @Override
     ProtobufTree.WithBody<?> parent();
+
+    /**
+     * Updates the source range covering this statement.
+     *
+     * <p>The parser uses this method to fill in the end position once it has consumed the
+     * statement's terminator. Once the AST has been built it should be treated as immutable.
+     *
+     * @param range the source range to set
+     */
+    void setRange(ProtobufTreeSourceRange range);
 }

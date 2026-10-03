@@ -1,8 +1,8 @@
 package com.github.auties00.daedalus.protobuf.cli.tui;
 
+import com.github.auties00.daedalus.cli.tui.StatusBar;
 import com.williamcallahan.tui4j.compat.bubbletea.*;
 import com.github.auties00.daedalus.cli.tui.Theme;
-import com.github.auties00.daedalus.cli.tui.shared.StatusBar;
 
 /**
  * The welcome screen model shown when the CLI is launched without arguments.

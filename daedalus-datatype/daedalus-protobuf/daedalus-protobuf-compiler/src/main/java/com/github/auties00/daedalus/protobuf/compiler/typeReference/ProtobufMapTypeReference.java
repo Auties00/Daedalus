@@ -37,11 +37,6 @@ public record ProtobufMapTypeReference(ProtobufTypeReference keyType, ProtobufTy
     }
 
     @Override
-    public ProtobufType protobufType() {
-        return ProtobufType.MAP;
-    }
-
-    @Override
     public String name() {
         return "map<%s, %s>".formatted(keyType, valueType);
     }

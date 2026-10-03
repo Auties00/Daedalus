@@ -4,7 +4,6 @@ import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufExpress
 import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufOptionExpression;
 
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Represents an option statement in the Protocol Buffer AST.
@@ -46,12 +45,12 @@ public final class ProtobufOptionStatement
     private ProtobufOptionDefinition definition;
 
     /**
-     * Constructs a new option statement at the specified line number.
+     * Constructs a new option statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param range the source range covering this statement
      */
-    public ProtobufOptionStatement(int line) {
-        super(line);
+    public ProtobufOptionStatement(ProtobufTreeSourceRange range) {
+        super(range);
     }
 
     @Override

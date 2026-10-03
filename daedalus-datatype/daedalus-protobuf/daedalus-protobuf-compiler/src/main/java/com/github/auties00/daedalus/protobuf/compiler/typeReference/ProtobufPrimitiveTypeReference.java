@@ -1,7 +1,6 @@
 package com.github.auties00.daedalus.protobuf.compiler.typeReference;
 
 import com.github.auties00.daedalus.protobuf.model.ProtobufType;
-import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
 
 import java.util.Objects;
 
@@ -26,11 +25,11 @@ import java.util.Objects;
  *
  * @param protobufType the primitive Protocol Buffer type, must not be null and must be a primitive type
  */
-public record ProtobufPrimitiveTypeReference(ProtobufType protobufType) implements ProtobufTypeReference {
+public record ProtobufPrimitiveTypeReference(ProtobufType protobufType) implements ProtobufValueTypeReference {
     public ProtobufPrimitiveTypeReference {
         Objects.requireNonNull(protobufType, "protobufType cannot be null");
         if (!protobufType.isPrimitive()) {
-            throw new ProtobufParserException(protobufType.name() + " is not a primitive type");
+            throw new IllegalArgumentException(protobufType.name() + " is not a primitive type");
         }
     }
 

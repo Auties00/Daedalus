@@ -3,7 +3,23 @@ package com.google.protobuf;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
+import java.util.Optional;
+
+/**
+ * Holder of the Daedalus models declared by {@code google/protobuf/cpp_features.proto}.
+ *
+ * <p>These models represent the C++ specific feature set carried by the
+ * {@code (pb.cpp)} extension of {@link DescriptorProtos.FeatureSet}.
+ *
+ * <p>The models mirror the {@code proto2} definitions of the official protobuf
+ * distribution field by field, including field numbers, wire types, field
+ * presence and repeated field encodings. This class only scopes the nested
+ * types and cannot be instantiated.
+ */
 public final class CppFeaturesProto {
+    /**
+     * Prevents the instantiation of this holder class.
+     */
     private CppFeaturesProto() {}
 
     /**
@@ -39,7 +55,7 @@ public final class CppFeaturesProto {
          * <p><code>bool legacy_closed_enum = 1;</code>
          */
         @ProtobufMessage.BoolField(index = 1)
-        boolean legacyClosedEnum;
+        Boolean legacyClosedEnum;
 
         /**
          * <p><code>StringType string_type = 2;</code>
@@ -51,28 +67,56 @@ public final class CppFeaturesProto {
          * <p><code>bool enum_name_uses_string_view = 3;</code>
          */
         @ProtobufMessage.BoolField(index = 3)
-        boolean enumNameUsesStringView;
+        Boolean enumNameUsesStringView;
 
+        /**
+         * Constructs a new {@code CppFeatures} with the specified field values.
+         *
+         * @param legacyClosedEnum the value of the {@code legacy_closed_enum} field, or {@code null} if the
+         *                         field is not set
+         * @param stringType the value of the {@code string_type} field, or {@code null} if the
+         *                   field is not set
+         * @param enumNameUsesStringView the value of the {@code enum_name_uses_string_view} field, or {@code null} if the
+         *                               field is not set
+         */
         CppFeatures(
-                boolean legacyClosedEnum,
+                Boolean legacyClosedEnum,
                 CppFeaturesProto.CppFeatures.StringType stringType,
-                boolean enumNameUsesStringView
+                Boolean enumNameUsesStringView
         ) {
             this.legacyClosedEnum = legacyClosedEnum;
             this.stringType = stringType;
             this.enumNameUsesStringView = enumNameUsesStringView;
         }
 
-        public boolean legacyClosedEnum() {
-            return legacyClosedEnum;
+        /**
+         * Returns the value of the {@code legacy_closed_enum} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code legacy_closed_enum}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> legacyClosedEnum() {
+            return Optional.ofNullable(legacyClosedEnum);
         }
 
-        public CppFeaturesProto.CppFeatures.StringType stringType() {
-            return stringType;
+        /**
+         * Returns the value of the {@code string_type} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code string_type}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<CppFeaturesProto.CppFeatures.StringType> stringType() {
+            return Optional.ofNullable(stringType);
         }
 
-        public boolean enumNameUsesStringView() {
-            return enumNameUsesStringView;
+        /**
+         * Returns the value of the {@code enum_name_uses_string_view} field, if present.
+         *
+         * @return an {@code Optional} containing the value of the {@code enum_name_uses_string_view}
+         *         field, or an empty {@code Optional} if the field is not set
+         */
+        public Optional<Boolean> enumNameUsesStringView() {
+            return Optional.ofNullable(enumNameUsesStringView);
         }
     }
 }

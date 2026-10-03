@@ -1,5 +1,7 @@
 package com.github.auties00.daedalus.protobuf.cli.command;
 
+import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
+import com.github.auties00.daedalus.cli.tui.CenteredModel;
 import com.williamcallahan.tui4j.compat.bubbletea.Program;
 import com.williamcallahan.tui4j.compat.bubbletea.ProgramOption;
 import com.github.auties00.daedalus.protobuf.cli.config.ConfigLoader;
@@ -7,7 +9,6 @@ import com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig;
 import com.github.auties00.daedalus.protobuf.cli.generation.JavaSourceGenerator;
 import com.github.auties00.daedalus.protobuf.cli.tui.generate.GenerateModel;
 import com.github.auties00.daedalus.protobuf.cli.tui.onboarding.OnboardingModel;
-import com.github.auties00.daedalus.cli.tui.shared.CenteredModel;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
@@ -129,6 +130,9 @@ public final class GenerateCommand implements Runnable {
             }
         } catch (IOException e) {
             System.err.println("Generation failed: " + e.getMessage());
+        } catch (ProtobufParserException e) {
+            System.err.println("Generation failed:");
+            System.err.println(e.getMessage());
         }
     }
 }

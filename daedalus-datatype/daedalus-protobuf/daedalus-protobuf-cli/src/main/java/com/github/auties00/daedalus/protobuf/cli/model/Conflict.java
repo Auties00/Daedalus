@@ -17,7 +17,7 @@ public record Conflict(
         Type type,
         String protoFqn,
         String fieldName,
-        long fieldIndex,
+        int fieldIndex,
         String message
 ) {
 

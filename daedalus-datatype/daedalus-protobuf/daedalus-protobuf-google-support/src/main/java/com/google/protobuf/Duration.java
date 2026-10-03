@@ -1,5 +1,6 @@
 package com.google.protobuf;
 
+import com.github.auties00.daedalus.protobuf.model.ProtobufVersion;
 import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
 
 /**
@@ -72,7 +73,7 @@ import com.github.auties00.daedalus.protobuf.annotation.ProtobufMessage;
  *
  * <p>Protobuf type {@code com.google.protobuf.Duration}
  */
-@ProtobufMessage
+@ProtobufMessage(version = ProtobufVersion.PROTOBUF_3)
 public final class Duration {
 
     /**
@@ -98,15 +99,37 @@ public final class Duration {
     @ProtobufMessage.Int32Field(index = 2)
     int nanos;
 
+    /**
+     * Constructs a new {@code Duration} with the specified field values.
+     *
+     * @param seconds the value of the {@code seconds} field
+     * @param nanos the value of the {@code nanos} field
+     */
     Duration(long seconds, int nanos) {
         this.seconds = seconds;
         this.nanos = nanos;
     }
 
+    /**
+     * Returns the value of the {@code seconds} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code seconds} field
+     */
     public long seconds() {
         return seconds;
     }
 
+    /**
+     * Returns the value of the {@code nanos} field.
+     *
+     * <p>This field has implicit presence, so an unset value is
+     * indistinguishable from the default value of its type.
+     *
+     * @return the value of the {@code nanos} field
+     */
     public int nanos() {
         return nanos;
     }

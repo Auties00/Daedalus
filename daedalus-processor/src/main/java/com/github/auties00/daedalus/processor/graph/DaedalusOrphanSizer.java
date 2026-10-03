@@ -1,8 +1,10 @@
 package com.github.auties00.daedalus.processor.graph;
 
+import com.github.auties00.daedalus.processor.model.DaedalusConverterParametersElement;
 import com.github.auties00.daedalus.processor.model.DaedalusMethodElement;
 
 import javax.lang.model.type.TypeMirror;
+import java.util.List;
 
 /**
  * A pending sizer registration that has not yet been matched to a serializer node.
@@ -15,10 +17,13 @@ import javax.lang.model.type.TypeMirror;
  *
  * @param valueType the value type the sizer applies to
  * @param sizer the size calculation method
+ * @param parametersAnnotations the companion parameters annotations
+ *        required to invoke {@code sizer}
  */
 record DaedalusOrphanSizer(
         TypeMirror valueType,
-        DaedalusMethodElement sizer
+        DaedalusMethodElement sizer,
+        List<DaedalusConverterParametersElement> parametersAnnotations
 ) {
 
 }

@@ -1,32 +1,21 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.SequencedCollection;
+
 /**
  * Abstract base class for all Protocol Buffer statement implementations in the AST.
- * <p>
- * This sealed class provides common functionality for all statement types, including
- * line number tracking and parent-child relationships. It exists to provide package-private
- * mutation methods (particularly {@code setParent}) that cannot be exposed through the
- * public {@link ProtobufStatement} interface.
- * </p>
- * <p>
- * All concrete statement classes extend from this base class, which ensures consistent
- * implementation of core AST node behaviors. The sealed nature of this class restricts
- * the permitted subclasses to those defined within the parser module.
- * </p>
- * <p>
- * Key responsibilities:
- * </p>
- * <ul>
- *   <li>Tracking the statement's location in the source file (line number)</li>
- *   <li>Managing the parent-child relationship within the AST</li>
- *   <li>Providing package-private mutation methods for AST construction</li>
- *   <li>Implementing common {@link ProtobufTree} behaviors</li>
- * </ul>
- * <p>
- * This class is part of the internal implementation and is not exposed in the public API.
- * Users of the parser should interact with statements through the {@link ProtobufStatement}
- * interface and its specific subtypes.
- * </p>
+ *
+ * <p>This sealed class provides common functionality for all statement types, including source
+ * range tracking, attached comments, and the parent-child relationship. It exists to provide
+ * package-private mutation methods (notably {@code setRange}, {@code addComment} and
+ * {@code setParent}) that cannot be exposed through the public {@link ProtobufStatement} interface.
+ *
+ * <p>The {@link ProtobufTreeSourceRange} associated with a statement is mutable through the package-private
+ * {@link #setRange(ProtobufTreeSourceRange)} setter because the parser knows the start position when the
+ * statement is constructed but only learns the end position once the terminator has been consumed.
  *
  * @see ProtobufStatement
  * @see ProtobufStatementWithBodyImpl
@@ -34,37 +23,74 @@ package com.github.auties00.daedalus.protobuf.compiler.tree;
  */
 sealed abstract class ProtobufStatementImpl
         implements ProtobufStatement
-        permits ProtobufEditionStatement, ProtobufEmptyStatement, ProtobufEnumConstantStatement, ProtobufExtensionsStatement, ProtobufFieldStatement, ProtobufGroupStatement, ProtobufImportStatement, ProtobufOneofStatement, ProtobufOptionStatement, ProtobufPackageStatement, ProtobufReservedStatement, ProtobufStatementWithBodyImpl, ProtobufSyntaxStatement {
-    final int line;
+        permits ProtobufCommentStatement, ProtobufEditionStatement, ProtobufEmptyStatement, ProtobufEnumConstantStatement, ProtobufExtensionsStatement, ProtobufFieldStatement, ProtobufGroupStatement, ProtobufImportStatement, ProtobufOneofStatement, ProtobufOptionStatement, ProtobufPackageStatement, ProtobufReservedStatement, ProtobufStatementWithBodyImpl, ProtobufSyntaxStatement {
+    private ProtobufTreeSourceRange range;
+    private final List<ProtobufCommentStatement> comments;
     ProtobufTree.WithBody<?> parent;
 
     /**
-     * Constructs a new statement implementation at the specified line number.
+     * Constructs a new statement implementation with the specified source range.
      *
-     * @param line the line number in the source file where this statement appears
+     * @param range the source range covering this statement
      */
-    ProtobufStatementImpl(int line) {
-        this.line = line;
+    ProtobufStatementImpl(ProtobufTreeSourceRange range) {
+        this.range = range;
+        this.comments = new ArrayList<>();
     }
 
     /**
-     * Returns the line number in the source file where this statement appears.
+     * Returns the source range covering this statement.
      *
-     * @return the line number (1-indexed)
+     * @return the source range
      */
     @Override
-    public int line() {
-        return line;
+    public ProtobufTreeSourceRange range() {
+        return range;
+    }
+
+    /**
+     * Updates the source range covering this statement.
+     *
+     * <p>The parser uses this method to fill in the end position once it has consumed the
+     * statement's terminator.
+     *
+     * @param range the source range to set
+     */
+    @Override
+    public void setRange(ProtobufTreeSourceRange range) {
+        this.range = range;
+    }
+
+    /**
+     * Returns the comments attached to this statement in insertion order.
+     *
+     * @return an unmodifiable view of the attached comments
+     */
+    @Override
+    public SequencedCollection<ProtobufCommentStatement> comments() {
+        return Collections.unmodifiableList(comments);
+    }
+
+    /**
+     * Appends a comment to this statement.
+     *
+     * <p>The parser uses this method to attach leading, trailing, and detached comments captured
+     * by the lexer to the statement they belong to.
+     *
+     * @param comment the comment to append
+     */
+    @Override
+    public void addComment(ProtobufCommentStatement comment) {
+        comments.add(comment);
     }
 
     /**
      * Returns the parent node in the AST.
-     * <p>
-     * All statements have a parent that contains them, except for the root document.
-     * The parent is always a node with a body (container node).
-     * </p>
      *
-     * @return the parent node, or null if this is a root node
+     * <p>All statements have a parent that contains them, except for the root document.
+     * The parent is always a node with a body (container node).
+     *
+     * @return the parent node, or {@code null} if this is a root node
      */
     @Override
     public ProtobufTree.WithBody<?> parent() {
@@ -74,7 +100,7 @@ sealed abstract class ProtobufStatementImpl
     /**
      * Checks whether this statement has a parent node.
      *
-     * @return true if a parent is present, false otherwise
+     * @return {@code true} if a parent is present, {@code false} otherwise
      */
     @Override
     public boolean hasParent() {
@@ -83,12 +109,11 @@ sealed abstract class ProtobufStatementImpl
 
     /**
      * Sets the parent node for this statement.
-     * <p>
-     * This method is package-private to prevent external code from breaking AST invariants.
-     * It is called automatically when statements are added to or removed from container nodes.
-     * </p>
      *
-     * @param parent the parent node to set, or null to clear the parent
+     * <p>This method is package-private to prevent external code from breaking AST invariants.
+     * It is called automatically when statements are added to or removed from container nodes.
+     *
+     * @param parent the parent node to set, or {@code null} to clear the parent
      */
     void setParent(ProtobufTree.WithBody<?> parent) {
         this.parent = parent;

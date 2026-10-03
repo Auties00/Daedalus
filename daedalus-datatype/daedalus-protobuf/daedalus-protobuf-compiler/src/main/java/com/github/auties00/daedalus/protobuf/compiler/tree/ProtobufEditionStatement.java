@@ -32,12 +32,12 @@ public final class ProtobufEditionStatement
     private ProtobufVersion version;
 
     /**
-     * Constructs a new edition statement at the specified line number.
+     * Constructs a new edition statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param range the source range covering this statement
      */
-    public ProtobufEditionStatement(int line) {
-        super(line);
+    public ProtobufEditionStatement(ProtobufTreeSourceRange range) {
+        super(range);
     }
 
     /**

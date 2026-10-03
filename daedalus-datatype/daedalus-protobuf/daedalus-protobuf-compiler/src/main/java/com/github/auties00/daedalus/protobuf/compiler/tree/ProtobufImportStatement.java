@@ -44,12 +44,12 @@ public final class ProtobufImportStatement
     private ProtobufDocumentTree document;
 
     /**
-     * Constructs a new import statement at the specified line number.
+     * Constructs a new import statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param range the source range covering this statement
      */
-    public ProtobufImportStatement(int line) {
-        super(line);
+    public ProtobufImportStatement(ProtobufTreeSourceRange range) {
+        super(range);
     }
 
     /**

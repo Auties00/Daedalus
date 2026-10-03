@@ -37,7 +37,7 @@ public final class TypeMatcher {
      * @return a sorted list of match results, highest confidence first
      */
     public List<MatchResult> findMatches(String protoFqn, String protoSimpleName,
-                                          Set<Long> protoFieldIndexes, String protoPackage,
+                                          Set<Integer> protoFieldIndexes, String protoPackage,
                                           List<ScannedType> candidates,
                                           ScannedType.AnnotationType expectedAnnotationType) {
         var results = new ArrayList<MatchResult>();
@@ -69,7 +69,7 @@ public final class TypeMatcher {
      * @return the best match if it meets the threshold, or {@code null}
      */
     public MatchResult findBestMatch(String protoFqn, String protoSimpleName,
-                                      Set<Long> protoFieldIndexes, String protoPackage,
+                                      Set<Integer> protoFieldIndexes, String protoPackage,
                                       List<ScannedType> candidates,
                                       ScannedType.AnnotationType expectedAnnotationType) {
         var matches = findMatches(protoFqn, protoSimpleName, protoFieldIndexes,
@@ -94,7 +94,7 @@ public final class TypeMatcher {
     }
 
     private MatchResult scoreCandidate(String protoFqn, String protoSimpleName,
-                                        Set<Long> protoFieldIndexes, String protoPackage,
+                                        Set<Integer> protoFieldIndexes, String protoPackage,
                                         ScannedType candidate) {
         var reasons = new ArrayList<String>();
 

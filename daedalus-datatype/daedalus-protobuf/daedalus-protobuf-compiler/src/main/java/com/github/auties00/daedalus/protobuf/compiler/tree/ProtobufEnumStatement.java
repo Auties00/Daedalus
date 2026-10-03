@@ -1,11 +1,21 @@
 package com.github.auties00.daedalus.protobuf.compiler.tree;
 
+import com.github.auties00.daedalus.protobuf.annotation.ProtobufEnum;
+import com.github.auties00.daedalus.protobuf.compiler.number.ProtobufIntegerRange;
 import com.google.protobuf.DescriptorProtos;
-import com.google.protobuf.EnumDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosEnumDescriptorProtoBuilder;
+import com.google.protobuf.DescriptorProtosEnumOptionsBuilder;
+import com.google.protobuf.EnumDescriptorProtoDescriptorProtosEnumReservedRangeBuilder;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufBoolExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerRangeExpression;
+import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufLiteralExpression;
 import com.github.auties00.daedalus.protobuf.model.ProtobufEnumType;
 import com.github.auties00.daedalus.protobuf.model.ProtobufJsonCompatibility;
 
+import java.util.ArrayList;
 import java.util.Objects;
+import java.util.OptionalInt;
 
 /**
  * Represents an enum type declaration in the Protocol Buffer AST.
@@ -80,12 +90,13 @@ public final class ProtobufEnumStatement
     private ProtobufTreeVisibility visibility;
 
     /**
-     * Constructs a new enum statement at the specified line number.
+     * Constructs a new enum statement covering the specified source range.
      *
-     * @param line the line number in the source file
+     * @param document the enclosing document
+     * @param range the source range covering this statement
      */
-    public ProtobufEnumStatement(int line) {
-        super(line);
+    public ProtobufEnumStatement(ProtobufDocumentTree document, ProtobufTreeSourceRange range) {
+        super(document, range);
         this.visibility = ProtobufTreeVisibility.NONE;
     }
 
@@ -163,10 +174,108 @@ public final class ProtobufEnumStatement
         var values = getDirectChildrenByType(ProtobufEnumConstantStatement.class)
                 .map(ProtobufEnumConstantStatement::toDescriptor)
                 .toList();
-        return new EnumDescriptorProtoBuilder()
+
+        var reservedRanges = new ArrayList<DescriptorProtos.EnumDescriptorProto.EnumReservedRange>();
+        var reservedNames = new ArrayList<String>();
+        getDirectChildrenByType(ProtobufReservedStatement.class)
+                .flatMap(reserved -> reserved.expressions().stream())
+                .forEachOrdered(reservedExpression -> {
+                    switch (reservedExpression) {
+                        case ProtobufIntegerExpression integerExpression -> integerExpression.value()
+                                .toEnumConstantIndex()
+                                .ifPresent(index -> {
+                                    var range = new EnumDescriptorProtoDescriptorProtosEnumReservedRangeBuilder()
+                                            .start(index)
+                                            .end(index + 1)
+                                            .build();
+                                    reservedRanges.add(range);
+                                });
+
+                        case ProtobufIntegerRangeExpression rangeExpression -> {
+                            var min = rangeExpression.value()
+                                    .lowerBound()
+                                    .toEnumConstantIndex();
+                            var max = switch (rangeExpression.value()) {
+                                case ProtobufIntegerRange.LowerBounded _ -> OptionalInt.of(ProtobufEnum.MAX_CONSTANT_INDEX);
+                                case ProtobufIntegerRange.Bounded(var _, var upperBound) -> upperBound.toEnumConstantIndex();
+                            };
+                            if (min.isPresent() && max.isPresent()) {
+                                var range = new EnumDescriptorProtoDescriptorProtosEnumReservedRangeBuilder()
+                                        .start(min.getAsInt())
+                                        .end(max.getAsInt() + 1)
+                                        .build();
+                                reservedRanges.add(range);
+                            }
+                        }
+
+                        case ProtobufLiteralExpression literalExpression -> reservedNames.add(literalExpression.value());
+                    }
+                });
+
+        var builder = new DescriptorProtosEnumDescriptorProtoBuilder()
                 .name(name())
                 .value(values)
-                .build();
+                .reservedRange(reservedRanges)
+                .reservedName(reservedNames);
+        var enumOptions = buildEnumOptions();
+        if (enumOptions != null) {
+            builder.options(enumOptions);
+        }
+        switch (visibility) {
+            case EXPORT -> builder.visibility(DescriptorProtos.SymbolVisibility.VISIBILITY_EXPORT);
+            case LOCAL -> builder.visibility(DescriptorProtos.SymbolVisibility.VISIBILITY_LOCAL);
+            case NONE -> {
+                // Leave unset so the descriptor reflects no explicit visibility
+            }
+        }
+        return builder.build();
+    }
+
+    private DescriptorProtosEnumOptionsBuilder buildEnumOptions() {
+        var optionStatements = getDirectChildrenByType(ProtobufOptionStatement.class).toList();
+        if (optionStatements.isEmpty()) {
+            return null;
+        }
+        var builder = new DescriptorProtosEnumOptionsBuilder();
+        for (var option : optionStatements) {
+            if (!option.hasName() || !option.hasValue() || option.name().segments().size() != 1) {
+                continue;
+            }
+            var segment = option.name().segments().getFirst();
+            if (segment.isExtension()) {
+                continue;
+            }
+            var value = option.value();
+            switch (segment.name()) {
+                case "allow_alias" -> {
+                    if (value instanceof ProtobufBoolExpression(var allowAlias)) {
+                        builder.allowAlias(allowAlias);
+                    }
+                }
+                case "deprecated" -> {
+                    if (value instanceof ProtobufBoolExpression(var deprecated)) {
+                        builder.deprecated(deprecated);
+                    }
+                }
+                case "deprecated_legacy_json_field_conflicts" -> {
+                    if (value instanceof ProtobufBoolExpression(var deprecatedLegacyJsonFieldConflicts)) {
+                        builder.deprecatedLegacyJsonFieldConflicts(deprecatedLegacyJsonFieldConflicts);
+                    }
+                }
+                default -> {
+                    // uninterpreted_option is not derivable from the AST; features is handled below
+                }
+            }
+        }
+        var features = ProtobufTreeFeatures.featureSet(this);
+        if (features != null) {
+            builder.features(features);
+        }
+        var unknownExtensions = ProtobufTreeFeatures.collectUnknownExtensions(this);
+        if (!unknownExtensions.isEmpty()) {
+            builder.unknownFields(unknownExtensions);
+        }
+        return builder;
     }
 
     @Override

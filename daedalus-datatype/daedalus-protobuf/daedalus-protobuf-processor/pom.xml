@@ -24,7 +24,10 @@
                     <source>${java.version}</source>
                     <target>${java.version}</target>
                     <encoding>UTF-8</encoding>
-                    <compilerArgument>-proc:none</compilerArgument>
+                    <compilerArgs>
+                        <compilerArg>--enable-preview</compilerArg>
+                        <compilerArg>-proc:none</compilerArg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
         </plugins>

@@ -45,7 +45,7 @@ public final class BuilderGenerator {
      * @param cu the compilation unit (for adding imports)
      */
     public void addBuilderToClass(ClassOrInterfaceDeclaration classDecl,
-                                   List<ProtobufFieldStatement> fields,
+                                   List<MessageMember> fields,
                                    CompilationUnit cu) {
         cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufBuilder");
 
@@ -57,11 +57,11 @@ public final class BuilderGenerator {
             for (var param : constructor.getParameters()) {
                 var matchingField = findFieldByName(fields, param.getNameAsString());
                 if (matchingField != null) {
-                    var index = matchingField.index().value().longValueExact();
+                    var index = matchingField.index();
                     param.addAnnotation(new NormalAnnotationExpr(
                             new Name("ProtobufBuilder.PropertyParameter"),
                             new NodeList<>(new MemberValuePair("index",
-                                    new LongLiteralExpr(String.valueOf(index))))
+                                    new IntegerLiteralExpr(String.valueOf(index))))
                     ));
                 }
             }
@@ -80,7 +80,7 @@ public final class BuilderGenerator {
      * @param cu the compilation unit (for adding imports)
      */
     public void addBuilderToRecord(RecordDeclaration recordDecl,
-                                    List<ProtobufFieldStatement> fields,
+                                    List<MessageMember> fields,
                                     CompilationUnit cu) {
         cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufBuilder");
 
@@ -88,7 +88,7 @@ public final class BuilderGenerator {
         for (var field : fields) {
             var fieldName = propertyGenerator.resolveFieldName(field);
             var javaType = propertyGenerator.resolveJavaType(field);
-            var index = field.index().value().longValueExact();
+            var index = field.index();
 
             var param = new com.github.javaparser.ast.body.Parameter(
                     com.github.javaparser.StaticJavaParser.parseType(javaType),
@@ -97,7 +97,7 @@ public final class BuilderGenerator {
             param.addAnnotation(new NormalAnnotationExpr(
                     new Name("ProtobufBuilder.PropertyParameter"),
                     new NodeList<>(new MemberValuePair("index",
-                            new LongLiteralExpr(String.valueOf(index))))
+                            new IntegerLiteralExpr(String.valueOf(index))))
             ));
             params.add(param);
         }
@@ -122,7 +122,7 @@ public final class BuilderGenerator {
         recordDecl.addMember(constructor);
     }
 
-    private ProtobufFieldStatement findFieldByName(List<ProtobufFieldStatement> fields, String javaName) {
+    private MessageMember findFieldByName(List<MessageMember> fields, String javaName) {
         for (var field : fields) {
             if (propertyGenerator.resolveFieldName(field).equals(javaName)) {
                 return field;
