@@ -53,7 +53,7 @@ Correctness and a coherent Java API matter just as much as speed. The Protobuf i
 
 - [Type system](daedalus-typesystem): conversion, defaults, and sizing contracts.
 - [Annotation processor](daedalus-processor): model analysis and source generation.
-- [JDK support](daedalus-typesystem-jdk-support): mixins for standard Java types.
+- [JDK support](daedalus-typesystem/daedalus-typesystem-jdk-support): mixins for standard Java types.
 - [Datatypes](daedalus-datatype): format implementations and schema tools.
 - [CLI](daedalus-cli): the shared command framework.
 

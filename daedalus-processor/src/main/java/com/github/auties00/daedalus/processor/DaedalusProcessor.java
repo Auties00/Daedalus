@@ -14,7 +14,7 @@ import com.github.auties00.daedalus.processor.manager.DaedalusMixinScopeManager;
 import com.github.auties00.daedalus.processor.manager.DaedalusTypeManager;
 import com.github.auties00.daedalus.processor.model.DaedalusConverterElement;
 import com.github.auties00.daedalus.processor.model.DaedalusConverterParametersElement;
-import com.github.auties00.daedalus.processor.type.DaedalusFieldType;
+import com.github.auties00.daedalus.processor.model.DaedalusFieldType;
 import com.github.auties00.daedalus.processor.model.DaedalusTypeElement;
 import com.github.auties00.daedalus.processor.manager.DaedalusValidationManager;
 import com.github.auties00.daedalus.processor.util.DaedalusProcessingEnvironmentUtils;

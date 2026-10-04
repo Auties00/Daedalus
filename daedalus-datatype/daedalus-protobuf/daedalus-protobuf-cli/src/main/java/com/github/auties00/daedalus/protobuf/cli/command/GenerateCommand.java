@@ -14,6 +14,7 @@ import picocli.CommandLine.Option;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Generates Java model classes from {@code .proto} schema files.
@@ -28,8 +29,8 @@ import java.nio.file.Path;
         mixinStandardHelpOptions = true
 )
 public final class GenerateCommand implements Runnable {
-    @Option(names = {"--proto-dir"}, description = "Directory containing .proto files")
-    private Path protoDir;
+    @Option(names = {"--proto"}, description = "A .proto file, a directory of .proto files or a glob pattern such as src/**/*.proto, repeatable")
+    private List<String> protoFiles;
 
     @Option(names = {"--output-dir"}, description = "Directory for generated Java files")
     private Path outputDir;
@@ -53,8 +54,8 @@ public final class GenerateCommand implements Runnable {
                 return;
             }
 
-            if (protoDir != null) {
-                config.setProtoDir(protoDir.toString());
+            if (protoFiles != null && !protoFiles.isEmpty()) {
+                config.setProtoFiles(protoFiles);
             }
             if (outputDir != null) {
                 config.setJavaSourceDir(outputDir.toString());
@@ -89,7 +90,7 @@ public final class GenerateCommand implements Runnable {
     }
 
     private SchemaConfig runOnboarding(Path workingDir) {
-        var centered = new CenteredModel(new OnboardingModel());
+        var centered = new CenteredModel(new OnboardingModel(workingDir));
         var program = new Program(centered, ProgramOption.withAltScreen());
         var finalModel = program.runWithFinalModel();
 

@@ -1,5 +1,6 @@
 package com.github.auties00.daedalus.protobuf.cli.tui.onboarding;
 
+import com.github.auties00.daedalus.cli.tui.Screen;
 import com.github.auties00.daedalus.cli.tui.StatusBar;
 import com.williamcallahan.tui4j.compat.bubbletea.*;
 import com.williamcallahan.tui4j.compat.lipgloss.Join;
@@ -27,6 +28,7 @@ public final class StepModel<T> implements Model {
     private final int totalSteps;
     private final int maxPreviewHeight;
     private int cursor;
+    private int termHeight;
     private boolean confirmed;
     private boolean cancelled;
 
@@ -81,6 +83,7 @@ public final class StepModel<T> implements Model {
         this.stepNumber = stepNumber;
         this.totalSteps = totalSteps;
         this.cursor = 0;
+        this.termHeight = 40;
         this.confirmed = false;
         this.cancelled = false;
         this.maxPreviewHeight = options.stream()
@@ -96,6 +99,10 @@ public final class StepModel<T> implements Model {
 
     @Override
     public UpdateResult<? extends Model> update(Message msg) {
+        if (msg instanceof WindowSizeMessage size) {
+            termHeight = size.height();
+            return UpdateResult.from(this);
+        }
         if (msg instanceof KeyPressMessage key) {
             var keyStr = key.key();
             return switch (keyStr) {
@@ -111,10 +118,10 @@ public final class StepModel<T> implements Model {
                     confirmed = true;
                     yield UpdateResult.from(this, Command.quit());
                 }
-                case "left", "backspace" -> {
+                case "left", "backspace", "ctrl+h", "esc" -> {
                     yield UpdateResult.from(this, Command.quit());
                 }
-                case "esc", "ctrl+c" -> {
+                case "ctrl+c" -> {
                     cancelled = true;
                     yield UpdateResult.from(this, Command.quit());
                 }
@@ -126,49 +133,21 @@ public final class StepModel<T> implements Model {
 
     @Override
     public String view() {
-        var sb = new StringBuilder();
-
-        // Header
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.TITLE.render("ModernProtobuf Schema Generator"));
-        sb.append("  ");
-        sb.append(Theme.stepIndicator(stepNumber, totalSteps));
-        sb.append("\n\n");
-
-        // Question
-        sb.append("  ");
-        sb.append(Theme.BODY.render(question));
-        sb.append("\n\n");
-
-        // Options list
-        var optionsBlock = renderOptions();
-
-        // Preview panel
-        var previewBlock = renderPreview();
-
-        // Join horizontally
-        sb.append(Join.joinHorizontal(Position.Top, optionsBlock, "    ", previewBlock));
-        sb.append("\n\n");
-
-        // Status bar
-        var status = new StatusBar()
-                .add("↑↓", "navigate")
-                .add("enter", "confirm")
-                .add("←", "back")
-                .add("esc", "cancel");
-        sb.append("  ");
-        sb.append(status.render());
-        sb.append("\n");
-
-        return sb.toString();
+        return Screen.of("Protobuf", "Generate", termHeight)
+                .indicator("Step " + stepNumber + "/" + totalSteps)
+                .heading(question)
+                .block(Join.joinHorizontal(Position.Top, renderOptions(), "    ", renderPreview()))
+                .keys(new StatusBar()
+                        .add("↑↓", "navigate")
+                        .add("enter", "confirm")
+                        .add("←/esc", "back"))
+                .render();
     }
 
     private String renderOptions() {
         var sb = new StringBuilder();
         for (var i = 0; i < options.size(); i++) {
             var option = options.get(i);
-            sb.append("  ");
             if (i == cursor) {
                 sb.append(Theme.SELECTED_CURSOR.render("● "));
                 sb.append(Theme.SELECTED_ITEM.render(option.label()));

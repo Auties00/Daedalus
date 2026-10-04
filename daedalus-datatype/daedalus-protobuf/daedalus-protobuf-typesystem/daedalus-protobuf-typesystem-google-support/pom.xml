@@ -4,10 +4,11 @@
         <artifactId>daedalus-protobuf</artifactId>
         <groupId>com.github.auties00</groupId>
         <version>4.0.0</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>daedalus-protobuf-google-support</artifactId>
+    <artifactId>daedalus-protobuf-typesystem-google-support</artifactId>
 
     <name>${project.groupId}:${project.artifactId}</name>
     <description>Google well-known types and descriptor protos for the daedalus protobuf implementation</description>

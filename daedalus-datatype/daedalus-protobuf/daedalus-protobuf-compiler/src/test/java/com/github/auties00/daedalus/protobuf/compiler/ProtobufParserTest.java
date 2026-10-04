@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -304,6 +305,100 @@ class ProtobufParserTest {
                     """;
             var document = ProtobufParser.parseOnly(main, importedDoc);
             assertNotNull(document);
+        }
+    }
+
+    @Nested
+    class ParseFilesTests {
+        private static final String BASE = """
+                syntax = "proto3";
+                package demo;
+                message Base {
+                  string name = 1;
+                }
+                """;
+
+        private static final String CHILD = """
+                syntax = "proto3";
+                package demo;
+                import "demo/base.proto";
+                message Child {
+                  Base base = 1;
+                }
+                """;
+
+        @Test
+        public void testFilesAreAnalyzedTogether() throws IOException, ProtobufParserException {
+            var tempDir = Files.createTempDirectory("protobuf-test");
+            var basePath = tempDir.resolve("base.proto");
+            var childPath = tempDir.resolve("child.proto");
+            Files.writeString(basePath, BASE, StandardOpenOption.CREATE);
+            Files.writeString(childPath, CHILD, StandardOpenOption.CREATE);
+
+            var documents = ProtobufParser.parse(List.of(basePath, childPath));
+            assertEquals(2, documents.size());
+            assertTrue(documents.containsKey("base.proto"));
+            assertTrue(documents.containsKey("child.proto"));
+        }
+
+        @Test
+        public void testOnlyTheChosenFilesAreParsed() throws IOException, ProtobufParserException {
+            var tempDir = Files.createTempDirectory("protobuf-test");
+            var basePath = tempDir.resolve("base.proto");
+            Files.writeString(basePath, BASE, StandardOpenOption.CREATE);
+            Files.writeString(tempDir.resolve("child.proto"), CHILD, StandardOpenOption.CREATE);
+
+            var documents = ProtobufParser.parse(List.of(basePath));
+            assertEquals(1, documents.size());
+            assertTrue(documents.containsKey("base.proto"));
+        }
+
+        @Test
+        public void testImportOfAFileThatIsNotChosen() throws IOException {
+            var tempDir = Files.createTempDirectory("protobuf-test");
+            var childPath = tempDir.resolve("child.proto");
+            Files.writeString(childPath, CHILD, StandardOpenOption.CREATE);
+
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parse(List.of(childPath)));
+        }
+
+        @Test
+        public void testContextDocumentResolvesTypes() throws IOException, ProtobufParserException {
+            var tempDir = Files.createTempDirectory("protobuf-test");
+            var basePath = tempDir.resolve("base.proto");
+            var childPath = tempDir.resolve("child.proto");
+            Files.writeString(basePath, BASE, StandardOpenOption.CREATE);
+            Files.writeString(childPath, CHILD, StandardOpenOption.CREATE);
+            var base = ProtobufParser.parseOnly(basePath);
+
+            var documents = ProtobufParser.parse(List.of(childPath), base);
+            assertEquals(1, documents.size());
+            assertTrue(documents.containsKey("child.proto"));
+            assertFalse(documents.containsKey("base.proto"));
+        }
+
+        @Test
+        public void testContextDocumentsAsCollection() throws IOException, ProtobufParserException {
+            var tempDir = Files.createTempDirectory("protobuf-test");
+            var basePath = tempDir.resolve("base.proto");
+            var childPath = tempDir.resolve("child.proto");
+            Files.writeString(basePath, BASE, StandardOpenOption.CREATE);
+            Files.writeString(childPath, CHILD, StandardOpenOption.CREATE);
+            var base = ProtobufParser.parseOnly(basePath);
+
+            var documents = ProtobufParser.parse(List.of(childPath), List.of(base));
+            assertEquals(List.of("child.proto"), List.copyOf(documents.keySet()));
+        }
+
+        @Test
+        public void testDuplicateFileNames() throws IOException {
+            var tempDir = Files.createTempDirectory("protobuf-test");
+            var first = Files.createDirectory(tempDir.resolve("first")).resolve("base.proto");
+            var second = Files.createDirectory(tempDir.resolve("second")).resolve("base.proto");
+            Files.writeString(first, BASE, StandardOpenOption.CREATE);
+            Files.writeString(second, BASE, StandardOpenOption.CREATE);
+
+            assertThrows(ProtobufParserException.class, () -> ProtobufParser.parse(List.of(first, second)));
         }
     }
 

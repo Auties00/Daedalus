@@ -1,0 +1,130 @@
+{
+  "reflection": [
+    {
+      "type": "org.jline.terminal.impl.exec.ExecTerminalProvider",
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.terminal.impl.jni.JniTerminalProvider",
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "com.ibm.icu.text.BreakIteratorFactory",
+      "allDeclaredConstructors": true,
+      "allDeclaredMethods": true
+    }
+  ],
+  "jni": [
+    {
+      "type": "org.jline.nativ.CLibrary",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.nativ.CLibrary$Termios",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.nativ.CLibrary$WinSize",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.nativ.Kernel32",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.nativ.Kernel32$SMALL_RECT",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.nativ.Kernel32$COORD",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.nativ.Kernel32$CONSOLE_SCREEN_BUFFER_INFO",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.nativ.Kernel32$CHAR_INFO",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.nativ.Kernel32$KEY_EVENT_RECORD",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.nativ.Kernel32$MOUSE_EVENT_RECORD",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.nativ.Kernel32$WINDOW_BUFFER_SIZE_RECORD",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.nativ.Kernel32$FOCUS_EVENT_RECORD",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.nativ.Kernel32$MENU_EVENT_RECORD",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "org.jline.nativ.Kernel32$INPUT_RECORD",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    }
+  ],
+  "resources": [
+    {
+      "glob": "org/jline/nativ/**"
+    },
+    {
+      "glob": "org/jline/utils/**"
+    },
+    {
+      "glob": "META-INF/services/org/jline/terminal/provider/*"
+    },
+    {
+      "glob": "com/ibm/icu/impl/data/icudata/*"
+    },
+    {
+      "glob": "com/ibm/icu/impl/data/icudata/brkitr/**"
+    }
+  ],
+  "foreign": {
+    "downcalls": [
+      {
+        "returnType": "jshort",
+        "parameterTypes": [
+          "jint"
+        ]
+      }
+    ]
+  }
+}

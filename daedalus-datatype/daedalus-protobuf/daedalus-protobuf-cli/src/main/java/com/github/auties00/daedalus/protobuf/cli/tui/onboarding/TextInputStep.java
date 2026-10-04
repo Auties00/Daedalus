@@ -1,5 +1,6 @@
 package com.github.auties00.daedalus.protobuf.cli.tui.onboarding;
 
+import com.github.auties00.daedalus.cli.tui.Screen;
 import com.github.auties00.daedalus.cli.tui.StatusBar;
 import com.williamcallahan.tui4j.compat.bubbletea.*;
 import com.github.auties00.daedalus.cli.tui.Theme;
@@ -13,6 +14,7 @@ import com.github.auties00.daedalus.cli.tui.Theme;
 public final class TextInputStep implements Model {
     private final String title;
     private final String prompt;
+    private final String hint;
     private final String defaultValue;
     private final int stepNumber;
     private final int totalSteps;
@@ -20,20 +22,24 @@ public final class TextInputStep implements Model {
     private boolean confirmed;
     private boolean cancelled;
     private int cursorPos;
+    private String error;
+    private int termHeight;
 
     /**
      * Constructs a text input step.
      *
      * @param title the step title
      * @param prompt the input prompt
+     * @param hint a line of help shown below the input field, or empty if there is none
      * @param defaultValue the default value shown if the user presses enter without typing
      * @param stepNumber the 1-based step number
      * @param totalSteps the total number of steps
      */
-    public TextInputStep(String title, String prompt, String defaultValue,
+    public TextInputStep(String title, String prompt, String hint, String defaultValue,
                          int stepNumber, int totalSteps) {
         this.title = title;
         this.prompt = prompt;
+        this.hint = hint;
         this.defaultValue = defaultValue;
         this.stepNumber = stepNumber;
         this.totalSteps = totalSteps;
@@ -41,6 +47,7 @@ public final class TextInputStep implements Model {
         this.confirmed = false;
         this.cancelled = false;
         this.cursorPos = 0;
+        this.termHeight = 40;
     }
 
     @Override
@@ -50,21 +57,33 @@ public final class TextInputStep implements Model {
 
     @Override
     public UpdateResult<? extends Model> update(Message msg) {
+        if (msg instanceof WindowSizeMessage size) {
+            termHeight = size.height();
+            return UpdateResult.from(this);
+        }
         if (msg instanceof KeyPressMessage key) {
             var keyStr = key.key();
+            error = null;
             return switch (keyStr) {
                 case "enter" -> {
                     confirmed = true;
                     yield UpdateResult.from(this, Command.quit());
                 }
-                case "esc", "ctrl+c" -> {
+                case "esc" -> UpdateResult.from(this, Command.quit());
+                case "ctrl+c" -> {
                     cancelled = true;
                     yield UpdateResult.from(this, Command.quit());
                 }
-                case "backspace" -> {
+                case "backspace", "ctrl+h" -> {
                     if (cursorPos > 0) {
                         input.deleteCharAt(cursorPos - 1);
                         cursorPos--;
+                    }
+                    yield UpdateResult.from(this);
+                }
+                case "delete" -> {
+                    if (cursorPos < input.length()) {
+                        input.deleteCharAt(cursorPos);
                     }
                     yield UpdateResult.from(this);
                 }
@@ -103,57 +122,56 @@ public final class TextInputStep implements Model {
 
     @Override
     public String view() {
-        var sb = new StringBuilder();
-
-        // Header
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.TITLE.render("ModernProtobuf Schema Generator"));
-        sb.append("  ");
-        sb.append(Theme.stepIndicator(stepNumber, totalSteps));
-        sb.append("\n\n");
-
-        // Prompt
-        sb.append("  ");
-        sb.append(Theme.BODY.render(prompt));
-        sb.append("\n\n");
-
-        // Input field
-        sb.append("  ");
-        sb.append(Theme.SUBTITLE.render("▸ "));
+        var field = new StringBuilder();
+        field.append(Theme.SUBTITLE.render("▸ "));
         if (input.isEmpty()) {
-            sb.append(Theme.MUTED_TEXT.render(defaultValue));
-            sb.append(Theme.BODY.render("█"));
+            field.append(Theme.MUTED_TEXT.render(defaultValue));
+            field.append(Theme.BODY.render("█"));
         } else {
             var text = input.toString();
             if (cursorPos < text.length()) {
-                sb.append(Theme.BODY.render(text.substring(0, cursorPos)));
-                sb.append(Theme.BODY.render("█"));
-                sb.append(Theme.BODY.render(text.substring(cursorPos + 1)));
+                field.append(Theme.BODY.render(text.substring(0, cursorPos)));
+                field.append(Theme.BODY.render("█"));
+                field.append(Theme.BODY.render(text.substring(cursorPos + 1)));
             } else {
-                sb.append(Theme.BODY.render(text));
-                sb.append(Theme.BODY.render("█"));
+                field.append(Theme.BODY.render(text));
+                field.append(Theme.BODY.render("█"));
             }
         }
-        sb.append("\n");
 
-        if (!defaultValue.isEmpty()) {
-            sb.append("  ");
-            sb.append(Theme.DIM_TEXT.render("  default: " + defaultValue));
-            sb.append("\n");
+        var screen = Screen.of("Protobuf", "Generate", termHeight)
+                .indicator("Step " + stepNumber + "/" + totalSteps)
+                .heading(prompt)
+                .block(field.toString());
+
+        if (!hint.isEmpty()) {
+            screen.block(Theme.DIM_TEXT.render("  " + hint));
         }
 
-        sb.append("\n");
+        if (error != null) {
+            screen.block(Theme.DANGER_TEXT.render("✗ " + error));
+        }
 
-        // Status bar
-        var status = new StatusBar()
-                .add("enter", "confirm")
-                .add("esc", "cancel");
-        sb.append("  ");
-        sb.append(status.render());
-        sb.append("\n");
+        if (!defaultValue.isEmpty()) {
+            screen.block(Theme.DIM_TEXT.render("  default: " + defaultValue));
+        }
 
-        return sb.toString();
+        return screen
+                .keys(new StatusBar()
+                        .add("enter", "confirm")
+                        .add("esc", "back"))
+                .render();
+    }
+
+    /**
+     * Rejects the confirmed value, which keeps the step open so that the user can correct
+     * the text, and shows the reason below the input field until the next key press.
+     *
+     * @param message the reason why the value was rejected
+     */
+    public void reject(String message) {
+        confirmed = false;
+        error = message;
     }
 
     /**

@@ -261,6 +261,42 @@ public final class Theme {
             .foreground(INFO)
             .bold(true);
 
+    private static final String[] LOGO_LINES = {
+            "██████╗  █████╗ ███████╗██████╗  █████╗ ██╗     ██╗   ██╗███████╗",
+            "██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔══██╗██║     ██║   ██║██╔════╝",
+            "██║  ██║███████║█████╗  ██║  ██║███████║██║     ██║   ██║███████╗",
+            "██║  ██║██╔══██║██╔══╝  ██║  ██║██╔══██║██║     ██║   ██║╚════██║",
+            "██████╔╝██║  ██║███████╗██████╔╝██║  ██║███████╗╚██████╔╝███████║",
+            "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═════╝ ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚══════╝"
+    };
+
+    /**
+     * Renders the Daedalus logo, one styled line per row of the lettering.
+     *
+     * @return the logo, each row terminated by a line break
+     */
+    public static String logo() {
+        var sb = new StringBuilder();
+        for (var line : LOGO_LINES) {
+            sb.append(LOGO.render(line));
+            sb.append("\n");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Renders the header shown at the top of a screen, which names the application
+     * followed by the extension and the action that the screen belongs to.
+     *
+     * @param extension the extension name (e.g., {@code "Protobuf"})
+     * @param action the action name (e.g., {@code "Generate"})
+     * @return the formatted header string
+     */
+    public static String header(String extension, String action) {
+        return TITLE.render("Daedalus")
+                + MUTED_TEXT.render(" › " + extension + " › " + action);
+    }
+
         /**
      * Formats a key binding hint for the status bar.
      *

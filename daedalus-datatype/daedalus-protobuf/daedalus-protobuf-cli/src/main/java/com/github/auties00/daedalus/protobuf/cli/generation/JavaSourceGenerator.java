@@ -6,6 +6,7 @@ import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufDocumentTree;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufEnumStatement;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufGroupStatement;
 import com.github.auties00.daedalus.protobuf.compiler.tree.ProtobufMessageStatement;
+import com.github.auties00.daedalus.protobuf.cli.config.ProtoSources;
 import com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig;
 
 import java.io.IOException;
@@ -66,12 +67,8 @@ public final class JavaSourceGenerator {
      * @throws ProtobufParserException if the proto files contain lexical, syntax or semantic errors
      */
     public SequencedCollection<String> generate() throws IOException, ProtobufParserException {
-        var protoDir = Path.of(config.protoDir());
-        if (!Files.exists(protoDir)) {
-            throw new IOException("Proto directory does not exist: " + protoDir);
-        }
-
-        var documents = ProtobufParser.parse(protoDir);
+        var protoFiles = ProtoSources.resolve(Path.of(""), config.protoFiles());
+        var documents = ProtobufParser.parse(protoFiles);
         return generateFromDocuments(documents);
     }
 

@@ -21,7 +21,7 @@ public final class ProtobufExtension implements DaedalusExtension {
 
     @Override
     public String description() {
-        return "Generate and update Java models from .proto schemas";
+        return "Protocol Buffers";
     }
 
     @Override

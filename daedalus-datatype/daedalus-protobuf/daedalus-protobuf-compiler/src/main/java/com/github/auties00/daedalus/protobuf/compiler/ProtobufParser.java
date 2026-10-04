@@ -191,6 +191,59 @@ public final class ProtobufParser {
             files = walker.filter(Files::isRegularFile).toList();
         }
 
+        return parse(files);
+    }
+
+    /**
+     * Parses the given Protocol Buffer files together and performs full semantic analysis.
+     * <p>
+     * The files are analyzed as a single set, so imports and type references between them are
+     * resolved, and a file may import another file of the set.
+     * </p>
+     *
+     * @param files the files to parse, must not be null
+     * @return an unmodifiable map from file names to their parsed document trees
+     * @throws IOException if an I/O error occurs while reading the files
+     * @throws ProtobufParserException if any lexical, syntax or semantic error is found in any file
+     */
+    public static Map<String, ProtobufDocumentTree> parse(Collection<? extends Path> files) throws IOException, ProtobufParserException {
+        return parse(files, (Collection<ProtobufDocumentTree>) null);
+    }
+
+    /**
+     * Parses the given Protocol Buffer files together with additional context documents.
+     * <p>
+     * The files are analyzed as a single set, together with the context documents, so the types
+     * of the files can be resolved against types defined in the context documents. The context
+     * documents are not part of the result.
+     * </p>
+     *
+     * @param files the files to parse, must not be null
+     * @param documentTrees additional context documents for type resolution
+     * @return an unmodifiable map from file names to their parsed document trees
+     * @throws IOException if an I/O error occurs while reading the files
+     * @throws ProtobufParserException if any lexical, syntax or semantic error is found in any file
+     */
+    public static Map<String, ProtobufDocumentTree> parse(Collection<? extends Path> files, ProtobufDocumentTree... documentTrees) throws IOException, ProtobufParserException {
+        return parse(files, Arrays.asList(documentTrees));
+    }
+
+    /**
+     * Parses the given Protocol Buffer files together with additional context documents.
+     * <p>
+     * The files are analyzed as a single set, together with the context documents, so the types
+     * of the files can be resolved against types defined in the context documents. The context
+     * documents are not part of the result.
+     * </p>
+     *
+     * @param files the files to parse, must not be null
+     * @param documents additional context documents for type resolution, may be null
+     * @return an unmodifiable map from file names to their parsed document trees
+     * @throws IOException if an I/O error occurs while reading the files
+     * @throws ProtobufParserException if any lexical, syntax or semantic error is found in any file
+     */
+    public static Map<String, ProtobufDocumentTree> parse(Collection<? extends Path> files, Collection<? extends ProtobufDocumentTree> documents) throws IOException, ProtobufParserException {
+        Objects.requireNonNull(files, "Files must not be null");
         var diagnostics = new ProtobufDiagnosticator();
         Map<String, ProtobufDocumentTree> results = HashMap.newHashMap(files.size());
         Set<ProtobufDocumentTree> broken = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -211,7 +264,12 @@ public final class ProtobufParser {
                 diagnostics.report(file, ProtobufTreeSourceRange.UNKNOWN, ProtobufSemanticErrors.duplicateFile(file.toString(), previousFile));
             }
         }
-        ProtobufAnalyzer.attribute(withoutBrokenDocuments(results.values(), broken), diagnostics);
+        var toAttribute = new ArrayList<ProtobufDocumentTree>();
+        if (documents != null) {
+            toAttribute.addAll(documents);
+        }
+        toAttribute.addAll(withoutBrokenDocuments(results.values(), broken));
+        ProtobufAnalyzer.attribute(toAttribute, diagnostics);
         diagnostics.throwIfErrors();
         return Collections.unmodifiableMap(results);
     }
@@ -308,21 +366,10 @@ public final class ProtobufParser {
         }
     }
 
-    /**
-     * Parses a single source and, if it has no lexical or syntax errors, analyzes it together with
-     * the given context documents.
-     *
-     * @param location the file being parsed, or {@code null} if the source was not read from a file
-     * @param input the source to parse
-     * @param documents additional context documents for type resolution, may be null
-     * @return the parsed and analyzed document tree
-     * @throws IOException if an I/O error occurs while reading {@code input}
-     * @throws ProtobufParserException if any lexical, syntax or semantic error is found
-     */
     private static ProtobufDocumentTree parseAndAttribute(Path location, Reader input, Collection<? extends ProtobufDocumentTree> documents) throws IOException, ProtobufParserException {
         var diagnostics = new ProtobufDiagnosticator();
         var result = doParse(location, input, diagnostics);
-        if (!diagnostics.hasSyntaxErrorsSince(0)) {
+        if (!diagnostics.hasSyntaxErrors()) {
             var results = new ArrayList<ProtobufDocumentTree>();
             if (documents != null) {
                 results.addAll(documents);
@@ -334,14 +381,6 @@ public final class ProtobufParser {
         return result;
     }
 
-    /**
-     * Returns the documents that can be semantically analyzed: those without lexical or syntax
-     * errors that do not import, directly or transitively, a document with such errors.
-     *
-     * @param documents the parsed documents
-     * @param broken the documents with lexical or syntax errors
-     * @return the documents to analyze
-     */
     private static List<ProtobufDocumentTree> withoutBrokenDocuments(Collection<ProtobufDocumentTree> documents, Set<ProtobufDocumentTree> broken) {
         if (broken.isEmpty()) {
             return new ArrayList<>(documents);
@@ -394,11 +433,6 @@ public final class ProtobufParser {
         return parser.parseDocument();
     }
 
-    /**
-     * Parses every statement of the source into {@link #document}.
-     *
-     * @return the parsed document
-     */
     private ProtobufDocumentTree parseDocument() {
         try {
             String token;
@@ -427,13 +461,6 @@ public final class ProtobufParser {
         return document;
     }
 
-    /**
-     * Parses a top level statement introduced by the given token and adds it to {@link #document}.
-     *
-     * @param token the first token of the statement
-     * @param start the position of the first token of the statement
-     * @throws Sync if the statement is malformed
-     */
     private void parseDocumentChild(String token, ProtobufTreeSourcePosition start) {
         switch (token) {
             case STATEMENT_END -> {
@@ -500,12 +527,6 @@ public final class ProtobufParser {
         }
     }
 
-    /**
-     * Reads the next raw token, reporting an error if the input has ended.
-     *
-     * @return the next raw token
-     * @throws Abort if the input has ended
-     */
     private String nextRawToken() {
         var token = lexer.nextRawToken();
         if (token == null) {
@@ -515,12 +536,6 @@ public final class ProtobufParser {
         return token;
     }
 
-    /**
-     * Reads the next typed token, reporting an error if the input has ended.
-     *
-     * @return the next typed token
-     * @throws Abort if the input has ended
-     */
     private ProtobufToken nextToken() {
         var token = lexer.nextToken();
         if (token == null) {
@@ -530,12 +545,6 @@ public final class ProtobufParser {
         return token;
     }
 
-    /**
-     * Records that a token was consumed.
-     *
-     * @param token the text of the token, or {@code null} if it was a string literal, a number or
-     *              a boolean
-     */
     private void consumed(String token) {
         lastToken = token;
         tokenCount++;
@@ -543,52 +552,23 @@ public final class ProtobufParser {
         lastTokenEnd = lexer.tokenRange().end();
     }
 
-    /**
-     * Moves the lexer back to the previous token, so that it is read again by the next call to
-     * {@link #nextRawToken()} or {@link #nextToken()}.
-     */
     private void moveToPreviousToken() {
         lexer.moveToPreviousToken();
         tokenCount--;
     }
 
-    /**
-     * Reports that the input ended in the middle of a declaration.
-     *
-     * @return the signal that unwinds the parser, to be thrown by the caller
-     */
     private Abort endOfInput() {
         var position = lexer.currentPosition();
         diagnostics.report(location, new ProtobufTreeSourceRange(position, position), ProtobufSyntaxErrors.unexpectedEndOfInput());
         return Abort.INSTANCE;
     }
 
-    /**
-     * Reports the given error at the most recently consumed token if {@code condition} is
-     * {@code false}.
-     *
-     * @param condition the condition that must hold
-     * @param message the error to report if the condition does not hold
-     * @throws Sync if the condition does not hold
-     */
     private void expect(boolean condition, ProtobufDiagnosticMessage message) {
         if (!condition) {
             throw error(message);
         }
     }
 
-    /**
-     * Reports the given error if {@code token} is not the {@code ;} that terminates a statement.
-     *
-     * <p>A statement that is not terminated is usually followed by the next statement on a new
-     * line. In that case the error is reported right after the last token of the statement, and
-     * parsing resumes at the offending token instead of skipping it, so that the next statement
-     * is not lost.
-     *
-     * @param token the token that should terminate the statement
-     * @param message the error to report if {@code token} is not a {@code ;}
-     * @throws Sync if {@code token} is not a {@code ;}
-     */
     private void expectStatementEnd(String token, ProtobufDiagnosticMessage message) {
         if (isStatementEnd(token)) {
             return;
@@ -604,42 +584,15 @@ public final class ProtobufParser {
         throw error(message);
     }
 
-    /**
-     * Reports the given error at the most recently consumed token.
-     *
-     * @param message the error to report
-     * @return the signal that unwinds the parser to the nearest statement boundary, to be thrown by
-     *         the caller
-     */
     private Sync error(ProtobufDiagnosticMessage message) {
         report(message);
         return Sync.INSTANCE;
     }
 
-    /**
-     * Reports the given problem at the most recently consumed token without interrupting parsing.
-     *
-     * @param message the problem to report
-     */
     private void report(ProtobufDiagnosticMessage message) {
         diagnostics.report(location, lexer.tokenRange(), message);
     }
 
-    /**
-     * Skips tokens until the end of the malformed statement, so that parsing can resume with the
-     * next one.
-     *
-     * <p>Recovery starts from the offending token, which is the most recently consumed one. A
-     * {@code ;} ends the statement. A {@code }} ends the enclosing body, so it is left in the input
-     * when {@code inBody} is {@code true}. A {@code {} starts a block that is skipped entirely.
-     * A statement keyword starts the next statement and is left in the input, unless it is the
-     * token that introduced the malformed statement, in which case leaving it would make the
-     * parser fail on it again.
-     *
-     * @param inBody whether the malformed statement is inside the body of a declaration
-     * @param dispatch the value of {@link #tokenCount} after the first token of the malformed
-     *                 statement was consumed
-     */
     private void synchronize(boolean inBody, int dispatch) {
         if (resumeAtOffendingToken) {
             resumeAtOffendingToken = false;
@@ -700,10 +653,6 @@ public final class ProtobufParser {
         }
     }
 
-    /**
-     * Skips the tokens of a block whose opening brace was just consumed, up to and including its
-     * matching closing brace or the end of input.
-     */
     private void skipBlock() {
         var depth = 1;
         String token;
@@ -717,10 +666,6 @@ public final class ProtobufParser {
         }
     }
 
-    /**
-     * Drains any leading and detached comments collected by the lexer for the upcoming statement
-     * and attaches them to the given statement.
-     */
     private void attachLeadingComments(ProtobufStatement statement) {
         for (var comment : lexer.consumePendingDetached()) {
             statement.addComment(comment);
@@ -731,10 +676,6 @@ public final class ProtobufParser {
         }
     }
 
-    /**
-     * Finalizes a statement's source range and attaches any same-line trailing comment that
-     * follows the most recently consumed token.
-     */
     private <T extends ProtobufStatement> T finishStatement(T statement, ProtobufTreeSourcePosition start) {
         statement.setRange(new ProtobufTreeSourceRange(start, lexer.tokenRange().end()));
         var trailing = lexer.consumePendingTrailing();
@@ -893,15 +834,6 @@ public final class ProtobufParser {
         return finishStatement(statement, start);
     }
 
-    /**
-     * Parses a statement of a message body introduced by the given token and adds it to the
-     * message.
-     *
-     * @param statement the message that contains the statement
-     * @param token the first token of the statement
-     * @param childStart the position of the first token of the statement
-     * @throws Sync if the statement is malformed
-     */
     private void parseMessageChild(ProtobufMessageStatement statement, String token, ProtobufTreeSourcePosition childStart) {
         switch (token) {
             case STATEMENT_END -> {
@@ -985,15 +917,6 @@ public final class ProtobufParser {
         return finishStatement(statement, start);
     }
 
-    /**
-     * Parses a field of an extend body introduced by the given token and adds it to the extend
-     * declaration.
-     *
-     * @param statement the extend declaration that contains the field
-     * @param token the first token of the field
-     * @param childStart the position of the first token of the field
-     * @throws Sync if the field is malformed
-     */
     private void parseExtendChild(ProtobufExtendStatement statement, String token, ProtobufTreeSourcePosition childStart) {
         var modifier = ProtobufModifier.of(token);
         if(modifier.isPresent()) {
@@ -1047,14 +970,6 @@ public final class ProtobufParser {
         return finishStatement(statement, start);
     }
 
-    /**
-     * Parses a statement of a group body introduced by the given token and adds it to the group.
-     *
-     * @param statement the group that contains the statement
-     * @param groupToken the first token of the statement
-     * @param childStart the position of the first token of the statement
-     * @throws Sync if the statement is malformed
-     */
     private void parseGroupChild(ProtobufGroupStatement statement, String groupToken, ProtobufTreeSourcePosition childStart) {
         switch (groupToken) {
             case STATEMENT_END -> {
@@ -1227,14 +1142,6 @@ public final class ProtobufParser {
         return finishStatement(statement, start);
     }
 
-    /**
-     * Parses a statement of an enum body introduced by the given token and adds it to the enum.
-     *
-     * @param statement the enum that contains the statement
-     * @param token the first token of the statement
-     * @param childStart the position of the first token of the statement
-     * @throws Sync if the statement is malformed
-     */
     private void parseEnumChild(ProtobufEnumStatement statement, String token, ProtobufTreeSourcePosition childStart) {
         switch (token) {
             case STATEMENT_END -> {
@@ -1403,15 +1310,6 @@ public final class ProtobufParser {
         return finishStatement(statement, start);
     }
 
-    /**
-     * Parses a statement of a service body introduced by the given token and adds it to the
-     * service.
-     *
-     * @param statement the service that contains the statement
-     * @param token the first token of the statement
-     * @param childStart the position of the first token of the statement
-     * @throws Sync if the statement is malformed
-     */
     private void parseServiceChild(ProtobufServiceStatement statement, String token, ProtobufTreeSourcePosition childStart) {
         switch (token) {
             case STATEMENT_END -> {
@@ -1460,15 +1358,6 @@ public final class ProtobufParser {
         return finishStatement(statement, start);
     }
 
-    /**
-     * Parses a statement of an rpc method body introduced by the given token and adds it to the
-     * method.
-     *
-     * @param statement the method that contains the statement
-     * @param token the first token of the statement
-     * @param childStart the position of the first token of the statement
-     * @throws Sync if the statement is malformed
-     */
     private void parseMethodChild(ProtobufMethodStatement statement, String token, ProtobufTreeSourcePosition childStart) {
         switch (token) {
             case STATEMENT_END -> {
@@ -1526,14 +1415,6 @@ public final class ProtobufParser {
         return finishStatement(statement, start);
     }
 
-    /**
-     * Parses a statement of a oneof body introduced by the given token and adds it to the oneof.
-     *
-     * @param statement the oneof that contains the statement
-     * @param token the first token of the statement
-     * @param childStart the position of the first token of the statement
-     * @throws Sync if the statement is malformed
-     */
     private void parseOneofChild(ProtobufOneofStatement statement, String token, ProtobufTreeSourcePosition childStart) {
         switch (token) {
             case "option" -> {

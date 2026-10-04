@@ -13,19 +13,20 @@ import java.util.List;
  * its name and description.
  */
 public final class WelcomeModel implements Model {
-    private static final String[] LOGO_LINES = {
-            "\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2557    \u2588\u2588\u2557  \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557",
-            "\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2551    \u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2550\u2550\u255D",
-            "\u2588\u2588\u2551 \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2551 \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551\u2588\u2588\u2551    \u2588\u2588\u2551  \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557",
-            "\u2588\u2588\u2551 \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u255D \u2588\u2588\u2551 \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2551\u2588\u2588\u2551    \u2588\u2588\u2551  \u2588\u2588\u2551\u255A\u2550\u2550\u2550\u2550\u2588\u2588\u2551",
-            "\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2551 \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2551 \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u255A\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551",
-            "\u255A\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u255D \u255A\u2550\u255D\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D\u255A\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u255D \u255A\u2550\u255D\u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u2550\u2550\u2550\u2550\u255D \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u255D"
-    };
-
     private final List<DaedalusExtension> extensions;
     private int cursor;
     private boolean confirmed;
     private boolean cancelled;
+
+    /**
+     * Constructs the welcome screen model with the given list of extensions.
+     *
+     * @param extensions the available extensions to display
+     */
+    public WelcomeModel(List<DaedalusExtension> extensions, int selected) {
+        this(extensions);
+        this.cursor = Math.max(0, Math.min(selected, extensions.size() - 1));
+    }
 
     /**
      * Constructs the welcome screen model with the given list of extensions.
@@ -75,7 +76,7 @@ public final class WelcomeModel implements Model {
     public String view() {
         var sb = new StringBuilder();
 
-        sb.append(renderLogo());
+        sb.append(Theme.logo());
         sb.append("\n");
 
         sb.append(Theme.MUTED_TEXT.render("Modular code generation toolkit"));
@@ -95,19 +96,10 @@ public final class WelcomeModel implements Model {
         var status = new StatusBar()
                 .add("\u2191\u2193", "navigate")
                 .add("enter", "select")
-                .add("q", "quit");
+                .add("q/esc", "quit");
         sb.append(status.render());
         sb.append("\n");
 
-        return sb.toString();
-    }
-
-    private String renderLogo() {
-        var sb = new StringBuilder();
-        for (var line : LOGO_LINES) {
-            sb.append(Theme.LOGO.render(line));
-            sb.append("\n");
-        }
         return sb.toString();
     }
 
@@ -157,5 +149,14 @@ public final class WelcomeModel implements Model {
      */
     public boolean isCancelled() {
         return cancelled;
+    }
+
+    /**
+     * Returns the position of the extension selected by the user.
+     *
+     * @return the index of the selected extension
+     */
+    public int selectedIndex() {
+        return cursor;
     }
 }

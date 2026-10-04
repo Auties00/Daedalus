@@ -1,7 +1,6 @@
 package com.github.auties00.daedalus.protobuf.cli.generation;
 
 import com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig;
-import com.github.auties00.daedalus.protobuf.cli.model.EnumConstantMode;
 import com.github.auties00.daedalus.protobuf.cli.model.EnumForm;
 import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerExpression;
 import com.github.auties00.daedalus.protobuf.compiler.expression.ProtobufIntegerRangeExpression;
@@ -26,9 +25,8 @@ import java.util.List;
 /**
  * Generates Java source files for proto enum definitions.
  *
- * <p>Supports all five enum forms and both constant modes
- * ({@link EnumConstantMode#CONSTANT_ANNOTATION} and
- * {@link EnumConstantMode#SERIALIZER_DESERIALIZER}).
+ * <p>Supports all three enum forms, which annotate every constant with
+ * {@code @ProtobufEnum.Constant}.
  *
  * <p>When {@code generateDefaultValue} is enabled in the configuration,
  * the first enum constant (by declaration order) is annotated with
@@ -73,16 +71,13 @@ public final class EnumGenerator {
         addImports(cu, enumStmt);
 
         var enumForm = resolveEnumForm(protoFqn);
-        var constantMode = resolveConstantMode(protoFqn);
         var typeName = naming.toTypeName(enumStmt.name());
         var constants = collectConstants(enumStmt);
 
         switch (enumForm) {
-            case JAVA_ENUM -> generateJavaEnum(cu, enumStmt, typeName, protoFqn, constants, constantMode);
-            case CLASS -> generateClass(cu, enumStmt, typeName, protoFqn, constants, constantMode);
-            case RECORD -> generateRecord(cu, enumStmt, typeName, protoFqn, constants, constantMode);
-            case SEALED_INTERFACE -> generateSealedInterface(cu, enumStmt, typeName, protoFqn, constants, constantMode);
-            case SEALED_ABSTRACT_CLASS -> generateSealedAbstractClass(cu, enumStmt, typeName, protoFqn, constants, constantMode);
+            case JAVA_ENUM -> generateJavaEnum(cu, enumStmt, typeName, protoFqn, constants);
+            case CLASS -> generateClass(cu, enumStmt, typeName, protoFqn, constants);
+            case RECORD -> generateRecord(cu, enumStmt, typeName, protoFqn, constants);
         }
 
         return cu;
@@ -99,17 +94,16 @@ public final class EnumGenerator {
     public void generateNested(TypeDeclaration<?> parentType, ProtobufEnumStatement enumStmt, String protoFqn) {
         var typeName = naming.toTypeName(enumStmt.name());
         var constants = collectConstants(enumStmt);
-        var constantMode = resolveConstantMode(protoFqn);
         var enumForm = resolveEnumForm(protoFqn);
         parentType.findCompilationUnit()
                 .ifPresent(cu -> addImports(cu, enumStmt));
 
         if (enumForm == EnumForm.JAVA_ENUM) {
-            var enumDecl = createJavaEnumDeclaration(enumStmt, typeName, protoFqn, constants, constantMode);
+            var enumDecl = createJavaEnumDeclaration(enumStmt, typeName, protoFqn, constants);
             enumDecl.addModifier(Modifier.Keyword.STATIC);
             parentType.addMember(enumDecl);
         } else {
-            var classDecl = createClassEnumDeclaration(enumStmt, typeName, protoFqn, constants, constantMode);
+            var classDecl = createClassEnumDeclaration(enumStmt, typeName, protoFqn, constants);
             classDecl.addModifier(Modifier.Keyword.STATIC);
             parentType.addMember(classDecl);
         }
@@ -117,89 +111,33 @@ public final class EnumGenerator {
 
     private void generateJavaEnum(CompilationUnit cu, ProtobufEnumStatement enumStmt,
                                    String typeName, String protoFqn,
-                                   List<ProtobufEnumConstantStatement> constants,
-                                   EnumConstantMode constantMode) {
-        var enumDecl = createJavaEnumDeclaration(enumStmt, typeName, protoFqn, constants, constantMode);
+                                   List<ProtobufEnumConstantStatement> constants) {
+        var enumDecl = createJavaEnumDeclaration(enumStmt, typeName, protoFqn, constants);
         enumDecl.addModifier(Modifier.Keyword.PUBLIC);
         cu.addType(enumDecl);
-
-        if (constantMode == EnumConstantMode.SERIALIZER_DESERIALIZER) {
-            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufSerializer");
-            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufDeserializer");
-            cu.addImport("java.util.Arrays");
-            cu.addImport("java.util.Map");
-            cu.addImport("java.util.function.Function");
-            cu.addImport("java.util.stream.Collectors");
-        }
     }
 
     private EnumDeclaration createJavaEnumDeclaration(ProtobufEnumStatement enumStmt,
                                                       String typeName, String protoFqn,
-                                                      List<ProtobufEnumConstantStatement> constants,
-                                                      EnumConstantMode constantMode) {
+                                                      List<ProtobufEnumConstantStatement> constants) {
         var enumDecl = new EnumDeclaration();
         enumDecl.setName(typeName);
         enumDecl.addAnnotation(createEnumAnnotation(protoFqn, enumStmt));
 
-        if (constantMode == EnumConstantMode.CONSTANT_ANNOTATION) {
-            var isFirst = true;
-            for (var constant : constants) {
-                var name = naming.toEnumConstantName(constant.name());
-                var index = (int) constant.index().value();
-                var entry = new EnumConstantDeclaration(name);
-                entry.addAnnotation(new NormalAnnotationExpr(
-                        new Name("ProtobufEnum.Constant"),
-                        new NodeList<>(new MemberValuePair("index", new IntegerLiteralExpr(String.valueOf(index))))
-                ));
-                if (isFirst && generateDefaultValue) {
-                    entry.addAnnotation(new MarkerAnnotationExpr("ProtobufDefaultValue"));
-                    isFirst = false;
-                }
-                enumDecl.addEntry(entry);
+        var isFirst = true;
+        for (var constant : constants) {
+            var name = naming.toEnumConstantName(constant.name());
+            var index = (int) constant.index().value();
+            var entry = new EnumConstantDeclaration(name);
+            entry.addAnnotation(new NormalAnnotationExpr(
+                    new Name("ProtobufEnum.Constant"),
+                    new NodeList<>(new MemberValuePair("index", new IntegerLiteralExpr(String.valueOf(index))))
+            ));
+            if (isFirst && generateDefaultValue) {
+                entry.addAnnotation(new MarkerAnnotationExpr("ProtobufDefaultValue"));
+                isFirst = false;
             }
-        } else {
-            var isFirst = true;
-            for (var constant : constants) {
-                var name = naming.toEnumConstantName(constant.name());
-                var index = (int) constant.index().value();
-                var entry = new EnumConstantDeclaration(name);
-                entry.addArgument(new IntegerLiteralExpr(String.valueOf(index)));
-                if (isFirst && generateDefaultValue) {
-                    entry.addAnnotation(new MarkerAnnotationExpr("ProtobufDefaultValue"));
-                    isFirst = false;
-                }
-                enumDecl.addEntry(entry);
-            }
-
-            enumDecl.addField("Map<Integer, " + typeName + ">", "VALUES",
-                    Modifier.Keyword.PRIVATE, Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
-
-            var indexField = enumDecl.addField("int", "index", Modifier.Keyword.PRIVATE, Modifier.Keyword.FINAL);
-
-            var constructor = enumDecl.addConstructor();
-            constructor.addParameter("int", "index");
-            constructor.setBody(new BlockStmt().addStatement(
-                    new AssignExpr(
-                            new FieldAccessExpr(new ThisExpr(), "index"),
-                            new NameExpr("index"),
-                            AssignExpr.Operator.ASSIGN
-                    )
-            ));
-
-            var serializer = enumDecl.addMethod("index");
-            serializer.setType("int");
-            serializer.addAnnotation(new MarkerAnnotationExpr("ProtobufSerializer"));
-            serializer.setBody(new BlockStmt().addStatement(
-                    new ReturnStmt(new NameExpr("index"))
-            ));
-
-            var deserializer = enumDecl.addMethod("of", Modifier.Keyword.STATIC);
-            deserializer.setType(typeName);
-            deserializer.addParameter("int", "index");
-            deserializer.addAnnotation(new MarkerAnnotationExpr("ProtobufDeserializer"));
-            deserializer.setBody(new BlockStmt().addStatement(
-                    new ReturnStmt(new MethodCallExpr(new NameExpr("VALUES"), "get", new NodeList<>(new NameExpr("index"))))
-            ));
+            enumDecl.addEntry(entry);
         }
 
         return enumDecl;
@@ -207,43 +145,34 @@ public final class EnumGenerator {
 
     private void generateClass(CompilationUnit cu, ProtobufEnumStatement enumStmt,
                                 String typeName, String protoFqn,
-                                List<ProtobufEnumConstantStatement> constants,
-                                EnumConstantMode constantMode) {
-        var classDecl = createClassEnumDeclaration(enumStmt, typeName, protoFqn, constants, constantMode);
+                                List<ProtobufEnumConstantStatement> constants) {
+        var classDecl = createClassEnumDeclaration(enumStmt, typeName, protoFqn, constants);
         classDecl.addModifier(Modifier.Keyword.PUBLIC, Modifier.Keyword.FINAL);
         cu.addType(classDecl);
-
-        if (constantMode == EnumConstantMode.SERIALIZER_DESERIALIZER) {
-            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufSerializer");
-            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufDeserializer");
-        }
     }
 
     private ClassOrInterfaceDeclaration createClassEnumDeclaration(ProtobufEnumStatement enumStmt,
                                                                     String typeName, String protoFqn,
-                                                                    List<ProtobufEnumConstantStatement> constants,
-                                                                    EnumConstantMode constantMode) {
+                                                                    List<ProtobufEnumConstantStatement> constants) {
         var classDecl = new ClassOrInterfaceDeclaration();
         classDecl.setName(typeName);
         classDecl.setInterface(false);
         classDecl.addAnnotation(createEnumAnnotation(protoFqn, enumStmt));
 
-        if (constantMode == EnumConstantMode.CONSTANT_ANNOTATION) {
-            for (var constant : constants) {
-                var name = naming.toEnumConstantName(constant.name());
-                var index = (int) constant.index().value();
+        for (var constant : constants) {
+            var name = naming.toEnumConstantName(constant.name());
+            var index = (int) constant.index().value();
 
-                var field = classDecl.addField(typeName, name,
-                        Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
-                field.getVariable(0).setInitializer(
-                        new ObjectCreationExpr(null, new ClassOrInterfaceType(null, typeName),
-                                new NodeList<>(new IntegerLiteralExpr(String.valueOf(index))))
-                );
-                field.addAnnotation(new NormalAnnotationExpr(
-                        new Name("ProtobufEnum.Constant"),
-                        new NodeList<>(new MemberValuePair("index", new IntegerLiteralExpr(String.valueOf(index))))
-                ));
-            }
+            var field = classDecl.addField(typeName, name,
+                    Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
+            field.getVariable(0).setInitializer(
+                    new ObjectCreationExpr(null, new ClassOrInterfaceType(null, typeName),
+                            new NodeList<>(new IntegerLiteralExpr(String.valueOf(index))))
+            );
+            field.addAnnotation(new NormalAnnotationExpr(
+                    new Name("ProtobufEnum.Constant"),
+                    new NodeList<>(new MemberValuePair("index", new IntegerLiteralExpr(String.valueOf(index))))
+            ));
         }
 
         classDecl.addField("int", "index", Modifier.Keyword.PRIVATE, Modifier.Keyword.FINAL);
@@ -258,32 +187,12 @@ public final class EnumGenerator {
                 )
         ));
 
-        if (constantMode == EnumConstantMode.SERIALIZER_DESERIALIZER) {
-            var serializer = classDecl.addMethod("index");
-            serializer.setType("int");
-            serializer.addAnnotation(new MarkerAnnotationExpr("ProtobufSerializer"));
-            serializer.setBody(new BlockStmt().addStatement(
-                    new ReturnStmt(new NameExpr("index"))
-            ));
-
-            var deserializer = classDecl.addMethod("of", Modifier.Keyword.STATIC);
-            deserializer.setType(typeName);
-            deserializer.addParameter("int", "index");
-            deserializer.addAnnotation(new MarkerAnnotationExpr("ProtobufDeserializer"));
-            deserializer.setBody(new BlockStmt().addStatement(
-                    new ReturnStmt(new ObjectCreationExpr(null,
-                            new ClassOrInterfaceType(null, typeName),
-                            new NodeList<>(new NameExpr("index"))))
-            ));
-        }
-
         return classDecl;
     }
 
     private void generateRecord(CompilationUnit cu, ProtobufEnumStatement enumStmt,
                                  String typeName, String protoFqn,
-                                 List<ProtobufEnumConstantStatement> constants,
-                                 EnumConstantMode constantMode) {
+                                 List<ProtobufEnumConstantStatement> constants) {
         var components = new NodeList<Parameter>();
         components.add(new Parameter(com.github.javaparser.ast.type.PrimitiveType.intType(), "index"));
 
@@ -299,268 +208,23 @@ public final class EnumGenerator {
         );
         record.addAnnotation(createEnumAnnotation(protoFqn, enumStmt));
 
-        if (constantMode == EnumConstantMode.CONSTANT_ANNOTATION) {
-            for (var constant : constants) {
-                var name = naming.toEnumConstantName(constant.name());
-                var index = (int) constant.index().value();
+        for (var constant : constants) {
+            var name = naming.toEnumConstantName(constant.name());
+            var index = (int) constant.index().value();
 
-                var field = record.addField(typeName, name,
-                        Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
-                field.getVariable(0).setInitializer(
-                        new ObjectCreationExpr(null, new ClassOrInterfaceType(null, typeName),
-                                new NodeList<>(new IntegerLiteralExpr(String.valueOf(index))))
-                );
-                field.addAnnotation(new NormalAnnotationExpr(
-                        new Name("ProtobufEnum.Constant"),
-                        new NodeList<>(new MemberValuePair("index", new IntegerLiteralExpr(String.valueOf(index))))
-                ));
-            }
-        } else {
-            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufSerializer");
-            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufDeserializer");
-
-            var serializer = record.addMethod("index");
-            serializer.setType("int");
-            serializer.addAnnotation(new MarkerAnnotationExpr("ProtobufSerializer"));
-            serializer.setBody(new BlockStmt().addStatement(
-                    new ReturnStmt(new NameExpr("index"))
-            ));
-
-            var deserializer = record.addMethod("of", Modifier.Keyword.STATIC);
-            deserializer.setType(typeName);
-            deserializer.addParameter("int", "index");
-            deserializer.addAnnotation(new MarkerAnnotationExpr("ProtobufDeserializer"));
-            deserializer.setBody(new BlockStmt().addStatement(
-                    new ReturnStmt(new ObjectCreationExpr(null,
-                            new ClassOrInterfaceType(null, typeName),
-                            new NodeList<>(new NameExpr("index"))))
+            var field = record.addField(typeName, name,
+                    Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
+            field.getVariable(0).setInitializer(
+                    new ObjectCreationExpr(null, new ClassOrInterfaceType(null, typeName),
+                            new NodeList<>(new IntegerLiteralExpr(String.valueOf(index))))
+            );
+            field.addAnnotation(new NormalAnnotationExpr(
+                    new Name("ProtobufEnum.Constant"),
+                    new NodeList<>(new MemberValuePair("index", new IntegerLiteralExpr(String.valueOf(index))))
             ));
         }
 
         cu.addType(record);
-    }
-
-    private void generateSealedInterface(CompilationUnit cu, ProtobufEnumStatement enumStmt,
-                                          String typeName, String protoFqn,
-                                          List<ProtobufEnumConstantStatement> constants,
-                                          EnumConstantMode constantMode) {
-        var interfaceDecl = new ClassOrInterfaceDeclaration();
-        interfaceDecl.setName(typeName);
-        interfaceDecl.setInterface(true);
-        interfaceDecl.addModifier(Modifier.Keyword.PUBLIC, Modifier.Keyword.SEALED);
-        interfaceDecl.addAnnotation(createEnumAnnotation(protoFqn, enumStmt));
-
-        var indexMethod = interfaceDecl.addMethod("index");
-        indexMethod.setType("int");
-        indexMethod.removeBody();
-
-        if (constantMode == EnumConstantMode.CONSTANT_ANNOTATION) {
-            for (var constant : constants) {
-                var name = naming.toEnumConstantName(constant.name());
-                var subtypeName = naming.toTypeName(constant.name());
-                var index = (int) constant.index().value();
-
-                var record = new RecordDeclaration(
-                        new NodeList<>(),
-                        new NodeList<>(),
-                        new SimpleName(subtypeName),
-                        new NodeList<>(),
-                        new NodeList<>(),
-                        new NodeList<>(new ClassOrInterfaceType(null, typeName)),
-                        new NodeList<>(),
-                        null
-                );
-                record.addModifier(Modifier.Keyword.STATIC);
-                record.addAnnotation(new NormalAnnotationExpr(
-                        new Name("ProtobufEnum.Constant"),
-                        new NodeList<>(new MemberValuePair("index", new IntegerLiteralExpr(String.valueOf(index))))
-                ));
-
-                var overrideIndex = record.addMethod("index");
-                overrideIndex.setType("int");
-                overrideIndex.addAnnotation(new MarkerAnnotationExpr("Override"));
-                overrideIndex.setBody(new BlockStmt().addStatement(
-                        new ReturnStmt(new IntegerLiteralExpr(String.valueOf(index)))
-                ));
-
-                interfaceDecl.addMember(record);
-
-                var staticField = interfaceDecl.addField(typeName, name,
-                        Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
-                staticField.getVariable(0).setInitializer(
-                        new ObjectCreationExpr(null, new ClassOrInterfaceType(null, subtypeName), new NodeList<>())
-                );
-            }
-        } else {
-            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufSerializer");
-            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufDeserializer");
-
-            indexMethod.addAnnotation(new MarkerAnnotationExpr("ProtobufSerializer"));
-
-            for (var constant : constants) {
-                var subtypeName = naming.toTypeName(constant.name());
-                var name = naming.toEnumConstantName(constant.name());
-                var index = (int) constant.index().value();
-
-                var record = new RecordDeclaration(
-                        new NodeList<>(),
-                        new NodeList<>(),
-                        new SimpleName(subtypeName),
-                        new NodeList<>(),
-                        new NodeList<>(),
-                        new NodeList<>(new ClassOrInterfaceType(null, typeName)),
-                        new NodeList<>(),
-                        null
-                );
-                record.addModifier(Modifier.Keyword.STATIC);
-
-                var overrideIndex = record.addMethod("index");
-                overrideIndex.setType("int");
-                overrideIndex.addAnnotation(new MarkerAnnotationExpr("Override"));
-                overrideIndex.setBody(new BlockStmt().addStatement(
-                        new ReturnStmt(new IntegerLiteralExpr(String.valueOf(index)))
-                ));
-
-                interfaceDecl.addMember(record);
-
-                var staticField = interfaceDecl.addField(typeName, name,
-                        Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
-                staticField.getVariable(0).setInitializer(
-                        new ObjectCreationExpr(null, new ClassOrInterfaceType(null, subtypeName), new NodeList<>())
-                );
-            }
-
-            var deserializer = interfaceDecl.addMethod("of", Modifier.Keyword.STATIC);
-            deserializer.setType(typeName);
-            deserializer.addParameter("int", "index");
-            deserializer.addAnnotation(new MarkerAnnotationExpr("ProtobufDeserializer"));
-            var switchEntries = new StringBuilder("return switch (index) {\n");
-            for (var constant : constants) {
-                var name = naming.toEnumConstantName(constant.name());
-                var index = (int) constant.index().value();
-                switchEntries.append("            case ").append(index).append(" -> ").append(name).append(";\n");
-            }
-            switchEntries.append("            default -> null;\n        }");
-            deserializer.setBody(new BlockStmt().addStatement(
-                    com.github.javaparser.StaticJavaParser.parseStatement(switchEntries.toString() + ";")
-            ));
-        }
-
-        cu.addType(interfaceDecl);
-    }
-
-    private void generateSealedAbstractClass(CompilationUnit cu, ProtobufEnumStatement enumStmt,
-                                              String typeName, String protoFqn,
-                                              List<ProtobufEnumConstantStatement> constants,
-                                              EnumConstantMode constantMode) {
-        var classDecl = new ClassOrInterfaceDeclaration();
-        classDecl.setName(typeName);
-        classDecl.setInterface(false);
-        classDecl.addModifier(Modifier.Keyword.PUBLIC, Modifier.Keyword.SEALED, Modifier.Keyword.ABSTRACT);
-        classDecl.addAnnotation(createEnumAnnotation(protoFqn, enumStmt));
-
-        classDecl.addField("int", "index", Modifier.Keyword.PRIVATE, Modifier.Keyword.FINAL);
-
-        var constructor = classDecl.addConstructor(Modifier.Keyword.PROTECTED);
-        constructor.addParameter("int", "index");
-        constructor.setBody(new BlockStmt().addStatement(
-                new AssignExpr(
-                        new FieldAccessExpr(new ThisExpr(), "index"),
-                        new NameExpr("index"),
-                        AssignExpr.Operator.ASSIGN
-                )
-        ));
-
-        if (constantMode == EnumConstantMode.CONSTANT_ANNOTATION) {
-            var indexAccessor = classDecl.addMethod("index");
-            indexAccessor.setType("int");
-            indexAccessor.setBody(new BlockStmt().addStatement(new ReturnStmt(new NameExpr("index"))));
-
-            for (var constant : constants) {
-                var name = naming.toEnumConstantName(constant.name());
-                var subtypeName = naming.toTypeName(constant.name()) + "Impl";
-                var index = (int) constant.index().value();
-
-                var subtype = new ClassOrInterfaceDeclaration();
-                subtype.setName(subtypeName);
-                subtype.setInterface(false);
-                subtype.addModifier(Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
-                subtype.addExtendedType(typeName);
-                subtype.addAnnotation(new NormalAnnotationExpr(
-                        new Name("ProtobufEnum.Constant"),
-                        new NodeList<>(new MemberValuePair("index", new IntegerLiteralExpr(String.valueOf(index))))
-                ));
-
-                var subtypeConstructor = subtype.addConstructor();
-                subtypeConstructor.setBody(new BlockStmt().addStatement(
-                        new com.github.javaparser.ast.stmt.ExplicitConstructorInvocationStmt(
-                                false, null,
-                                new NodeList<>(new IntegerLiteralExpr(String.valueOf(index)))
-                        )
-                ));
-
-                classDecl.addMember(subtype);
-
-                var staticField = classDecl.addField(typeName, name,
-                        Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
-                staticField.getVariable(0).setInitializer(
-                        new ObjectCreationExpr(null, new ClassOrInterfaceType(null, subtypeName), new NodeList<>())
-                );
-            }
-        } else {
-            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufSerializer");
-            cu.addImport("com.github.auties00.daedalus.typesystem.annotation.ProtobufDeserializer");
-
-            var serializer = classDecl.addMethod("index");
-            serializer.setType("int");
-            serializer.addAnnotation(new MarkerAnnotationExpr("ProtobufSerializer"));
-            serializer.setBody(new BlockStmt().addStatement(new ReturnStmt(new NameExpr("index"))));
-
-            for (var constant : constants) {
-                var name = naming.toEnumConstantName(constant.name());
-                var subtypeName = naming.toTypeName(constant.name()) + "Impl";
-                var index = (int) constant.index().value();
-
-                var subtype = new ClassOrInterfaceDeclaration();
-                subtype.setName(subtypeName);
-                subtype.setInterface(false);
-                subtype.addModifier(Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
-                subtype.addExtendedType(typeName);
-
-                var subtypeConstructor = subtype.addConstructor();
-                subtypeConstructor.setBody(new BlockStmt().addStatement(
-                        new com.github.javaparser.ast.stmt.ExplicitConstructorInvocationStmt(
-                                false, null,
-                                new NodeList<>(new IntegerLiteralExpr(String.valueOf(index)))
-                        )
-                ));
-
-                classDecl.addMember(subtype);
-
-                var staticField = classDecl.addField(typeName, name,
-                        Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
-                staticField.getVariable(0).setInitializer(
-                        new ObjectCreationExpr(null, new ClassOrInterfaceType(null, subtypeName), new NodeList<>())
-                );
-            }
-
-            var deserializer = classDecl.addMethod("of", Modifier.Keyword.STATIC);
-            deserializer.setType(typeName);
-            deserializer.addParameter("int", "index");
-            deserializer.addAnnotation(new MarkerAnnotationExpr("ProtobufDeserializer"));
-            var switchEntries = new StringBuilder("return switch (index) {\n");
-            for (var constant : constants) {
-                var name = naming.toEnumConstantName(constant.name());
-                var index = (int) constant.index().value();
-                switchEntries.append("            case ").append(index).append(" -> ").append(name).append(";\n");
-            }
-            switchEntries.append("            default -> null;\n        }");
-            deserializer.setBody(new BlockStmt().addStatement(
-                    com.github.javaparser.StaticJavaParser.parseStatement(switchEntries.toString() + ";")
-            ));
-        }
-
-        cu.addType(classDecl);
     }
 
     /**
@@ -731,15 +395,5 @@ public final class EnumGenerator {
             }
         }
         return config.defaults().enumForm();
-    }
-
-    private EnumConstantMode resolveConstantMode(String protoFqn) {
-        if (protoFqn != null) {
-            var override = config.typeOverrides().get(protoFqn);
-            if (override != null && override.enumConstantMode() != null) {
-                return override.enumConstantMode();
-            }
-        }
-        return config.defaults().enumConstantMode();
     }
 }

@@ -17,15 +17,5 @@ public enum EnumForm {
     /**
      * A Java record with static final constant fields.
      */
-    RECORD,
-
-    /**
-     * A sealed interface with record subtypes as permitted implementations.
-     */
-    SEALED_INTERFACE,
-
-    /**
-     * A sealed abstract class with final class subtypes.
-     */
-    SEALED_ABSTRACT_CLASS
+    RECORD
 }

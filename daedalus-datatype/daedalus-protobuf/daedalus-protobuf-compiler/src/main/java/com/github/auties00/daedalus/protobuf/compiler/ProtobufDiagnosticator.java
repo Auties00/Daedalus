@@ -63,6 +63,15 @@ final class ProtobufDiagnosticator {
     }
 
     /**
+     * Returns whether a lexical or syntax diagnostic has been reported.
+     *
+     * @return {@code true} if a lexical or syntax diagnostic was reported, otherwise {@code false}
+     */
+    boolean hasSyntaxErrors() {
+        return hasSyntaxErrorsSince(0);
+    }
+
+    /**
      * Returns whether a lexical or syntax diagnostic has been reported after the given marker.
      *
      * @param mark a marker previously returned by {@link #mark()}

@@ -2,12 +2,13 @@ package com.github.auties00.daedalus.protobuf.cli.tui.onboarding;
 
 import com.williamcallahan.tui4j.compat.bubbletea.*;
 import com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig;
-import com.github.auties00.daedalus.protobuf.cli.model.EnumConstantMode;
 import com.github.auties00.daedalus.protobuf.cli.model.EnumForm;
 import com.github.auties00.daedalus.protobuf.cli.model.TypeForm;
 import com.github.auties00.daedalus.protobuf.cli.tui.onboarding.StepModel.Option;
 
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Orchestrates the multi-step onboarding wizard for configuring schema generation.
@@ -17,46 +18,48 @@ import java.util.List;
  *
  * <p>Steps:
  * <ol>
- *   <li>Proto source directory (text input)
+ *   <li>Proto files, directories and patterns (text input)
  *   <li>Java output directory (text input)
  *   <li>Message type form (selection with preview)
  *   <li>Enum form (selection with preview)
- *   <li>Enum constant mode (selection with preview)
- *   <li>Generate builders? (yes/no with preview)
  *   <li>Include unknown fields? (yes/no with preview)
  *   <li>Confirmation (summary)
  * </ol>
+ *
+ * <p>The two directories are validated as soon as they are confirmed, and the step stays
+ * open with the reason below the input field until the user enters a valid path.
  */
 public final class OnboardingModel implements Model {
-    private static final int TOTAL_STEPS = 8;
+    private static final int TOTAL_STEPS = 6;
 
+    private final Path workingDir;
     private int currentStep;
     private Model activeModel;
     private boolean cancelled;
     private boolean completed;
+    private WindowSizeMessage lastSize;
 
     // Collected values
-    private String protoDir;
+    private List<String> protoFiles;
     private String javaSourceDir;
     private TypeForm typeForm;
     private EnumForm enumForm;
-    private EnumConstantMode enumConstantMode;
-    private boolean generateBuilders;
     private boolean includeUnknownFields;
 
     /**
      * Constructs a new onboarding wizard starting at step 1.
+     *
+     * @param workingDir the directory that relative paths entered by the user are resolved against
      */
-    public OnboardingModel() {
+    public OnboardingModel(Path workingDir) {
+        this.workingDir = workingDir;
         this.currentStep = 1;
         this.cancelled = false;
         this.completed = false;
-        this.protoDir = "proto";
+        this.protoFiles = List.of();
         this.javaSourceDir = "./src/main/java";
         this.typeForm = TypeForm.RECORD;
         this.enumForm = EnumForm.JAVA_ENUM;
-        this.enumConstantMode = EnumConstantMode.CONSTANT_ANNOTATION;
-        this.generateBuilders = true;
         this.includeUnknownFields = false;
         this.activeModel = createStep(1);
     }
@@ -68,6 +71,10 @@ public final class OnboardingModel implements Model {
 
     @Override
     public UpdateResult<? extends Model> update(Message msg) {
+        if (msg instanceof WindowSizeMessage size) {
+            lastSize = size;
+        }
+
         var result = activeModel.update(msg);
         activeModel = result.model();
 
@@ -92,11 +99,17 @@ public final class OnboardingModel implements Model {
 
         // Collect the value from the completed step
         if (isStepConfirmed()) {
+            var error = validateStep();
+            if (error.isPresent()) {
+                reject(error.get());
+                return UpdateResult.from(this);
+            }
+
             collectStepValue();
 
             if (currentStep < TOTAL_STEPS) {
                 currentStep++;
-                activeModel = createStep(currentStep);
+                activeModel = enter(createStep(currentStep));
                 return UpdateResult.from(this, activeModel.init());
             } else {
                 completed = true;
@@ -107,11 +120,40 @@ public final class OnboardingModel implements Model {
         // User pressed back
         if (currentStep > 1) {
             currentStep--;
-            activeModel = createStep(currentStep);
+            activeModel = enter(createStep(currentStep));
             return UpdateResult.from(this, activeModel.init());
         }
 
-        return UpdateResult.from(this);
+        cancelled = true;
+        return UpdateResult.from(this, Command.quit());
+    }
+
+    private Model enter(Model step) {
+        if (lastSize == null) {
+            return step;
+        }
+
+        return step.update(lastSize).model();
+    }
+
+    private Optional<String> validateStep() {
+        if (activeModel instanceof SourcesInputStep step) {
+            return PathValidator.protoSources(workingDir, step.values());
+        }
+
+        if (activeModel instanceof TextInputStep step && currentStep == 2) {
+            return PathValidator.outputDirectory(workingDir, step.value());
+        }
+
+        return Optional.empty();
+    }
+
+    private void reject(String message) {
+        if (activeModel instanceof SourcesInputStep step) {
+            step.reject(message);
+        } else if (activeModel instanceof TextInputStep step) {
+            step.reject(message);
+        }
     }
 
     private boolean isQuitCommand(UpdateResult<?> result) {
@@ -119,6 +161,9 @@ public final class OnboardingModel implements Model {
     }
 
     private boolean isStepCancelled() {
+        if (activeModel instanceof SourcesInputStep step) {
+            return step.isCancelled();
+        }
         if (activeModel instanceof TextInputStep step) {
             return step.isCancelled();
         }
@@ -132,6 +177,9 @@ public final class OnboardingModel implements Model {
     }
 
     private boolean isStepConfirmed() {
+        if (activeModel instanceof SourcesInputStep step) {
+            return step.isConfirmed();
+        }
         if (activeModel instanceof TextInputStep step) {
             return step.isConfirmed();
         }
@@ -147,8 +195,8 @@ public final class OnboardingModel implements Model {
     private void collectStepValue() {
         switch (currentStep) {
             case 1 -> {
-                if (activeModel instanceof TextInputStep step) {
-                    protoDir = step.value();
+                if (activeModel instanceof SourcesInputStep step) {
+                    protoFiles = step.values();
                 }
             }
             case 2 -> {
@@ -168,16 +216,6 @@ public final class OnboardingModel implements Model {
             }
             case 5 -> {
                 if (activeModel instanceof StepModel<?> step) {
-                    enumConstantMode = (EnumConstantMode) step.selectedValue();
-                }
-            }
-            case 6 -> {
-                if (activeModel instanceof StepModel<?> step) {
-                    generateBuilders = (Boolean) step.selectedValue();
-                }
-            }
-            case 7 -> {
-                if (activeModel instanceof StepModel<?> step) {
                     includeUnknownFields = (Boolean) step.selectedValue();
                 }
             }
@@ -189,13 +227,14 @@ public final class OnboardingModel implements Model {
     @SuppressWarnings("unchecked")
     private Model createStep(int step) {
         return switch (step) {
-            case 1 -> new TextInputStep(
-                    "Proto Directory",
-                    "Where are your .proto files located?",
-                    protoDir, 1, TOTAL_STEPS);
+            case 1 -> new SourcesInputStep(
+                    "Which .proto files should be used?",
+                    "Files, directories or patterns such as src/**/*.proto",
+                    protoFiles, 1, TOTAL_STEPS);
             case 2 -> new TextInputStep(
                     "Java Output Directory",
                     "Where should generated Java files be written?",
+                    "",
                     javaSourceDir, 2, TOTAL_STEPS);
             case 3 -> new StepModel<>(
                     "Message Type Form",
@@ -203,9 +242,7 @@ public final class OnboardingModel implements Model {
                     List.of(
                             new Option<>("Record", "Annotated record components", TypeForm.RECORD),
                             new Option<>("Class", "Private fields + constructor + accessors", TypeForm.CLASS),
-                            new Option<>("Interface", "Abstract getter methods", TypeForm.INTERFACE),
-                            new Option<>("Sealed Class", "Abstract parent + permitted subtypes", TypeForm.SEALED_CLASS),
-                            new Option<>("Sealed Interface", "Sealed + record subtypes", TypeForm.SEALED_INTERFACE)
+                            new Option<>("Interface", "Abstract getter methods", TypeForm.INTERFACE)
                     ),
                     CodePreview::forTypeForm, 3, TOTAL_STEPS);
             case 4 -> new StepModel<>(
@@ -214,40 +251,20 @@ public final class OnboardingModel implements Model {
                     List.of(
                             new Option<>("Java Enum", "Standard Java enum type", EnumForm.JAVA_ENUM),
                             new Option<>("Class", "Class with static constant fields", EnumForm.CLASS),
-                            new Option<>("Record", "Record with static constant fields", EnumForm.RECORD),
-                            new Option<>("Sealed Interface", "Sealed interface + record subtypes", EnumForm.SEALED_INTERFACE),
-                            new Option<>("Sealed Abstract Class", "Sealed abstract class + subtypes", EnumForm.SEALED_ABSTRACT_CLASS)
+                            new Option<>("Record", "Record with static constant fields", EnumForm.RECORD)
                     ),
                     CodePreview::forEnumForm, 4, TOTAL_STEPS);
             case 5 -> new StepModel<>(
-                    "Enum Constant Mode",
-                    "How should enum constants be annotated?",
-                    List.of(
-                            new Option<>("@ProtobufEnum.Constant", "Annotate each constant with its index",
-                                    EnumConstantMode.CONSTANT_ANNOTATION),
-                            new Option<>("Serializer / Deserializer", "Custom serializer/deserializer methods",
-                                    EnumConstantMode.SERIALIZER_DESERIALIZER)
-                    ),
-                    CodePreview::forEnumConstantMode, 5, TOTAL_STEPS);
-            case 6 -> new StepModel<>(
-                    "Builder Generation",
-                    "Generate @ProtobufBuilder constructors?",
-                    List.of(
-                            new Option<>("Yes", "Auto-generate fluent builders", true),
-                            new Option<>("No", "No builder generation", false)
-                    ),
-                    CodePreview::forBuilders, 6, TOTAL_STEPS);
-            case 7 -> new StepModel<>(
                     "Unknown Fields",
                     "Include @ProtobufUnknownFields support?",
                     List.of(
                             new Option<>("No", "Unknown fields will be discarded", false),
                             new Option<>("Yes", "Store unknown fields for round-tripping", true)
                     ),
-                    CodePreview::forUnknownFields, 7, TOTAL_STEPS);
-            case 8 -> new ConfirmationStep(
-                    protoDir, javaSourceDir, typeForm, enumForm,
-                    enumConstantMode, generateBuilders, includeUnknownFields,
+                    CodePreview::forUnknownFields, 5, TOTAL_STEPS);
+            case 6 -> new ConfirmationStep(
+                    protoFiles, javaSourceDir, typeForm, enumForm,
+                    includeUnknownFields,
                     TOTAL_STEPS);
             default -> throw new IllegalStateException("Invalid step: " + step);
         };
@@ -278,12 +295,10 @@ public final class OnboardingModel implements Model {
      */
     public SchemaConfig buildConfig() {
         var config = new SchemaConfig();
-        config.setProtoDir(protoDir);
+        config.setProtoFiles(protoFiles);
         config.setJavaSourceDir(javaSourceDir);
         config.defaults().setTypeForm(typeForm);
         config.defaults().setEnumForm(enumForm);
-        config.defaults().setEnumConstantMode(enumConstantMode);
-        config.defaults().setGenerateBuilders(generateBuilders);
         config.defaults().setIncludeUnknownFields(includeUnknownFields);
         return config;
     }

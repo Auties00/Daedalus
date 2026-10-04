@@ -1,5 +1,6 @@
 package com.github.auties00.daedalus.protobuf.cli.config;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
@@ -22,7 +23,7 @@ public final class ConfigLoader {
             new YAMLFactory()
                     .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
                     .enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
-    );
+    ).enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY);
 
     private ConfigLoader() {
     }

@@ -200,9 +200,7 @@ public final class OneOfGenerator {
         }
 
         var form = resolveTypeForm(resolveProtoFqn(message));
-        var nested = message.parent() instanceof ProtobufMessageStatement;
-        var effectiveForm = nested && (form == TypeForm.SEALED_CLASS || form == TypeForm.SEALED_INTERFACE) ? TypeForm.RECORD : form;
-        if (effectiveForm != TypeForm.RECORD && effectiveForm != TypeForm.CLASS) {
+        if (form != TypeForm.RECORD && form != TypeForm.CLASS) {
             return false;
         }
 

@@ -26,7 +26,7 @@
         </dependency>
         <dependency>
             <groupId>com.github.auties00</groupId>
-            <artifactId>daedalus-protobuf-google-support</artifactId>
+            <artifactId>daedalus-protobuf-typesystem-google-support</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

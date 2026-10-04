@@ -11,7 +11,7 @@
         <module>daedalus-datatype/daedalus-json</module>
         <module>daedalus-typesystem</module>
         <module>daedalus-processor</module>
-        <module>daedalus-typesystem-jdk-support</module>
+        <module>daedalus-typesystem/daedalus-typesystem-jdk-support</module>
         <module>daedalus-cli</module>
         <module>daedalus-datatype/daedalus-xml</module>
         <module>daedalus-datatype/daedalus-yaml</module>
@@ -72,6 +72,13 @@
             <url>https://central.sonatype.com/repository/maven-snapshots/</url>
         </snapshotRepository>
     </distributionManagement>
+
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
 
     <profiles>
         <profile>

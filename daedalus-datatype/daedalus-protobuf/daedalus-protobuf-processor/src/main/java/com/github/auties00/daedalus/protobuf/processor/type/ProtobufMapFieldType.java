@@ -2,7 +2,7 @@ package com.github.auties00.daedalus.protobuf.processor.type;
 
 import com.github.auties00.daedalus.processor.model.DaedalusMixins;
 import com.github.auties00.daedalus.processor.model.DaedalusConverterElement;
-import com.github.auties00.daedalus.processor.type.DaedalusFieldType;
+import com.github.auties00.daedalus.processor.model.DaedalusFieldType;
 
 import javax.lang.model.type.TypeMirror;
 import java.util.ArrayList;

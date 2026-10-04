@@ -29,10 +29,34 @@
         </dependency>
 
         <dependency>
-            <groupId>com.williamcallahan</groupId>
+            <!-- Fork of tui4j that detects terminal resizes on Windows, see https://github.com/WilliamAGH/tui4j/pull/31 -->
+            <groupId>com.github.Auties00</groupId>
             <artifactId>tui4j</artifactId>
-            <version>0.3.3</version>
+            <version>0.3.4-winch-fix</version>
         </dependency>
     </dependencies>
+
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>info.picocli</groupId>
+                            <artifactId>picocli-codegen</artifactId>
+                            <version>4.7.6</version>
+                        </path>
+                    </annotationProcessorPaths>
+                    <compilerArgs>
+                        <compilerArg>--enable-preview</compilerArg>
+                        <compilerArg>-Aproject=com.github.auties00/daedalus-cli</compilerArg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

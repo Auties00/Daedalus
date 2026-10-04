@@ -10,6 +10,7 @@ import picocli.CommandLine.Option;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Updates existing Java model classes when {@code .proto} schemas change.
@@ -27,8 +28,8 @@ import java.nio.file.Path;
         mixinStandardHelpOptions = true
 )
 public final class UpdateCommand implements Runnable {
-    @Option(names = {"--proto-dir"}, description = "Directory containing .proto files")
-    private Path protoDir;
+    @Option(names = {"--proto"}, description = "A .proto file, a directory of .proto files or a glob pattern such as src/**/*.proto, repeatable")
+    private List<String> protoFiles;
 
     @Option(names = {"--source-dir"}, description = "Java source directory to scan and update")
     private Path sourceDir;
@@ -53,8 +54,8 @@ public final class UpdateCommand implements Runnable {
                 return;
             }
 
-            if (protoDir != null) {
-                config.setProtoDir(protoDir.toString());
+            if (protoFiles != null && !protoFiles.isEmpty()) {
+                config.setProtoFiles(protoFiles);
             }
             if (sourceDir != null) {
                 config.setJavaSourceDir(sourceDir.toString());

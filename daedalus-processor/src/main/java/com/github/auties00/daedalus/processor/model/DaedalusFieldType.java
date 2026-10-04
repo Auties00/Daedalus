@@ -1,7 +1,4 @@
-package com.github.auties00.daedalus.processor.type;
-
-import com.github.auties00.daedalus.processor.model.DaedalusMixins;
-import com.github.auties00.daedalus.processor.model.DaedalusConverterElement;
+package com.github.auties00.daedalus.processor.model;
 
 import javax.lang.model.type.TypeMirror;
 import java.util.Collection;

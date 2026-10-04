@@ -22,9 +22,8 @@ import java.util.List;
 /**
  * Generates Java source files for proto message definitions.
  *
- * <p>Supports all five type forms: {@link TypeForm#RECORD}, {@link TypeForm#CLASS},
- * {@link TypeForm#INTERFACE}, {@link TypeForm#SEALED_CLASS}, and
- * {@link TypeForm#SEALED_INTERFACE}.
+ * <p>Supports all three type forms: {@link TypeForm#RECORD}, {@link TypeForm#CLASS},
+ * and {@link TypeForm#INTERFACE}.
  *
  * <p>Every generated {@code @ProtobufMessage} annotation declares the {@code version}
  * of the {@code .proto} file that declares the message, unless it is proto2, which is
@@ -36,14 +35,14 @@ import java.util.List;
  * accessor, as described in {@link PropertyGenerator}. The type forms differ in how an
  * accessor can be declared:
  * <ul>
- * <li>{@link TypeForm#CLASS} and {@link TypeForm#SEALED_CLASS} declare package private
+ * <li>{@link TypeForm#CLASS} declares package private
  *     fields, which the generated Spec class reads directly, and public accessors that
  *     return an {@code Optional}, or one of its primitive specializations, for a field
  *     that can be unset;
  * <li>{@link TypeForm#RECORD} declares the field as a record component, whose accessor
  *     must return the type of the component, so a field that can be unset is returned
  *     as a nullable boxed value instead of an {@code Optional};
- * <li>{@link TypeForm#INTERFACE} and {@link TypeForm#SEALED_INTERFACE} declare the field
+ * <li>{@link TypeForm#INTERFACE} declares the field
  *     as an annotated abstract method, which the annotation processor implements, so it
  *     also returns the nullable boxed value of a field that can be unset.
  * </ul>
@@ -110,8 +109,6 @@ public final class MessageGenerator {
             case RECORD -> generateRecord(cu, message, typeName, protoFqn, fields);
             case CLASS -> generateClass(cu, message, typeName, protoFqn, fields);
             case INTERFACE -> generateInterface(cu, message, typeName, protoFqn, fields);
-            case SEALED_CLASS -> generateSealedClass(cu, message, typeName, protoFqn, fields);
-            case SEALED_INTERFACE -> generateSealedInterface(cu, message, typeName, protoFqn, fields);
         }
 
         var includeUnknownFields = resolveIncludeUnknownFields(protoFqn);
@@ -123,12 +120,12 @@ public final class MessageGenerator {
                         unknownFieldsGenerator.addToRecord(rd, cu);
                     }
                 }
-                case CLASS, SEALED_CLASS -> {
+                case CLASS -> {
                     if (primaryType instanceof ClassOrInterfaceDeclaration cd) {
                         unknownFieldsGenerator.addToClass(cd, cu);
                     }
                 }
-                case INTERFACE, SEALED_INTERFACE -> {
+                case INTERFACE -> {
                     if (primaryType instanceof ClassOrInterfaceDeclaration cd) {
                         unknownFieldsGenerator.addToInterface(cd, cu);
                     }
@@ -136,7 +133,7 @@ public final class MessageGenerator {
             }
         }
 
-        if (config.defaults().generateBuilders() && !cu.getTypes().isEmpty()) {
+        if (!cu.getTypes().isEmpty()) {
             var primaryType = cu.getType(0);
             switch (typeForm) {
                 case RECORD -> {
@@ -144,13 +141,13 @@ public final class MessageGenerator {
                         builderGenerator.addBuilderToRecord(rd, fields, cu);
                     }
                 }
-                case CLASS, SEALED_CLASS -> {
+                case CLASS -> {
                     if (primaryType instanceof ClassOrInterfaceDeclaration cd) {
                         builderGenerator.addBuilderToClass(cd, fields, cu);
                     }
                 }
                 default -> {
-                    // Interfaces and sealed interfaces don't have constructors
+                    // Interfaces don't have constructors
                 }
             }
         }
@@ -180,7 +177,7 @@ public final class MessageGenerator {
         TypeDeclaration<?> nestedType = switch (typeForm) {
             case CLASS -> createClassDeclaration(typeName, protoFqn, message, fields);
             case INTERFACE -> createInterfaceDeclaration(typeName, protoFqn, message, fields);
-            case RECORD, SEALED_CLASS, SEALED_INTERFACE -> createRecordDeclaration(typeName, protoFqn, message, fields);
+            case RECORD -> createRecordDeclaration(typeName, protoFqn, message, fields);
         };
         nestedType.addModifier(Modifier.Keyword.STATIC);
         addOneOfDeclarations(nestedType, fields);
@@ -302,122 +299,6 @@ public final class MessageGenerator {
         }
 
         return interfaceDecl;
-    }
-
-    private void generateSealedClass(CompilationUnit cu, ProtobufMessageStatement message,
-                                     String typeName, String protoFqn,
-                                     List<MessageMember> fields) {
-        var classDecl = new ClassOrInterfaceDeclaration();
-        classDecl.setName(typeName);
-        classDecl.setInterface(false);
-        classDecl.addModifier(Modifier.Keyword.PUBLIC, Modifier.Keyword.SEALED, Modifier.Keyword.ABSTRACT);
-        classDecl.addAnnotation(createMessageAnnotation(protoFqn, message));
-
-        for (var field : fields) {
-            classDecl.addMember(propertyGenerator.createField(field));
-        }
-
-        var constructorParams = new NodeList<Parameter>();
-        var constructorBody = new BlockStmt();
-        for (var field : fields) {
-            var fieldName = propertyGenerator.resolveFieldName(field);
-            var javaType = propertyGenerator.resolveJavaType(field);
-            constructorParams.add(new Parameter(
-                    com.github.javaparser.StaticJavaParser.parseType(javaType),
-                    fieldName
-            ));
-            constructorBody.addStatement(new AssignExpr(
-                    new FieldAccessExpr(new ThisExpr(), fieldName),
-                    new NameExpr(fieldName),
-                    AssignExpr.Operator.ASSIGN
-            ));
-        }
-        var constructor = classDecl.addConstructor(Modifier.Keyword.PROTECTED);
-        constructor.setParameters(constructorParams);
-        constructor.setBody(constructorBody);
-
-        for (var field : fields) {
-            classDecl.addMember(propertyGenerator.createAccessor(field));
-        }
-
-        var defaultSubtype = "Default" + typeName;
-
-        var subtypeDecl = new ClassOrInterfaceDeclaration();
-        subtypeDecl.setName(defaultSubtype);
-        subtypeDecl.setInterface(false);
-        subtypeDecl.addModifier(Modifier.Keyword.STATIC, Modifier.Keyword.FINAL);
-        subtypeDecl.addExtendedType(typeName);
-        subtypeDecl.addAnnotation(createSubtypeAnnotation(message));
-
-        var subtypeConstructor = subtypeDecl.addConstructor(Modifier.Keyword.PUBLIC);
-        var superArgs = new NodeList<Expression>();
-        var subtypeParams = new NodeList<Parameter>();
-        for (var field : fields) {
-            var fieldName = propertyGenerator.resolveFieldName(field);
-            var javaType = propertyGenerator.resolveJavaType(field);
-            subtypeParams.add(new Parameter(
-                    com.github.javaparser.StaticJavaParser.parseType(javaType),
-                    fieldName
-            ));
-            superArgs.add(new NameExpr(fieldName));
-        }
-        subtypeConstructor.setParameters(subtypeParams);
-        subtypeConstructor.setBody(new BlockStmt().addStatement(
-                new com.github.javaparser.ast.stmt.ExplicitConstructorInvocationStmt(
-                        false, null, new NodeList<>(superArgs)
-                )
-        ));
-
-        classDecl.addMember(subtypeDecl);
-        cu.addType(classDecl);
-    }
-
-    private void generateSealedInterface(CompilationUnit cu, ProtobufMessageStatement message,
-                                         String typeName, String protoFqn,
-                                         List<MessageMember> fields) {
-        var interfaceDecl = new ClassOrInterfaceDeclaration();
-        interfaceDecl.setName(typeName);
-        interfaceDecl.setInterface(true);
-        interfaceDecl.addModifier(Modifier.Keyword.PUBLIC, Modifier.Keyword.SEALED);
-        interfaceDecl.addAnnotation(createMessageAnnotation(protoFqn, message));
-
-        for (var field : fields) {
-            var fieldName = propertyGenerator.resolveFieldName(field);
-            var javaType = propertyGenerator.resolveJavaType(field);
-
-            var method = interfaceDecl.addMethod(fieldName);
-            method.setType(javaType);
-            method.removeBody();
-            method.addAnnotation(propertyGenerator.createFieldAnnotation(field));
-        }
-
-        var defaultSubtype = "Default" + typeName;
-
-        var components = new NodeList<Parameter>();
-        for (var field : fields) {
-            var fieldName = propertyGenerator.resolveFieldName(field);
-            var javaType = propertyGenerator.resolveJavaType(field);
-            components.add(new Parameter(
-                    com.github.javaparser.StaticJavaParser.parseType(javaType),
-                    fieldName
-            ));
-        }
-
-        var recordDecl = new RecordDeclaration(
-                new NodeList<>(),
-                new NodeList<>(),
-                new com.github.javaparser.ast.expr.SimpleName(defaultSubtype),
-                components,
-                new NodeList<>(),
-                new NodeList<>(new ClassOrInterfaceType(null, typeName)),
-                new NodeList<>(),
-                null
-        );
-        recordDecl.addModifier(Modifier.Keyword.STATIC);
-        recordDecl.addAnnotation(createSubtypeAnnotation(message));
-
-        interfaceDecl.addMember(recordDecl);
-        cu.addType(interfaceDecl);
     }
 
     /**
@@ -591,7 +472,7 @@ public final class MessageGenerator {
             cu.addImport("com.github.auties00.daedalus.protobuf.annotation.ProtobufReservedRange");
         }
 
-        var hasAccessors = typeForm == TypeForm.CLASS || typeForm == TypeForm.SEALED_CLASS;
+        var hasAccessors = typeForm == TypeForm.CLASS;
         for (var field : fields) {
             propertyGenerator.requiredImports(field).forEach(cu::addImport);
             if (hasAccessors) {
@@ -609,29 +490,6 @@ public final class MessageGenerator {
     private ProtobufVersion resolveVersion(ProtobufMessageStatement message) {
         return message.document()
                 .version();
-    }
-
-    /**
-     * Creates the {@code @ProtobufMessage} annotation of the default subtype generated
-     * for a sealed message.
-     *
-     * <p>The subtype inherits the fields of the sealed message, so it declares the same
-     * {@code version}, which determines how the presence and encoding of those fields
-     * are resolved.
-     *
-     * @param message the proto message statement
-     * @return the annotation expression
-     */
-    private AnnotationExpr createSubtypeAnnotation(ProtobufMessageStatement message) {
-        var version = resolveVersion(message);
-        if (version == ProtobufVersion.DEFAULT_VERSION) {
-            return new MarkerAnnotationExpr("ProtobufMessage");
-        }
-
-        return new NormalAnnotationExpr(
-                new Name("ProtobufMessage"),
-                new NodeList<>(createVersionPair(version))
-        );
     }
 
     /**

@@ -4,7 +4,7 @@
         <artifactId>daedalus-protobuf</artifactId>
         <groupId>com.github.auties00</groupId>
         <version>4.0.0</version>
-        <relativePath>../../../daedalus-cli</relativePath>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -61,32 +61,26 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.0</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.github.auties00.daedalus.cli.DaedalusMain</mainClass>
-                                    <manifestEntries>
-                                        <Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
-                                    </manifestEntries>
-                                </transformer>
-                            </transformers>
-                        </configuration>
-                    </execution>
-                </executions>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>info.picocli</groupId>
+                            <artifactId>picocli-codegen</artifactId>
+                            <version>4.7.6</version>
+                        </path>
+                    </annotationProcessorPaths>
+                    <compilerArgs>
+                        <compilerArg>--enable-preview</compilerArg>
+                        <compilerArg>-Aproject=com.github.auties00/daedalus-protobuf-cli</compilerArg>
+                    </compilerArgs>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>--enable-preview --enable-native-access=ALL-UNNAMED</argLine>
+                    <argLine>--enable-preview --enable-native-access=ALL-UNNAMED --add-opens com.github.auties00.daedalus.protobuf.cli/com.github.auties00.daedalus.protobuf.cli.config=ALL-UNNAMED</argLine>
                 </configuration>
             </plugin>
             <plugin>

@@ -1,12 +1,14 @@
 package com.github.auties00.daedalus.protobuf.cli.config;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.github.auties00.daedalus.protobuf.cli.model.EnumConstantMode;
 import com.github.auties00.daedalus.protobuf.cli.model.EnumForm;
 import com.github.auties00.daedalus.protobuf.cli.model.TypeForm;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -16,8 +18,9 @@ import java.util.Map;
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class SchemaConfig {
-    @JsonProperty("protoDir")
-    private String protoDir = "proto";
+    @JsonProperty("protoFiles")
+    @JsonAlias("protoDir")
+    private List<String> protoFiles = new ArrayList<>(List.of("proto"));
 
     @JsonProperty("javaSourceDir")
     private String javaSourceDir = "./src/main/java";
@@ -35,21 +38,22 @@ public class SchemaConfig {
     private Map<String, TypeOverride> typeOverrides = new LinkedHashMap<>();
 
     /**
-     * Returns the directory containing {@code .proto} files.
+     * Returns the sources of the {@code .proto} files: paths of files, paths of directories,
+     * and glob patterns, as described in {@link ProtoSources}.
      *
-     * @return the proto source directory path
+     * @return the proto sources
      */
-    public String protoDir() {
-        return protoDir;
+    public List<String> protoFiles() {
+        return protoFiles;
     }
 
     /**
-     * Sets the directory containing {@code .proto} files.
+     * Sets the sources of the {@code .proto} files.
      *
-     * @param protoDir the proto source directory path
+     * @param protoFiles the paths of files, paths of directories, and glob patterns
      */
-    public void setProtoDir(String protoDir) {
-        this.protoDir = protoDir;
+    public void setProtoFiles(List<String> protoFiles) {
+        this.protoFiles = new ArrayList<>(protoFiles);
     }
 
     /**
@@ -137,12 +141,6 @@ public class SchemaConfig {
         @JsonProperty("enumForm")
         private EnumForm enumForm = EnumForm.JAVA_ENUM;
 
-        @JsonProperty("enumConstantMode")
-        private EnumConstantMode enumConstantMode = EnumConstantMode.CONSTANT_ANNOTATION;
-
-        @JsonProperty("generateBuilders")
-        private boolean generateBuilders = true;
-
         @JsonProperty("includeUnknownFields")
         private boolean includeUnknownFields = false;
 
@@ -183,42 +181,6 @@ public class SchemaConfig {
          */
         public void setEnumForm(EnumForm enumForm) {
             this.enumForm = enumForm;
-        }
-
-        /**
-         * Returns the default enum constant mode.
-         *
-         * @return the default enum constant mode
-         */
-        public EnumConstantMode enumConstantMode() {
-            return enumConstantMode;
-        }
-
-        /**
-         * Sets the default enum constant mode.
-         *
-         * @param enumConstantMode the enum constant mode to set
-         */
-        public void setEnumConstantMode(EnumConstantMode enumConstantMode) {
-            this.enumConstantMode = enumConstantMode;
-        }
-
-        /**
-         * Returns whether builder classes should be generated.
-         *
-         * @return {@code true} if builders should be generated
-         */
-        public boolean generateBuilders() {
-            return generateBuilders;
-        }
-
-        /**
-         * Sets whether builder classes should be generated.
-         *
-         * @param generateBuilders whether to generate builders
-         */
-        public void setGenerateBuilders(boolean generateBuilders) {
-            this.generateBuilders = generateBuilders;
         }
 
         /**
@@ -311,9 +273,6 @@ public class SchemaConfig {
         @JsonProperty("enumForm")
         private EnumForm enumForm;
 
-        @JsonProperty("enumConstantMode")
-        private EnumConstantMode enumConstantMode;
-
         @JsonProperty("includeUnknownFields")
         private Boolean includeUnknownFields;
 
@@ -333,15 +292,6 @@ public class SchemaConfig {
          */
         public EnumForm enumForm() {
             return enumForm;
-        }
-
-        /**
-         * Returns the overridden enum constant mode, or {@code null} if not overridden.
-         *
-         * @return the enum constant mode override, or {@code null}
-         */
-        public EnumConstantMode enumConstantMode() {
-            return enumConstantMode;
         }
 
         /**

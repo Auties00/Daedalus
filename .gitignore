@@ -4,3 +4,6 @@
 # IDE
 .idea/
 *.iml
+
+# CLI distribution output
+/dist/

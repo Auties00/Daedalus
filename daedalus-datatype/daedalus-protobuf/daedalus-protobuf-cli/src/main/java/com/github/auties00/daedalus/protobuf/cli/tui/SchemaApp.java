@@ -10,6 +10,7 @@ import com.github.auties00.daedalus.protobuf.cli.tui.onboarding.OnboardingModel;
 import com.github.auties00.daedalus.protobuf.cli.tui.update.UpdateModel;
 
 import java.io.IOException;
+import com.github.auties00.daedalus.cli.tui.BackNavigation;
 import java.nio.file.Path;
 
 /**
@@ -20,7 +21,7 @@ import java.nio.file.Path;
  * Transitions through: welcome screen, onboarding wizard (if needed),
  * and generation/update flows.
  */
-public final class SchemaApp implements Model {
+public final class SchemaApp implements Model, BackNavigation {
 
     /**
      * The possible application states.
@@ -51,6 +52,7 @@ public final class SchemaApp implements Model {
     private AppState state;
     private Model activeModel;
     private SchemaConfig config;
+    private boolean backRequested;
     private final Path workingDir;
     private int termWidth;
     private int termHeight;
@@ -116,26 +118,49 @@ public final class SchemaApp implements Model {
         }
 
         return switch (state) {
-            case WELCOME -> activeModel instanceof WelcomeModel w && (w.isConfirmed() || w.isCancelled());
+            case WELCOME -> activeModel instanceof WelcomeModel w && (w.isConfirmed() || w.isCancelled() || w.isBack());
             case ONBOARDING -> activeModel instanceof OnboardingModel o && (o.isCompleted() || o.isCancelled());
-            case GENERATING -> activeModel instanceof GenerateModel g && g.isQuit();
-            case UPDATING -> activeModel instanceof UpdateModel u && u.isQuit();
+            case GENERATING -> activeModel instanceof GenerateModel g && (g.isQuit() || g.isBack());
+            case UPDATING -> activeModel instanceof UpdateModel u && (u.isQuit() || u.isBack());
             case DONE -> true;
         };
+    }
+
+    private Model open(Model model) {
+        return model.update(new WindowSizeMessage(termWidth, termHeight)).model();
     }
 
     private UpdateResult<? extends Model> handleTransition() {
         return switch (state) {
             case WELCOME -> transitionFromWelcome();
             case ONBOARDING -> transitionFromOnboarding();
-            case GENERATING, UPDATING, DONE -> {
-                state = AppState.DONE;
-                yield UpdateResult.from(this, Command.quit());
-            }
+            case GENERATING, UPDATING -> isBack() ? returnToWelcome() : quit();
+            case DONE -> quit();
         };
     }
 
+    private boolean isBack() {
+        return activeModel instanceof GenerateModel g && g.isBack()
+                || activeModel instanceof UpdateModel u && u.isBack();
+    }
+
+    private UpdateResult<? extends Model> returnToWelcome() {
+        state = AppState.WELCOME;
+        activeModel = open(new WelcomeModel());
+        return UpdateResult.from(this, activeModel.init());
+    }
+
+    private UpdateResult<? extends Model> quit() {
+        state = AppState.DONE;
+        return UpdateResult.from(this, Command.quit());
+    }
+
     private UpdateResult<? extends Model> transitionFromWelcome() {
+        if (activeModel instanceof WelcomeModel welcome && welcome.isBack()) {
+            backRequested = true;
+            return UpdateResult.from(this);
+        }
+
         if (!(activeModel instanceof WelcomeModel welcome) || welcome.isCancelled()) {
             state = AppState.DONE;
             return UpdateResult.from(this, Command.quit());
@@ -145,22 +170,22 @@ public final class SchemaApp implements Model {
             case GENERATE -> {
                 if (config != null) {
                     state = AppState.GENERATING;
-                    activeModel = new GenerateModel(config);
+                    activeModel = open(new GenerateModel(config));
                     yield UpdateResult.from(this, activeModel.init());
                 } else {
                     state = AppState.ONBOARDING;
-                    activeModel = new OnboardingModel();
+                    activeModel = open(new OnboardingModel(workingDir));
                     yield UpdateResult.from(this, activeModel.init());
                 }
             }
             case UPDATE -> {
                 if (config != null) {
                     state = AppState.UPDATING;
-                    activeModel = new UpdateModel(config);
+                    activeModel = open(new UpdateModel(config));
                     yield UpdateResult.from(this, activeModel.init());
                 } else {
                     state = AppState.ONBOARDING;
-                    activeModel = new OnboardingModel();
+                    activeModel = open(new OnboardingModel(workingDir));
                     yield UpdateResult.from(this, activeModel.init());
                 }
             }
@@ -182,11 +207,16 @@ public final class SchemaApp implements Model {
             }
 
             state = AppState.GENERATING;
-            activeModel = new GenerateModel(config);
+            activeModel = open(new GenerateModel(config));
             return UpdateResult.from(this, activeModel.init());
         }
 
         return UpdateResult.from(this);
+    }
+
+    @Override
+    public boolean isBackRequested() {
+        return backRequested;
     }
 
     /**

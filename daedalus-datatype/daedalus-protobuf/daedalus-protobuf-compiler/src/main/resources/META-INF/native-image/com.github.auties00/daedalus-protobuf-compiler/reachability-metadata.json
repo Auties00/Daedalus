@@ -1,0 +1,7 @@
+{
+  "bundles": [
+    {
+      "name": "com.github.auties00.daedalus.protobuf.compiler.exception.diagnostics"
+    }
+  ]
+}

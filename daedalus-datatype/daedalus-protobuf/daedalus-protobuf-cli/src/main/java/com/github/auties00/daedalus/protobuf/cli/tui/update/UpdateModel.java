@@ -1,9 +1,14 @@
 package com.github.auties00.daedalus.protobuf.cli.tui.update;
 
 import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
+import com.github.auties00.daedalus.cli.tui.Screen;
+import com.github.auties00.daedalus.cli.tui.Spinner;
 import com.github.auties00.daedalus.cli.tui.StatusBar;
 import com.williamcallahan.tui4j.compat.bubbletea.*;
+import com.williamcallahan.tui4j.compat.lipgloss.Join;
+import com.williamcallahan.tui4j.compat.lipgloss.Position;
 import com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig;
+import com.github.auties00.daedalus.protobuf.cli.model.SourceChange;
 import com.github.auties00.daedalus.cli.tui.Theme;
 import com.github.auties00.daedalus.protobuf.cli.update.UpdateEngine;
 import com.github.auties00.daedalus.protobuf.cli.update.UpdatePlan;
@@ -17,10 +22,20 @@ import java.util.List;
  * The TUI model for the update flow.
  *
  * <p>Scans existing Java sources, matches them against proto definitions,
- * computes diffs, and displays a summary of proposed changes. The user
- * can review changes and accept or reject them.
+ * computes diffs, and displays a summary of proposed changes: the changed files
+ * are listed next to a preview of the diff of the highlighted file, the same way
+ * the options of the onboarding wizard are listed next to their previews. The user
+ * can open the full diff of a file and accept or reject the changes.
  */
 public final class UpdateModel implements Model {
+    private static final int LIST_ROWS = 10;
+    private static final int MAX_PREVIEW_LINES = 12;
+    private static final int MIN_PREVIEW_LINES = 3;
+    private static final int LISTED_ITEMS = 5;
+    private static final int DIFF_BODY_CHROME_LINES = 10;
+    private static final int SUMMARY_BODY_CHROME_LINES = 15;
+    private static final int MIN_DIFF_LINES = 4;
+    private static final int MAX_DIFF_WIDTH = 68;
 
     /**
      * The possible states of the update flow.
@@ -54,7 +69,11 @@ public final class UpdateModel implements Model {
     private UpdatePlan plan;
     private String errorMessage;
     private boolean quit;
+    private boolean back;
     private int selectedIndex;
+    private int diffScroll;
+    private int termHeight;
+    private int spinnerFrame;
     private List<UpdatePlan.PlannedUpdate> updatesWithChanges;
     private List<Path> appliedFiles;
 
@@ -91,14 +110,18 @@ public final class UpdateModel implements Model {
         this.config = config;
         this.state = State.COMPUTING;
         this.quit = false;
+        this.back = false;
         this.selectedIndex = 0;
+        this.diffScroll = 0;
+        this.termHeight = 40;
+        this.spinnerFrame = 0;
         this.updatesWithChanges = new ArrayList<>();
         this.appliedFiles = new ArrayList<>();
     }
 
     @Override
     public Command init() {
-        return () -> {
+        Command compute = () -> {
             try {
                 var eng = new UpdateEngine(config);
                 this.engine = eng;
@@ -108,10 +131,24 @@ public final class UpdateModel implements Model {
                 return new UpdateErrorMessage(e.getMessage());
             }
         };
+        return Command.batch(compute, Spinner.tick());
     }
 
     @Override
     public UpdateResult<? extends Model> update(Message msg) {
+        if (msg instanceof WindowSizeMessage size) {
+            termHeight = size.height();
+            return UpdateResult.from(this);
+        }
+
+        if (msg instanceof Spinner.TickMessage) {
+            if (state != State.COMPUTING) {
+                return UpdateResult.from(this);
+            }
+            spinnerFrame++;
+            return UpdateResult.from(this, Spinner.tick());
+        }
+
         if (msg instanceof UpdatePlanReadyMessage ready) {
             this.plan = ready.plan();
             this.updatesWithChanges = plan.updates().stream()
@@ -146,22 +183,19 @@ public final class UpdateModel implements Model {
         switch (state) {
             case SUMMARY -> {
                 switch (keyStr) {
-                    case "q", "esc", "ctrl+c" -> {
+                    case "esc" -> {
+                        back = true;
+                        return UpdateResult.from(this, Command.quit());
+                    }
+                    case "q", "ctrl+c" -> {
                         quit = true;
                         return UpdateResult.from(this, Command.quit());
                     }
-                    case "up", "k" -> {
-                        if (selectedIndex > 0) {
-                            selectedIndex--;
-                        }
-                    }
-                    case "down", "j" -> {
-                        if (selectedIndex < updatesWithChanges.size() - 1) {
-                            selectedIndex++;
-                        }
-                    }
+                    case "up", "k" -> select(selectedIndex - 1);
+                    case "down", "j" -> select(selectedIndex + 1);
                     case "enter" -> {
                         if (!updatesWithChanges.isEmpty()) {
+                            diffScroll = 0;
                             state = State.VIEWING_DIFF;
                         }
                     }
@@ -174,21 +208,25 @@ public final class UpdateModel implements Model {
             }
             case VIEWING_DIFF -> {
                 switch (keyStr) {
-                    case "q", "esc", "backspace" -> state = State.SUMMARY;
+                    case "q", "esc", "backspace", "ctrl+h" -> state = State.SUMMARY;
+                    case "up", "k" -> scrollDiff(-1);
+                    case "down", "j" -> scrollDiff(1);
                     case "n" -> {
-                        if (selectedIndex < updatesWithChanges.size() - 1) {
-                            selectedIndex++;
-                        }
+                        select(selectedIndex + 1);
+                        diffScroll = 0;
                     }
                     case "p" -> {
-                        if (selectedIndex > 0) {
-                            selectedIndex--;
-                        }
+                        select(selectedIndex - 1);
+                        diffScroll = 0;
                     }
                 }
             }
             case APPLIED, ERROR -> {
-                if (keyStr.equals("q") || keyStr.equals("esc") || keyStr.equals("enter") || keyStr.equals("ctrl+c")) {
+                if (keyStr.equals("esc")) {
+                    back = true;
+                    return UpdateResult.from(this, Command.quit());
+                }
+                if (keyStr.equals("q") || keyStr.equals("enter") || keyStr.equals("ctrl+c")) {
                     quit = true;
                     return UpdateResult.from(this, Command.quit());
                 }
@@ -198,6 +236,34 @@ public final class UpdateModel implements Model {
         }
 
         return UpdateResult.from(this);
+    }
+
+    private void select(int index) {
+        selectedIndex = Math.max(0, Math.min(updatesWithChanges.size() - 1, index));
+    }
+
+    private void scrollDiff(int delta) {
+        var lines = selectedChange().unifiedDiff().size();
+        var maxScroll = Math.max(0, lines - visibleDiffLines());
+        diffScroll = Math.max(0, Math.min(maxScroll, diffScroll + delta));
+    }
+
+    private int visibleDiffLines() {
+        return Math.max(MIN_DIFF_LINES, termHeight - Screen.headerRows(termHeight) - DIFF_BODY_CHROME_LINES);
+    }
+
+    private int previewLines() {
+        var sections = sectionRows(plan.unmatchedProtoTypes().size()) + sectionRows(plan.conflicts().size());
+        var available = termHeight - Screen.headerRows(termHeight) - SUMMARY_BODY_CHROME_LINES - sections;
+        return Math.max(MIN_PREVIEW_LINES, Math.min(MAX_PREVIEW_LINES, available));
+    }
+
+    private int sectionRows(int items) {
+        return items == 0 ? 0 : 3 + Math.min(items, LISTED_ITEMS) + (items > LISTED_ITEMS ? 1 : 0);
+    }
+
+    private SourceChange selectedChange() {
+        return updatesWithChanges.get(selectedIndex).sourceChange();
     }
 
     private UpdateResult<? extends Model> applyChanges() {
@@ -223,202 +289,230 @@ public final class UpdateModel implements Model {
     }
 
     private String viewComputing() {
-        var sb = new StringBuilder();
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.TITLE.render("ModernProtobuf Schema Updater"));
-        sb.append("\n\n");
-        sb.append("  ");
-        sb.append(Theme.INFO_TEXT.render("⠋ "));
-        sb.append(Theme.BODY.render("Scanning Java sources and computing update plan..."));
-        sb.append("\n\n");
-        sb.append("  ");
-        sb.append(Theme.MUTED_TEXT.render("Proto directory: " + config.protoDir()));
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.MUTED_TEXT.render("Source directory: " + config.javaSourceDir()));
-        sb.append("\n");
-        return sb.toString();
+        return Screen.of("Protobuf", "Update", termHeight)
+                .indicator("Working")
+                .result(Spinner.frame(spinnerFrame), "Scanning Java sources and computing the update plan")
+                .entry("Proto files", String.join(", ", config.protoFiles()))
+                .entry("Source directory", config.javaSourceDir())
+                .render();
     }
 
     private String viewSummary() {
-        var sb = new StringBuilder();
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.TITLE.render("ModernProtobuf Schema Updater"));
-        sb.append("\n\n");
-
         if (!plan.hasChanges() && plan.unmatchedProtoTypes().isEmpty() && plan.conflicts().isEmpty()) {
-            sb.append("  ");
-            sb.append(Theme.SUCCESS_TEXT.render("✓ "));
-            sb.append(Theme.BODY.render("All Java sources are up to date."));
-            sb.append("\n\n");
-
-            var status = new StatusBar().add("q", "quit");
-            sb.append("  ").append(status.render()).append("\n");
-            return sb.toString();
+            return Screen.of("Protobuf", "Update", termHeight)
+                    .indicator("Up to date")
+                    .result(Theme.SUCCESS_TEXT.render("✓"), "All Java sources are up to date")
+                    .entry("Proto files", String.join(", ", config.protoFiles()))
+                    .entry("Source directory", config.javaSourceDir())
+                    .keys(new StatusBar().add("esc", "back").add("q", "quit"))
+                    .render();
         }
 
-        // Stats line
-        sb.append("  ");
-        sb.append(Theme.BODY.render("Matched: " + plan.updates().size()));
-        sb.append(Theme.MUTED_TEXT.render(" | "));
-        sb.append(Theme.SUCCESS_TEXT.render("Changes: " + plan.changeCount()));
-        if (!plan.unmatchedProtoTypes().isEmpty()) {
-            sb.append(Theme.MUTED_TEXT.render(" | "));
-            sb.append(Theme.WARNING_TEXT.render("Unmatched: " + plan.unmatchedProtoTypes().size()));
-        }
-        if (!plan.conflicts().isEmpty()) {
-            sb.append(Theme.MUTED_TEXT.render(" | "));
-            sb.append(Theme.DANGER_TEXT.render("Conflicts: " + plan.conflicts().size()));
-        }
-        sb.append("\n\n");
+        var screen = Screen.of("Protobuf", "Update", termHeight)
+                .indicator("Review")
+                .block(renderStats())
+                .blank();
 
-        // File list with changes
         if (!updatesWithChanges.isEmpty()) {
-            sb.append("  ");
-            sb.append(Theme.SUBTITLE.render("Files with changes:"));
-            sb.append("\n");
-
-            for (var i = 0; i < updatesWithChanges.size(); i++) {
-                var update = updatesWithChanges.get(i);
-                var prefix = i == selectedIndex ? "  ▸ " : "    ";
-                var style = i == selectedIndex ? Theme.SELECTED_ITEM : Theme.BODY;
-                sb.append(style.render(prefix + update.sourceChange().filePath().getFileName()));
-                sb.append("\n");
-                sb.append("    ");
-                sb.append(Theme.MUTED_TEXT.render("  " + update.sourceChange().description()));
-                sb.append("\n");
-            }
+            screen.heading("Files with changes");
+            screen.block(Join.joinHorizontal(Position.Top, renderFileList(), "    ", renderDiffPreview()));
+            screen.blank();
         }
 
-        // Unmatched types
         if (!plan.unmatchedProtoTypes().isEmpty()) {
-            sb.append("\n  ");
-            sb.append(Theme.SUBTITLE.render("Unmatched proto types:"));
-            sb.append("\n");
-            for (var type : plan.unmatchedProtoTypes()) {
-                sb.append("    ");
-                sb.append(Theme.WARNING_TEXT.render("? " + type));
-                sb.append("\n");
-            }
+            screen.heading("Unmatched proto types");
+            var types = plan.unmatchedProtoTypes().stream()
+                    .map(type -> Theme.WARNING_TEXT.render("? ") + Theme.BODY.render(String.valueOf(type)))
+                    .toList();
+            screen.block(renderLimited(types)).blank();
         }
 
-        // Conflicts
         if (!plan.conflicts().isEmpty()) {
-            sb.append("\n  ");
-            sb.append(Theme.SUBTITLE.render("Conflicts:"));
-            sb.append("\n");
-            for (var conflict : plan.conflicts()) {
-                sb.append("    ");
-                sb.append(Theme.DANGER_TEXT.render("! " + conflict.message()));
-                sb.append("\n");
-            }
+            screen.heading("Conflicts");
+            var conflicts = plan.conflicts().stream()
+                    .map(conflict -> Theme.DANGER_TEXT.render("! ") + Theme.BODY.render(conflict.message()))
+                    .toList();
+            screen.block(renderLimited(conflicts)).blank();
         }
 
-        sb.append("\n");
-        var status = new StatusBar()
-                .add("↑↓", "navigate")
-                .add("enter", "view diff")
-                .add("a", "apply all")
-                .add("q", "quit");
-        sb.append("  ").append(status.render()).append("\n");
+        return screen
+                .keys(new StatusBar()
+                        .add("↑↓", "navigate")
+                        .add("enter", "view diff")
+                        .add("a", "apply all")
+                        .add("esc", "back")
+                        .add("q", "quit"))
+                .render();
+    }
+
+    private String renderStats() {
+        var separator = Theme.DIM_TEXT.render("   ");
+        var sb = new StringBuilder();
+        sb.append(Theme.MUTED_TEXT.render("Matched "));
+        sb.append(Theme.BODY.render(String.valueOf(plan.updates().size())));
+        sb.append(separator);
+        sb.append(Theme.MUTED_TEXT.render("Changes "));
+        sb.append(Theme.SUCCESS_TEXT.render(String.valueOf(plan.changeCount())));
+        if (!plan.unmatchedProtoTypes().isEmpty()) {
+            sb.append(separator);
+            sb.append(Theme.MUTED_TEXT.render("Unmatched "));
+            sb.append(Theme.WARNING_TEXT.render(String.valueOf(plan.unmatchedProtoTypes().size())));
+        }
+        if (!plan.conflicts().isEmpty()) {
+            sb.append(separator);
+            sb.append(Theme.MUTED_TEXT.render("Conflicts "));
+            sb.append(Theme.DANGER_TEXT.render(String.valueOf(plan.conflicts().size())));
+        }
+        return sb.toString();
+    }
+
+    private String renderFileList() {
+        var total = updatesWithChanges.size();
+        var first = Math.max(0, Math.min(selectedIndex - LIST_ROWS / 2, total - LIST_ROWS));
+        var last = Math.min(total, first + LIST_ROWS);
+
+        var sb = new StringBuilder();
+        if (first > 0) {
+            sb.append(Theme.MUTED_TEXT.render("↑ " + first + " more")).append('\n');
+        }
+
+        for (var i = first; i < last; i++) {
+            var change = updatesWithChanges.get(i).sourceChange();
+            var name = change.filePath().getFileName().toString();
+            if (i == selectedIndex) {
+                sb.append(Theme.SELECTED_CURSOR.render("● "));
+                sb.append(Theme.SELECTED_ITEM.render(name));
+                sb.append(Theme.MUTED_TEXT.render("  " + change.description()));
+            } else {
+                sb.append(Theme.UNSELECTED_ITEM.render("○ " + name));
+            }
+            sb.append('\n');
+        }
+
+        if (last < total) {
+            sb.append(Theme.MUTED_TEXT.render("↓ " + (total - last) + " more")).append('\n');
+        }
 
         return sb.toString();
+    }
+
+    private String renderDiffPreview() {
+        var diff = List.copyOf(selectedChange().unifiedDiff());
+        var budget = previewLines();
+        var shown = Math.min(diff.size(), budget);
+
+        var sb = new StringBuilder();
+        for (var i = 0; i < shown; i++) {
+            sb.append(renderDiffLine(diff.get(i))).append('\n');
+        }
+        if (diff.size() > shown) {
+            sb.append(Theme.MUTED_TEXT.render("… " + (diff.size() - shown) + " more lines")).append('\n');
+        }
+        for (var i = shown + (diff.size() > shown ? 1 : 0); i <= budget; i++) {
+            sb.append('\n');
+        }
+
+        return Screen.panel("Diff", sb.toString().stripTrailing());
+    }
+
+    private String renderLimited(List<String> lines) {
+        var sb = new StringBuilder();
+        var listed = Math.min(lines.size(), LISTED_ITEMS);
+        for (var i = 0; i < listed; i++) {
+            sb.append(lines.get(i)).append('\n');
+        }
+        if (lines.size() > listed) {
+            sb.append(Theme.MUTED_TEXT.render("and " + (lines.size() - listed) + " more")).append('\n');
+        }
+        return sb.toString().stripTrailing();
+    }
+
+    private String renderDiffLine(String line) {
+        var text = line.length() > MAX_DIFF_WIDTH
+                ? line.substring(0, MAX_DIFF_WIDTH - 1) + "…"
+                : line;
+        if (line.startsWith("+") && !line.startsWith("+++")) {
+            return Theme.DIFF_ADDED.render(text);
+        }
+        if (line.startsWith("-") && !line.startsWith("---")) {
+            return Theme.DIFF_REMOVED.render(text);
+        }
+        if (line.startsWith("@@")) {
+            return Theme.DIFF_HEADER.render(text);
+        }
+        return Theme.DIFF_CONTEXT.render(text);
     }
 
     private String viewDiff() {
+        var change = selectedChange();
+        var diff = List.copyOf(change.unifiedDiff());
+        var visible = visibleDiffLines();
+        var last = Math.min(diff.size(), diffScroll + visible);
+
         var sb = new StringBuilder();
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.TITLE.render("ModernProtobuf Schema Updater"));
-        sb.append("\n\n");
-
-        if (selectedIndex >= 0 && selectedIndex < updatesWithChanges.size()) {
-            var update = updatesWithChanges.get(selectedIndex);
-            var change = update.sourceChange();
-
-            sb.append("  ");
-            sb.append(Theme.SUBTITLE.render(change.filePath().getFileName().toString()));
-            sb.append(Theme.MUTED_TEXT.render(" (" + (selectedIndex + 1) + "/"
-                    + updatesWithChanges.size() + ")"));
-            sb.append("\n");
-            sb.append("  ");
-            sb.append(Theme.MUTED_TEXT.render(change.description()));
-            sb.append("\n\n");
-
-            for (var line : change.unifiedDiff()) {
-                sb.append("  ");
-                if (line.startsWith("+") && !line.startsWith("+++")) {
-                    sb.append(Theme.DIFF_ADDED.render(line));
-                } else if (line.startsWith("-") && !line.startsWith("---")) {
-                    sb.append(Theme.DIFF_REMOVED.render(line));
-                } else if (line.startsWith("@@")) {
-                    sb.append(Theme.DIFF_HEADER.render(line));
-                } else {
-                    sb.append(Theme.DIFF_CONTEXT.render(line));
-                }
-                sb.append("\n");
-            }
+        for (var i = diffScroll; i < last; i++) {
+            sb.append(renderDiffLine(diff.get(i))).append('\n');
         }
 
-        sb.append("\n");
-        var status = new StatusBar()
-                .add("n", "next")
-                .add("p", "prev")
-                .add("esc", "back");
-        sb.append("  ").append(status.render()).append("\n");
+        var position = diff.isEmpty()
+                ? "no changes"
+                : "lines " + (diffScroll + 1) + "-" + last + " of " + diff.size();
 
-        return sb.toString();
+        return Screen.of("Protobuf", "Update", termHeight)
+                .indicator("File " + (selectedIndex + 1) + "/" + updatesWithChanges.size())
+                .heading(change.filePath().getFileName().toString())
+                .block(Screen.panel(change.description(), sb.toString().stripTrailing()))
+                .block(Theme.MUTED_TEXT.render(position))
+                .keys(new StatusBar()
+                        .add("↑↓", "scroll")
+                        .add("n", "next")
+                        .add("p", "prev")
+                        .add("esc", "back"))
+                .render();
     }
 
     private String viewApplied() {
-        var sb = new StringBuilder();
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.TITLE.render("ModernProtobuf Schema Updater"));
-        sb.append("\n\n");
-        sb.append("  ");
-        sb.append(Theme.SUCCESS_TEXT.render("✓ "));
-        sb.append(Theme.BODY.render("Updated " + appliedFiles.size() + " file"
-                + (appliedFiles.size() != 1 ? "s" : "")));
-        sb.append("\n\n");
-
-        for (var file : appliedFiles) {
-            sb.append("  ");
-            sb.append(Theme.SUCCESS_TEXT.render("  ~ "));
-            sb.append(Theme.BODY.render(file.getFileName().toString()));
-            sb.append("\n");
+        var count = appliedFiles.size();
+        var files = new StringBuilder();
+        var listed = Math.min(count, LIST_ROWS);
+        for (var i = 0; i < listed; i++) {
+            files.append(Theme.SUCCESS_TEXT.render("~ "));
+            files.append(Theme.BODY.render(appliedFiles.get(i).getFileName().toString()));
+            files.append('\n');
+        }
+        if (count > listed) {
+            files.append(Theme.MUTED_TEXT.render("and " + (count - listed) + " more")).append('\n');
         }
 
-        sb.append("\n");
-        var status = new StatusBar()
-                .add("enter", "exit")
-                .add("q", "quit");
-        sb.append("  ").append(status.render()).append("\n");
+        var screen = Screen.of("Protobuf", "Update", termHeight)
+                .indicator("Done")
+                .result(Theme.SUCCESS_TEXT.render("✓"), "Updated " + count + " file" + (count != 1 ? "s" : ""));
+        if (count > 0) {
+            screen.block(Screen.panel("Updated files", files.toString().stripTrailing())).blank();
+        }
 
-        return sb.toString();
+        return screen
+                .entry("Source directory", config.javaSourceDir())
+                .keys(new StatusBar()
+                        .add("enter", "exit")
+                        .add("esc", "back")
+                        .add("q", "quit"))
+                .render();
     }
 
     private String viewError() {
-        var sb = new StringBuilder();
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.TITLE.render("ModernProtobuf Schema Updater"));
-        sb.append("\n\n");
-        sb.append("  ");
-        sb.append(Theme.DANGER_TEXT.render("✗ Update failed"));
-        sb.append("\n\n");
-        sb.append("  ");
-        sb.append(Theme.BODY.render(errorMessage != null ? errorMessage : "Unknown error"));
-        sb.append("\n\n");
-
-        var status = new StatusBar()
-                .add("enter", "exit")
-                .add("q", "quit");
-        sb.append("  ").append(status.render()).append("\n");
-
-        return sb.toString();
+        var message = errorMessage != null ? errorMessage : "Unknown error";
+        return Screen.of("Protobuf", "Update", termHeight)
+                .indicator("Failed")
+                .result(Theme.DANGER_TEXT.render("✗"), "Update failed")
+                .block(Screen.panel("Details", Theme.BODY.render(message))).blank()
+                .entry("Proto files", String.join(", ", config.protoFiles()))
+                .entry("Source directory", config.javaSourceDir())
+                .keys(new StatusBar()
+                        .add("enter", "exit")
+                        .add("esc", "back")
+                        .add("q", "quit"))
+                .render();
     }
 
     /**
@@ -428,5 +522,14 @@ public final class UpdateModel implements Model {
      */
     public boolean isQuit() {
         return quit;
+    }
+
+    /**
+     * Returns whether the user asked to go back to the previous screen.
+     *
+     * @return {@code true} if the user pressed escape
+     */
+    public boolean isBack() {
+        return back;
     }
 }

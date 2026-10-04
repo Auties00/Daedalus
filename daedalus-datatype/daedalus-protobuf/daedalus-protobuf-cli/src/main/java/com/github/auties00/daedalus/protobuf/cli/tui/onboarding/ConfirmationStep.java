@@ -1,11 +1,13 @@
 package com.github.auties00.daedalus.protobuf.cli.tui.onboarding;
 
+import com.github.auties00.daedalus.cli.tui.Screen;
 import com.github.auties00.daedalus.cli.tui.StatusBar;
 import com.williamcallahan.tui4j.compat.bubbletea.*;
-import com.github.auties00.daedalus.protobuf.cli.model.EnumConstantMode;
 import com.github.auties00.daedalus.protobuf.cli.model.EnumForm;
 import com.github.auties00.daedalus.protobuf.cli.model.TypeForm;
 import com.github.auties00.daedalus.cli.tui.Theme;
+
+import java.util.List;
 
 /**
  * The final onboarding step showing a configuration summary for confirmation.
@@ -14,44 +16,42 @@ import com.github.auties00.daedalus.cli.tui.Theme;
  * to confirm or go back and change settings.
  */
 public final class ConfirmationStep implements Model {
-    private final String protoDir;
+    private static final int PANEL_CHROME_ROWS = 4;
+    private static final int SUMMARY_ROWS = 14;
+
+    private final List<String> protoFiles;
     private final String javaSourceDir;
     private final TypeForm typeForm;
     private final EnumForm enumForm;
-    private final EnumConstantMode enumConstantMode;
-    private final boolean generateBuilders;
     private final boolean includeUnknownFields;
     private final int totalSteps;
     private boolean confirmed;
     private boolean cancelled;
+    private int termHeight;
 
     /**
      * Constructs the confirmation step with all collected values.
      *
-     * @param protoDir the proto source directory
+     * @param protoFiles the proto sources
      * @param javaSourceDir the Java output directory
      * @param typeForm the selected message type form
      * @param enumForm the selected enum form
-     * @param enumConstantMode the selected enum constant mode
-     * @param generateBuilders whether to generate builders
      * @param includeUnknownFields whether to include unknown fields
      * @param totalSteps the total number of wizard steps
      */
-    public ConfirmationStep(String protoDir, String javaSourceDir,
+    public ConfirmationStep(List<String> protoFiles, String javaSourceDir,
                              TypeForm typeForm, EnumForm enumForm,
-                             EnumConstantMode enumConstantMode,
-                             boolean generateBuilders, boolean includeUnknownFields,
+                             boolean includeUnknownFields,
                              int totalSteps) {
-        this.protoDir = protoDir;
+        this.protoFiles = protoFiles;
         this.javaSourceDir = javaSourceDir;
         this.typeForm = typeForm;
         this.enumForm = enumForm;
-        this.enumConstantMode = enumConstantMode;
-        this.generateBuilders = generateBuilders;
         this.includeUnknownFields = includeUnknownFields;
         this.totalSteps = totalSteps;
         this.confirmed = false;
         this.cancelled = false;
+        this.termHeight = 40;
     }
 
     @Override
@@ -61,6 +61,10 @@ public final class ConfirmationStep implements Model {
 
     @Override
     public UpdateResult<? extends Model> update(Message msg) {
+        if (msg instanceof WindowSizeMessage size) {
+            termHeight = size.height();
+            return UpdateResult.from(this);
+        }
         if (msg instanceof KeyPressMessage key) {
             var keyStr = key.key();
             return switch (keyStr) {
@@ -68,10 +72,10 @@ public final class ConfirmationStep implements Model {
                     confirmed = true;
                     yield UpdateResult.from(this, Command.quit());
                 }
-                case "left", "backspace" -> {
+                case "left", "backspace", "ctrl+h", "esc" -> {
                     yield UpdateResult.from(this, Command.quit());
                 }
-                case "esc", "ctrl+c", "n", "N" -> {
+                case "ctrl+c", "n", "N" -> {
                     cancelled = true;
                     yield UpdateResult.from(this, Command.quit());
                 }
@@ -83,77 +87,64 @@ public final class ConfirmationStep implements Model {
 
     @Override
     public String view() {
-        var sb = new StringBuilder();
+        var screen = Screen.of("Protobuf", "Generate", termHeight)
+                .indicator("Step " + totalSteps + "/" + totalSteps)
+                .heading("Configuration Summary")
+                .entry("Proto files", String.join(", ", protoFiles))
+                .entry("Java output directory", javaSourceDir)
+                .entry("Message type form", formatTypeForm(typeForm))
+                .entry("Enum form", formatEnumForm(enumForm))
+                .entry("Unknown fields", includeUnknownFields ? "Yes" : "No")
+                .blank();
 
-        // Header
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.TITLE.render("ModernProtobuf Schema Generator"));
-        sb.append("  ");
-        sb.append(Theme.stepIndicator(totalSteps, totalSteps));
-        sb.append("\n\n");
+        var yaml = renderYamlPreview().stripTrailing();
+        if (yamlFits(yaml)) {
+            screen.block(Screen.panel(".protobuf-schema.yml", yaml)).blank();
+        }
 
-        // Summary title
-        sb.append("  ");
-        sb.append(Theme.SUBTITLE.render("Configuration Summary"));
-        sb.append("\n\n");
-
-        // Config entries
-        sb.append(configEntry("Proto directory", protoDir));
-        sb.append(configEntry("Java output directory", javaSourceDir));
-        sb.append(configEntry("Message type form", formatTypeForm(typeForm)));
-        sb.append(configEntry("Enum form", formatEnumForm(enumForm)));
-        sb.append(configEntry("Enum constant mode", formatConstantMode(enumConstantMode)));
-        sb.append(configEntry("Generate builders", generateBuilders ? "Yes" : "No"));
-        sb.append(configEntry("Unknown fields", includeUnknownFields ? "Yes" : "No"));
-        sb.append("\n");
-
-        // YAML preview
-        sb.append("  ");
-        sb.append(Theme.DIM_TEXT.render("─── .protobuf-schema.yml "));
-        sb.append(Theme.DIM_TEXT.render("─".repeat(30)));
-        sb.append("\n\n");
-        sb.append(renderYamlPreview());
-        sb.append("\n");
-
-        // Prompt
-        sb.append("  ");
-        sb.append(Theme.BODY.render("Write configuration and start generating? "));
-        sb.append(Theme.SELECTED_ITEM.render("[Y/n]"));
-        sb.append("\n\n");
-
-        // Status bar
-        var status = new StatusBar()
-                .add("enter", "confirm")
-                .add("←", "go back")
-                .add("esc", "cancel");
-        sb.append("  ");
-        sb.append(status.render());
-        sb.append("\n");
-
-        return sb.toString();
+        return screen
+                .block(Theme.BODY.render("Write configuration and start generating? ")
+                        + Theme.SELECTED_ITEM.render("[Y/n]"))
+                .keys(new StatusBar()
+                        .add("enter", "confirm")
+                        .add("←/esc", "go back")
+                        .add("n", "cancel"))
+                .render();
     }
 
-    private String configEntry(String label, String value) {
-        return "  " + Theme.MUTED_TEXT.render(label + ": ")
-                + Theme.BODY.render(value) + "\n";
+    private boolean yamlFits(String yaml) {
+        var rows = yaml.split("\n", -1).length + PANEL_CHROME_ROWS;
+        return termHeight - Screen.headerRows(termHeight) - SUMMARY_ROWS >= rows;
+    }
+
+    private String protoYaml() {
+        var yaml = new StringBuilder("protoFiles:");
+        for (var source : protoFiles) {
+            yaml.append("\n  - ").append(quoteIfNeeded(source));
+        }
+        return yaml.toString();
+    }
+
+    private String quoteIfNeeded(String value) {
+        var indicators = "*&!|>%@`'{[]},#?:";
+        var needsQuotes = indicators.indexOf(value.charAt(0)) >= 0
+                || value.contains(": ")
+                || value.contains(" #");
+        return needsQuotes ? "'" + value.replace("'", "''") + "'" : value;
     }
 
     private String renderYamlPreview() {
         var yaml = """
-                  protoDir: %s
+                  %s
                   javaSourceDir: %s
                   defaults:
                     typeForm: %s
                     enumForm: %s
-                    enumConstantMode: %s
-                    generateBuilders: %s
                     includeUnknownFields: %s
-                """.formatted(
-                protoDir, javaSourceDir,
+                  """.formatted(
+                protoYaml(), javaSourceDir,
                 typeForm.name(), enumForm.name(),
-                enumConstantMode.name(),
-                generateBuilders, includeUnknownFields
+                includeUnknownFields
         );
 
         var sb = new StringBuilder();
@@ -181,8 +172,6 @@ public final class ConfirmationStep implements Model {
             case RECORD -> "Record";
             case CLASS -> "Class";
             case INTERFACE -> "Interface";
-            case SEALED_CLASS -> "Sealed Class";
-            case SEALED_INTERFACE -> "Sealed Interface";
         };
     }
 
@@ -191,15 +180,6 @@ public final class ConfirmationStep implements Model {
             case JAVA_ENUM -> "Java Enum";
             case CLASS -> "Class";
             case RECORD -> "Record";
-            case SEALED_INTERFACE -> "Sealed Interface";
-            case SEALED_ABSTRACT_CLASS -> "Sealed Abstract Class";
-        };
-    }
-
-    private String formatConstantMode(EnumConstantMode mode) {
-        return switch (mode) {
-            case CONSTANT_ANNOTATION -> "@ProtobufEnum.Constant";
-            case SERIALIZER_DESERIALIZER -> "Serializer / Deserializer";
         };
     }
 

@@ -11,13 +11,13 @@ import java.util.List;
 /**
  * The top-level TUI model for the Daedalus application.
  *
- * <p>Manages transitions between the central welcome screen (extension
- * selection) and the selected extension's own TUI model. When only one
- * extension is available, skips the welcome screen and delegates directly
- * to that extension.
+ * <p>Always starts at the welcome screen, which lists every loaded extension, and
+ * hands control to the TUI model of the extension that the user selects. Messages
+ * and commands of the selected extension are passed through unchanged, so the
+ * extension decides when the application ends by returning {@link Command#quit()}, and
+ * asks to go back to the welcome screen through {@link BackNavigation}.
  */
 public final class DaedalusApp implements Model {
-
     /**
      * The possible application states.
      */
@@ -42,13 +42,12 @@ public final class DaedalusApp implements Model {
     private final Path workingDir;
     private int termWidth;
     private int termHeight;
+    private boolean forwardNextSize;
+    private int selection;
 
     /**
-     * Constructs the Daedalus application.
-     *
-     * <p>If exactly one extension is available, skips the welcome screen
-     * and delegates directly to that extension's TUI model. Otherwise,
-     * displays the welcome screen for extension selection.
+     * Constructs the Daedalus application, which starts at the welcome screen
+     * that lists the given extensions.
      *
      * @param extensions the available extensions discovered via {@link java.util.ServiceLoader}
      * @param workingDir the current working directory
@@ -56,36 +55,39 @@ public final class DaedalusApp implements Model {
     public DaedalusApp(List<DaedalusExtension> extensions, Path workingDir) {
         this.extensions = extensions;
         this.workingDir = workingDir;
+        this.selection = 0;
         this.termWidth = 80;
         this.termHeight = 24;
-
-        if (extensions.size() == 1) {
-            this.state = AppState.EXTENSION;
-            this.activeModel = extensions.getFirst().createTuiModel(workingDir);
-        } else {
-            this.state = AppState.WELCOME;
-            this.activeModel = new WelcomeModel(extensions);
-        }
+        this.state = AppState.WELCOME;
+        this.activeModel = new WelcomeModel(extensions);
     }
 
     @Override
     public Command init() {
-        var childInit = activeModel.init();
-        return Command.batch(Command.checkWindowSize(), childInit);
+        return Command.batch(Command.checkWindowSize(), activeModel.init());
     }
 
     @Override
     public UpdateResult<? extends Model> update(Message msg) {
         if (msg instanceof WindowSizeMessage wsm) {
+            var changed = wsm.width() != termWidth || wsm.height() != termHeight;
             termWidth = wsm.width();
             termHeight = wsm.height();
+            if (!changed && !forwardNextSize) {
+                return UpdateResult.from(this);
+            }
+            forwardNextSize = false;
         }
 
         var result = activeModel.update(msg);
         activeModel = result.model();
 
-        if (isQuitSignal(result)) {
-            return handleTransition();
+        if (state == AppState.EXTENSION && activeModel instanceof BackNavigation navigation && navigation.isBackRequested()) {
+            return transitionToWelcome();
+        }
+
+        if (state == AppState.WELCOME && isWelcomeFinished()) {
+            return transitionFromWelcome();
         }
 
         return UpdateResult.from(this, result.command());
@@ -103,26 +105,14 @@ public final class DaedalusApp implements Model {
         return activeModel.view();
     }
 
-    private boolean isQuitSignal(UpdateResult<?> result) {
-        if (result.command() == null) {
-            return false;
-        }
-
-        return switch (state) {
-            case WELCOME -> activeModel instanceof WelcomeModel w && (w.isConfirmed() || w.isCancelled());
-            case EXTENSION -> true;
-            case DONE -> true;
-        };
+    private boolean isWelcomeFinished() {
+        return activeModel instanceof WelcomeModel welcome && (welcome.isConfirmed() || welcome.isCancelled());
     }
 
-    private UpdateResult<? extends Model> handleTransition() {
-        return switch (state) {
-            case WELCOME -> transitionFromWelcome();
-            case EXTENSION, DONE -> {
-                state = AppState.DONE;
-                yield UpdateResult.from(this, Command.quit());
-            }
-        };
+    private UpdateResult<? extends Model> transitionToWelcome() {
+        state = AppState.WELCOME;
+        activeModel = new WelcomeModel(extensions, selection);
+        return UpdateResult.from(this);
     }
 
     private UpdateResult<? extends Model> transitionFromWelcome() {
@@ -131,9 +121,11 @@ public final class DaedalusApp implements Model {
             return UpdateResult.from(this, Command.quit());
         }
 
+        selection = welcome.selectedIndex();
         var selected = welcome.selectedExtension();
         state = AppState.EXTENSION;
         activeModel = selected.createTuiModel(workingDir);
-        return UpdateResult.from(this, activeModel.init());
+        forwardNextSize = true;
+        return UpdateResult.from(this, Command.batch(activeModel.init(), Command.checkWindowSize()));
     }
 }

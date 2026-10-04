@@ -4,7 +4,7 @@ import com.github.auties00.daedalus.processor.generator.DaedalusMethodGenerator;
 import com.github.auties00.daedalus.processor.model.DaedalusConverterElement;
 import com.github.auties00.daedalus.processor.model.DaedalusMethodElement;
 import com.github.auties00.daedalus.processor.model.DaedalusTypeElement;
-import com.github.auties00.daedalus.processor.type.DaedalusFieldType;
+import com.github.auties00.daedalus.processor.model.DaedalusFieldType;
 import com.github.auties00.daedalus.protobuf.exception.ProtobufDeserializationException;
 import com.github.auties00.daedalus.protobuf.exception.ProtobufSerializationException;
 import com.github.auties00.daedalus.protobuf.processor.element.ProtobufEnumElement;

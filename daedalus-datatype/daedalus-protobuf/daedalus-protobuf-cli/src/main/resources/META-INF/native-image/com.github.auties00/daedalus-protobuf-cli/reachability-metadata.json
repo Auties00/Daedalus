@@ -1,0 +1,46 @@
+{
+  "reflection": [
+    {
+      "type": "com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig$Defaults",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig$Naming",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig$TypeOverride",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "com.github.auties00.daedalus.protobuf.cli.model.EnumForm",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "com.github.auties00.daedalus.protobuf.cli.model.TypeForm",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    },
+    {
+      "type": "com.github.auties00.daedalus.protobuf.cli.model.FieldStyle",
+      "allDeclaredFields": true,
+      "allDeclaredMethods": true,
+      "allDeclaredConstructors": true
+    }
+  ]
+}

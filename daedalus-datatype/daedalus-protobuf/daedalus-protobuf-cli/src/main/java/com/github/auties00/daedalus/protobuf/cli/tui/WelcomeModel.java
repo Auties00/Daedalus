@@ -11,15 +11,6 @@ import com.github.auties00.daedalus.cli.tui.Theme;
  * for choosing between generation and update workflows.
  */
 public final class WelcomeModel implements Model {
-    private static final String[] LOGO_LINES = {
-            "██████╗  █████╗ ███████╗██████╗  █████╗ ██╗     ██╗   ██╗███████╗",
-            "██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔══██╗██║     ██║   ██║██╔════╝",
-            "██║  ██║███████║█████╗  ██║  ██║███████║██║     ██║   ██║███████╗",
-            "██║  ██║██╔══██║██╔══╝  ██║  ██║██╔══██║██║     ██║   ██║╚════██║",
-            "██████╔╝██║  ██║███████╗██████╔╝██║  ██║███████╗╚██████╔╝███████║",
-            "╚═════╝ ╚═╝  ╚═╝╚══════╝╚═════╝ ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚══════╝"
-    };
-
     /**
      * The mode selected by the user.
      */
@@ -45,6 +36,7 @@ public final class WelcomeModel implements Model {
     private int cursor;
     private boolean confirmed;
     private boolean cancelled;
+    private boolean back;
 
     /**
      * Constructs the welcome screen model.
@@ -53,6 +45,7 @@ public final class WelcomeModel implements Model {
         this.cursor = 0;
         this.confirmed = false;
         this.cancelled = false;
+        this.back = false;
     }
 
     @Override
@@ -77,7 +70,11 @@ public final class WelcomeModel implements Model {
                     confirmed = true;
                     yield UpdateResult.from(this, Command.quit());
                 }
-                case "q", "esc", "ctrl+c" -> {
+                case "esc" -> {
+                    back = true;
+                    yield UpdateResult.from(this, Command.quit());
+                }
+                case "q", "ctrl+c" -> {
                     cancelled = true;
                     yield UpdateResult.from(this, Command.quit());
                 }
@@ -92,11 +89,11 @@ public final class WelcomeModel implements Model {
         var sb = new StringBuilder();
 
         // Logo
-        sb.append(renderLogo());
+        sb.append(Theme.logo());
         sb.append("\n");
 
         // Tagline
-        sb.append(Theme.MUTED_TEXT.render("Proto-to-Java code generation & update tool"));
+        sb.append(Theme.MUTED_TEXT.render("Protobuf - Protocol Buffers"));
         sb.append("\n");
         sb.append(Theme.DIM_TEXT.render("v4.0.0"));
         sb.append("\n\n");
@@ -113,19 +110,11 @@ public final class WelcomeModel implements Model {
         var status = new StatusBar()
                 .add("↑↓", "navigate")
                 .add("enter", "select")
+                .add("esc", "back")
                 .add("q", "quit");
         sb.append(status.render());
         sb.append("\n");
 
-        return sb.toString();
-    }
-
-    private String renderLogo() {
-        var sb = new StringBuilder();
-        for (var line : LOGO_LINES) {
-            sb.append(Theme.LOGO.render(line));
-            sb.append("\n");
-        }
         return sb.toString();
     }
 
@@ -168,5 +157,14 @@ public final class WelcomeModel implements Model {
      */
     public boolean isCancelled() {
         return cancelled;
+    }
+
+    /**
+     * Returns whether the user asked to go back to the previous screen.
+     *
+     * @return {@code true} if the user pressed escape
+     */
+    public boolean isBack() {
+        return back;
     }
 }

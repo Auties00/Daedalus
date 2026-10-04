@@ -1,6 +1,8 @@
 package com.github.auties00.daedalus.protobuf.cli.tui.generate;
 
 import com.github.auties00.daedalus.protobuf.compiler.exception.ProtobufParserException;
+import com.github.auties00.daedalus.cli.tui.Screen;
+import com.github.auties00.daedalus.cli.tui.Spinner;
 import com.github.auties00.daedalus.cli.tui.StatusBar;
 import com.williamcallahan.tui4j.compat.bubbletea.*;
 import com.github.auties00.daedalus.protobuf.cli.config.SchemaConfig;
@@ -15,10 +17,11 @@ import java.util.SequencedCollection;
 /**
  * The TUI model for the generation flow.
  *
- * <p>Shows a progress view while generating Java source files from proto
+ * <p>Shows a spinner while generating Java source files from proto
  * schemas, then displays a summary of generated files with success/error status.
  */
 public final class GenerateModel implements Model {
+    private static final int MAX_LISTED_FILES = 12;
 
     /**
      * The possible states of the generation flow.
@@ -43,6 +46,9 @@ public final class GenerateModel implements Model {
     private final List<String> generatedFiles;
     private String errorMessage;
     private boolean quit;
+    private boolean back;
+    private int spinnerFrame;
+    private int termHeight;
 
     /**
      * A message indicating generation should start.
@@ -76,11 +82,14 @@ public final class GenerateModel implements Model {
         this.state = State.GENERATING;
         this.generatedFiles = new ArrayList<>();
         this.quit = false;
+        this.back = false;
+        this.spinnerFrame = 0;
+        this.termHeight = 40;
     }
 
     @Override
     public Command init() {
-        return () -> {
+        Command generate = () -> {
             try {
                 var generator = new JavaSourceGenerator(config);
                 var files = generator.generate();
@@ -89,10 +98,22 @@ public final class GenerateModel implements Model {
                 return new GenerationErrorMessage(e.getMessage());
             }
         };
+        return Command.batch(generate, Spinner.tick());
     }
 
     @Override
     public UpdateResult<? extends Model> update(Message msg) {
+        if (msg instanceof WindowSizeMessage size) {
+            termHeight = size.height();
+            return UpdateResult.from(this);
+        }
+        if (msg instanceof Spinner.TickMessage) {
+            if (state != State.GENERATING) {
+                return UpdateResult.from(this);
+            }
+            spinnerFrame++;
+            return UpdateResult.from(this, Spinner.tick());
+        }
         if (msg instanceof GenerationCompleteMessage complete) {
             state = State.DONE;
             generatedFiles.addAll(complete.files());
@@ -105,7 +126,14 @@ public final class GenerateModel implements Model {
         }
         if (msg instanceof KeyPressMessage key) {
             var keyStr = key.key();
-            if (keyStr.equals("q") || keyStr.equals("esc") || keyStr.equals("enter") || keyStr.equals("ctrl+c")) {
+            if (keyStr.equals("esc")) {
+                if (state == State.GENERATING) {
+                    return UpdateResult.from(this);
+                }
+                back = true;
+                return UpdateResult.from(this, Command.quit());
+            }
+            if (keyStr.equals("q") || keyStr.equals("enter") || keyStr.equals("ctrl+c")) {
                 quit = true;
                 return UpdateResult.from(this, Command.quit());
             }
@@ -123,96 +151,82 @@ public final class GenerateModel implements Model {
     }
 
     private String viewGenerating() {
-        var sb = new StringBuilder();
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.TITLE.render("ModernProtobuf Schema Generator"));
-        sb.append("\n\n");
-        sb.append("  ");
-        sb.append(Theme.INFO_TEXT.render("⠋ "));
-        sb.append(Theme.BODY.render("Generating Java source files..."));
-        sb.append("\n\n");
-        sb.append("  ");
-        sb.append(Theme.MUTED_TEXT.render("Proto directory: " + config.protoDir()));
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.MUTED_TEXT.render("Output directory: " + config.javaSourceDir()));
-        sb.append("\n");
-        return sb.toString();
+        return Screen.of("Protobuf", "Generate", termHeight)
+                .indicator("Working")
+                .result(Spinner.frame(spinnerFrame), "Generating Java source files")
+                .entry("Proto files", String.join(", ", config.protoFiles()))
+                .entry("Output directory", config.javaSourceDir())
+                .render();
     }
 
     private String viewDone() {
-        var sb = new StringBuilder();
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.TITLE.render("ModernProtobuf Schema Generator"));
-        sb.append("\n\n");
-        sb.append("  ");
-        sb.append(Theme.SUCCESS_TEXT.render("✓ "));
-        sb.append(Theme.BODY.render("Generated " + generatedFiles.size() + " file"
-                + (generatedFiles.size() != 1 ? "s" : "")));
-        sb.append("\n\n");
+        var count = generatedFiles.size();
+        var screen = Screen.of("Protobuf", "Generate", termHeight)
+                .indicator("Done")
+                .result(Theme.SUCCESS_TEXT.render("✓"),
+                        "Generated " + count + " file" + (count != 1 ? "s" : ""));
 
-        for (var file : generatedFiles) {
-            sb.append("  ");
-            sb.append(Theme.SUCCESS_TEXT.render("  + "));
-            sb.append(Theme.BODY.render(file));
-            sb.append("\n");
+        if (count > 0) {
+            screen.block(Screen.panel("Generated files", renderFiles())).blank();
         }
 
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.MUTED_TEXT.render("Output: " + config.javaSourceDir()));
-        sb.append("\n\n");
+        return screen
+                .entry("Output directory", config.javaSourceDir())
+                .keys(new StatusBar()
+                        .add("enter", "exit")
+                        .add("esc", "back")
+                        .add("q", "quit"))
+                .render();
+    }
 
-        var status = new StatusBar()
-                .add("enter", "exit")
-                .add("q", "quit");
-        sb.append("  ");
-        sb.append(status.render());
-        sb.append("\n");
+    private String renderFiles() {
+        var sb = new StringBuilder();
+        var listed = Math.min(generatedFiles.size(), MAX_LISTED_FILES);
+        for (var i = 0; i < listed; i++) {
+            sb.append(Theme.SUCCESS_TEXT.render("+ "));
+            sb.append(Theme.BODY.render(generatedFiles.get(i)));
+            sb.append('\n');
+        }
 
-        return sb.toString();
+        var hidden = generatedFiles.size() - listed;
+        if (hidden > 0) {
+            sb.append(Theme.MUTED_TEXT.render("and " + hidden + " more"));
+            sb.append('\n');
+        }
+
+        return sb.toString().stripTrailing();
     }
 
     private String viewError() {
-        var sb = new StringBuilder();
-        sb.append("\n");
-        sb.append("  ");
-        sb.append(Theme.TITLE.render("ModernProtobuf Schema Generator"));
-        sb.append("\n\n");
-        sb.append("  ");
-        sb.append(Theme.DANGER_TEXT.render("✗ Generation failed"));
-        sb.append("\n\n");
-        sb.append("  ");
-        sb.append(Theme.BODY.render(errorMessage != null ? errorMessage : "Unknown error"));
-        sb.append("\n\n");
-
-        var status = new StatusBar()
-                .add("enter", "exit")
-                .add("q", "quit");
-        sb.append("  ");
-        sb.append(status.render());
-        sb.append("\n");
-
-        return sb.toString();
+        var message = errorMessage != null ? errorMessage : "Unknown error";
+        return Screen.of("Protobuf", "Generate", termHeight)
+                .indicator("Failed")
+                .result(Theme.DANGER_TEXT.render("✗"), "Generation failed")
+                .block(Screen.panel("Details", Theme.BODY.render(message))).blank()
+                .entry("Proto files", String.join(", ", config.protoFiles()))
+                .entry("Output directory", config.javaSourceDir())
+                .keys(new StatusBar()
+                        .add("enter", "exit")
+                        .add("esc", "back")
+                        .add("q", "quit"))
+                .render();
     }
 
     /**
-     * Returns the generated file paths.
-     *
-     * @return the generated files
-     */
-    public SequencedCollection<String> generatedFiles() {
-        return generatedFiles;
-    }
-
-    /**
-     * Returns whether the user has quit the results view.
+     * Returns whether the user has quit the generation view.
      *
      * @return {@code true} if quit
      */
     public boolean isQuit() {
         return quit;
+    }
+
+    /**
+     * Returns whether the user asked to go back to the previous screen.
+     *
+     * @return {@code true} if the user pressed escape
+     */
+    public boolean isBack() {
+        return back;
     }
 }

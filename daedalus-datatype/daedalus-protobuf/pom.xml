@@ -20,6 +20,6 @@
         <module>daedalus-protobuf-processor</module>
         <module>daedalus-protobuf-compiler</module>
         <module>daedalus-protobuf-cli</module>
-        <module>daedalus-protobuf-google-support</module>
+        <module>daedalus-protobuf-typesystem/daedalus-protobuf-typesystem-google-support</module>
     </modules>
 </project>

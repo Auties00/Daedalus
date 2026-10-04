@@ -1,6 +1,5 @@
 package com.github.auties00.daedalus.protobuf.cli.tui.onboarding;
 
-import com.github.auties00.daedalus.protobuf.cli.model.EnumConstantMode;
 import com.github.auties00.daedalus.protobuf.cli.model.EnumForm;
 import com.github.auties00.daedalus.protobuf.cli.model.TypeForm;
 import com.github.auties00.daedalus.cli.tui.Theme;
@@ -55,28 +54,6 @@ public final class CodePreview {
                         @ProtobufMessage.Int32Field(index = 2)
                         Integer age();
                     }""");
-            case SEALED_CLASS -> highlightJava("""
-                    @ProtobufMessage(protoName = "example.Person")
-                    public sealed abstract class Person {
-                        @ProtobufMessage.StringField(index = 1)
-                        final String name;
-                        @ProtobufMessage.Int32Field(index = 2)
-                        final Integer age;
-
-                        @ProtobufMessage
-                        static final class DefaultPerson extends Person { ... }
-                    }""");
-            case SEALED_INTERFACE -> highlightJava("""
-                    @ProtobufMessage(protoName = "example.Person")
-                    public sealed interface Person {
-                        @ProtobufMessage.StringField(index = 1)
-                        String name();
-                        @ProtobufMessage.Int32Field(index = 2)
-                        Integer age();
-
-                        @ProtobufMessage
-                        record DefaultPerson(String name, Integer age) implements Person {}
-                    }""");
         };
     }
 
@@ -117,80 +94,7 @@ public final class CodePreview {
                         @ProtobufEnum.Constant(index = 1)
                         static final Status ACTIVE = new Status(1);
                     }""");
-            case SEALED_INTERFACE -> highlightJava("""
-                    @ProtobufEnum(name = "example.Status")
-                    public sealed interface Status {
-                        int index();
-                        record Unknown() implements Status {
-                            public int index() { return 0; }
-                        }
-                        record Active() implements Status {
-                            public int index() { return 1; }
-                        }
-                        Status UNKNOWN = new Unknown();
-                        Status ACTIVE = new Active();
-                    }""");
-            case SEALED_ABSTRACT_CLASS -> highlightJava("""
-                    @ProtobufEnum(name = "example.Status")
-                    public sealed abstract class Status {
-                        private final int index;
-                        protected Status(int index) { this.index = index; }
-                        static final class UnknownImpl extends Status {
-                            UnknownImpl() { super(0); }
-                        }
-                        static final Status UNKNOWN = new UnknownImpl();
-                    }""");
         };
-    }
-
-    /**
-     * Returns a syntax-highlighted code preview for the given enum constant mode.
-     *
-     * @param mode the enum constant mode to preview
-     * @return the highlighted code string
-     */
-    public static String forEnumConstantMode(EnumConstantMode mode) {
-        return switch (mode) {
-            case CONSTANT_ANNOTATION -> highlightJava("""
-                    @ProtobufEnum.Constant(index = 0)
-                    UNKNOWN,
-                    @ProtobufEnum.Constant(index = 1)
-                    ACTIVE""");
-            case SERIALIZER_DESERIALIZER -> highlightJava("""
-                    UNKNOWN(0), ACTIVE(1), INACTIVE(2);
-
-                    private final int index;
-                    Status(int index) { this.index = index; }
-
-                    @ProtobufSerializer
-                    int index() { return index; }
-
-                    @ProtobufDeserializer
-                    static Status of(int index) { ... }""");
-        };
-    }
-
-    /**
-     * Returns a syntax-highlighted code preview for builder generation.
-     *
-     * @param enabled whether builders are enabled
-     * @return the highlighted code string
-     */
-    public static String forBuilders(boolean enabled) {
-        if (enabled) {
-            return highlightJava("""
-                    @ProtobufBuilder
-                    public Person(
-                        @ProtobufBuilder.PropertyParameter(index = 1) String name,
-                        @ProtobufBuilder.PropertyParameter(index = 2) int age
-                    ) {
-                        this.name = name;
-                        this.age = age;
-                    }
-
-                    // Auto-generated: PersonBuilder.name("...").age(25).build()""");
-        }
-        return Theme.MUTED_TEXT.render("  No builder will be generated.\n  Construct instances directly.");
     }
 
     /**
@@ -283,7 +187,7 @@ public final class CodePreview {
         return switch (word) {
             case "String", "Map", "List", "Integer", "Long", "Boolean", "Float",
                  "Double", "ProtobufType", "ProtobufType.STRING", "ProtobufType.INT32",
-                 "ProtobufUnknownValue", "Person", "Status", "PersonBuilder" -> true;
+                 "ProtobufUnknownValue", "Person", "Status" -> true;
             default -> false;
         };
     }
